@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Cliente {
+  IdCliente     Int                 @id @default(autoincrement())
+  Nombre        String
+  Cedula        String?             @unique
+  Telefono      String?
+  Email         String?
+  Direccion     String?
+  Estado        String              @default("activo")
+  FechaRegistro DateTime            @default(now())
+  Prestamos     Prestamo[]
+  Solicitudes   SolicitudPrestamo[]
+}
+
+model Prestatario {
+  IdPrestatario Int        @id @default(autoincrement())
+  Nombre        String
+  Telefono      String?
+  Email         String?
+  Clave         String
+  Prestamos     Prestamo[]
+}
+
+model Prestamo {
+  IdPrestamo          Int                 @id @default(autoincrement())
+  IdCliente           Int
+  IdPrestatario       Int
+  MontoPrestado       Decimal
+  TipoCalculo         String
+  InteresPorcentaje   Decimal
+  InteresMontoTotal   Decimal
+  CapitalRestante     Decimal
+  CapitalTotalPagar   Decimal
+  MontoCuota          Decimal
+  CantidadCuotas      Int
+  CuotasRestantes     Int
+  ModalidadPago       String
+  FechaInicio         DateTime
+  FechaFinEstimada    DateTime
+  FechaUltimoPago     DateTime?
+  Estado              String
+  TablaPagos          String?
+  Observaciones       String?
+  
+  Acuerdos            AcuerdoPrestamo[]
+  Pagos               Pago[]
+  PagosPersonalizados PagoPersonalizado[]
+  Prestatario         Prestatario         @relation(fields: [IdPrestatario], references: [IdPrestatario])
+  Cliente             Cliente             @relation(fields: [IdCliente], references: [IdCliente])
+  Volantes            Volante[]
+}
+
+model Pago {
+  IdPago              Int       @id @default(autoincrement())
+  IdPrestamo          Int
+  FechaPago           DateTime
+  TipoPago            String
+  MontoPagado         Decimal
+  MontoInteresPagado  Decimal
+  MontoCapitalAbonado Decimal
+  CuotasRestantes     Int
+  Observaciones       String?
+  NumeroCuota         Int
+  Prestamo            Prestamo  @relation(fields: [IdPrestamo], references: [IdPrestamo])
+  Volante             Volante[]
+}
+
+model PagoPersonalizado {
+  IdPagoPersonalizado Int      @id @default(autoincrement())
+  IdPrestamo          Int
+  DiaPago             Int?
+  DiaPago2            Int?
+  SemanaDia           String?
+  Prestamo            Prestamo @relation(fields: [IdPrestamo], references: [IdPrestamo])
+}
+
+model AcuerdoPrestamo {
+  IdAcuerdo     Int      @id @default(autoincrement())
+  IdPrestamo    Int
+  FechaAcuerdo  DateTime
+  MontoSaldado  Decimal
+  Observaciones String?
+  Prestamo      Prestamo @relation(fields: [IdPrestamo], references: [IdPrestamo])
+}
+
+model SolicitudPrestamo {
+  IdSolicitud     Int      @id @default(autoincrement())
+  IdCliente       Int
+  MontoSolicitado Decimal
+  FechaDeseada    DateTime
+  Estado          String
+  Notas           String?
+  FechaCreacion   DateTime
+  Cliente         Cliente  @relation(fields: [IdCliente], references: [IdCliente])
+}
+
+model GastoFijo {
+  IdGasto    Int     @id @default(autoincrement())
+  Nombre     String
+  Monto      Decimal
+  Frecuencia String
+  Dia1       Int
+  Dia2       Int?
+  Activo     Boolean
+}
+
+model ConsolidacionCapital {
+  IdConsolidacion Int                     @id @default(autoincrement())
+  FechaInicio     DateTime?
+  FechaFin        DateTime?
+  CapitalEntrante Decimal
+  CapitalSaliente Decimal
+  Observaciones   String?
+  FechaGeneracion DateTime
+  Registros       RegistroConsolidacion[]
+}
+
+model RegistroConsolidacion {
+  IdRegistro      Int                  @id @default(autoincrement())
+  IdConsolidacion Int
+  FechaRegistro   DateTime
+  TipoRegistro    String
+  Estado          String
+  Descripcion     String
+  Monto           Decimal
+  Consolidacion   ConsolidacionCapital @relation(fields: [IdConsolidacion], references: [IdConsolidacion])
+}
+
+model Volante {
+  IdVolante       Int      @id @default(autoincrement())
+  IdPrestamo      Int
+  IdPago          Int
+  TipoVolante     String
+  FechaGeneracion DateTime
+  Pago            Pago     @relation(fields: [IdPago], references: [IdPago])
+  Prestamo        Prestamo @relation(fields: [IdPrestamo], references: [IdPrestamo])
+}

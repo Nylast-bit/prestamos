@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "rootDir": "src",
+    "outDir": "dist",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "baseUrl": "./src",
+    "paths": {
+      "*": ["*"]
+    },
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,    // Ayuda a evitar errores por mayúsculas/minúsculas
+    "allowSyntheticDefaultImports": true         // Para que puedas importar módulos con default export sin problemas
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}
