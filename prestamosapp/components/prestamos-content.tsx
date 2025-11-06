@@ -182,6 +182,7 @@ export function PrestamosContent() {
     FechaInicio: "",
     FechaFinEstimada: "",
     Ajustable: true,
+    MontoCuota: "",
     Observaciones: ""
   })
 
@@ -318,6 +319,7 @@ export function PrestamosContent() {
       TipoCalculo: "Capital+Interes",
       InteresPorcentaje: "",
       CantidadCuotas: "",
+      MontoCuota: "",
       ModalidadPago: "Quincenal",
       FechaInicio: "",
       FechaFinEstimada: "",
@@ -338,6 +340,7 @@ export function PrestamosContent() {
       InteresPorcentaje: prestamo.InteresPorcentaje.toString(),
       CantidadCuotas: prestamo.CantidadCuotas.toString(),
       ModalidadPago: prestamo.ModalidadPago,
+      MontoCuota: prestamo.MontoCuota.toString(),
       FechaInicio: prestamo.FechaInicio,
       FechaFinEstimada: prestamo.FechaFinEstimada,
       Ajustable: prestamo.Ajustable,
