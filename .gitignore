@@ -1,0 +1,24 @@
+# Archivo: C:/.gitignore
+
+# Ignorar todos los node_modules
+/prestamosapi/node_modules/
+/prestamosapp/node_modules/
+
+# Ignorar la carpeta .next de la app
+/prestamosapp/.next/
+
+# Otros (opcional pero recomendado)
+.env
+.env.local# Archivo: C:/.gitignore
+
+# Ignorar todos los node_modules
+/prestamosapi/node_modules/
+/prestamosapp/node_modules/
+/src/generated/prisma
+
+# Ignorar la carpeta .next de la app
+/prestamosapp/.next/
+
+# Otros (opcional pero recomendado)
+.env
+.env.local
