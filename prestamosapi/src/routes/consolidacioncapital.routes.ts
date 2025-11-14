@@ -1,5 +1,5 @@
-// // src/routes/consolidacionCapital.routes.ts
-// import { Router } from "express";
+// src/routes/consolidacionCapital.routes.ts
+import { Router } from "express";
 // import {
 //   getAllConsolidacionesCapital,
 //   getConsolidacionCapitalById,
@@ -7,10 +7,10 @@
 //   updateConsolidacionCapital,
 //   deleteConsolidacionCapital,
 // } from "../controllers/consolidacioncapital.controller";
-// import { validate } from "../middlewares/validate";
-// import { consolidacionCapitalSchema } from "../validators/consolidacioncapital.validator";
+import { validate } from "../middlewares/validate";
+import { consolidacionCapitalSchema } from "../validators/consolidacioncapital.validator";
 
-// const router = Router();
+const router = Router();
 
 // router.get("/", getAllConsolidacionesCapital);
 // router.get("/:id", getConsolidacionCapitalById);
@@ -18,4 +18,4 @@
 // router.put("/:id", validate(consolidacionCapitalSchema), updateConsolidacionCapital);
 // router.delete("/:id", deleteConsolidacionCapital);
 
-// export default router;
+export default router;

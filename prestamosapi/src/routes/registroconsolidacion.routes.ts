@@ -1,5 +1,5 @@
-// // src/routes/registroConsolidacion.routes.ts
-// import { Router } from "express";
+// src/routes/registroConsolidacion.routes.ts
+import { Router } from "express";
 // import {
 //   getAllRegistrosConsolidacion,
 //   getRegistroConsolidacionById,
@@ -7,16 +7,16 @@
 //   updateRegistroConsolidacion,
 //   deleteRegistroConsolidacion,
 // } from "../controllers/registroconsolidacion.controller";
-// import { validate } from "../middlewares/validate";
-// import { registroConsolidacionSchema } from "../validators/registroconsolidacion.validator";
+import { validate } from "../middlewares/validate";
+import { registroConsolidacionSchema } from "../validators/registroconsolidacion.validator";
 
-// const router = Router();
+const router = Router();
 
-// // Rutas
+// Rutas
 // router.get("/", getAllRegistrosConsolidacion);
 // router.get("/:id", getRegistroConsolidacionById);
 // router.post("/", validate(registroConsolidacionSchema), createRegistroConsolidacion);
 // router.put("/:id", validate(registroConsolidacionSchema), updateRegistroConsolidacion);
 // router.delete("/:id", deleteRegistroConsolidacion);
 
-// export default router;
+export default router;

@@ -1,5 +1,5 @@
-// // src/routes/gastosfijos.routes.ts
-// import { Router } from "express";
+// src/routes/gastosfijos.routes.ts
+import { Router } from "express";
 // import {
 //   getAllGastosFijos,
 //   getGastoFijoById,
@@ -8,7 +8,7 @@
 //   deleteGastoFijo,
 // } from "../controllers/gastofijo.controller";
 
-// const router = Router();
+const router = Router();
 
 // router.get("/", getAllGastosFijos);
 // router.get("/:id", getGastoFijoById);
@@ -16,4 +16,4 @@
 // router.put("/:id", updateGastoFijo);
 // router.delete("/:id", deleteGastoFijo);
 
-// export default router;
+export default router;

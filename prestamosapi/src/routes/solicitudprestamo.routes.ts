@@ -1,5 +1,5 @@
-// // src/routes/solicitudPrestamo.routes.ts
-// import { Router } from "express";
+// src/routes/solicitudPrestamo.routes.ts
+import { Router } from "express";
 // import {
 //   getAllSolicitudesPrestamo,
 //   getSolicitudPrestamoById,
@@ -7,10 +7,10 @@
 //   updateSolicitudPrestamo,
 //   deleteSolicitudPrestamo,
 // } from "../controllers/solicitudprestamo.controller";
-// import { validate } from "../middlewares/validate";
-// import { solicitudPrestamoSchema } from "../validators/solicitudprestamo.validator";
+import { validate } from "../middlewares/validate";
+import { solicitudPrestamoSchema } from "../validators/solicitudprestamo.validator";
 
-// const router = Router();
+const router = Router();
 
 // router.get("/", getAllSolicitudesPrestamo);
 // router.get("/:id", getSolicitudPrestamoById);
@@ -18,4 +18,4 @@
 // router.put("/:id", validate(solicitudPrestamoSchema), updateSolicitudPrestamo);
 // router.delete("/:id", deleteSolicitudPrestamo);
 
-// export default router;
+export default router;

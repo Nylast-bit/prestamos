@@ -1,5 +1,5 @@
-// // src/routes/cliente.routes.ts
-// import { Router } from "express";
+// src/routes/cliente.routes.ts
+import { Router } from "express";
 // import {
 //   getAllPrestatarios,
 //   getPrestatarioById,
@@ -7,10 +7,10 @@
 //   updatePrestatario,
 //   deletePrestatario,
 // } from "../controllers/prestatario.controller";
-// import { validate } from "../middlewares/validate";
-// import { prestatarioSchema } from "../validators/prestatario.validator";
+import { validate } from "../middlewares/validate";
+import { prestatarioSchema } from "../validators/prestatario.validator";
 
-// const router = Router();
+const router = Router();
 
 // router.get("/", getAllPrestatarios);
 // router.get("/:id", getPrestatarioById);
@@ -18,4 +18,4 @@
 // router.put("/:id", validate(prestatarioSchema), updatePrestatario);
 // router.delete("/:id", deletePrestatario);
 
-// export default router;
+export default router;

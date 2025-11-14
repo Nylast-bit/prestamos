@@ -1,5 +1,5 @@
-// // src/routes/pago.routes.ts
-// import { Router } from "express";
+// src/routes/pago.routes.ts
+import { Router } from "express";
 // import {
 //   getAllPagos,
 //   getPagoById,
@@ -8,10 +8,10 @@
 //   updatePago,
 //   deletePago,
 // } from "../controllers/pago.controller";
-// import { validate } from "../middlewares/validate";
-// import { pagoSchema, pagoAutomaticoSchema } from "../validators/pago.validator";
+import { validate } from "../middlewares/validate";
+import { pagoSchema, pagoAutomaticoSchema } from "../validators/pago.validator";
 
-// const router = Router();
+const router = Router();
 
 // router.get("/", getAllPagos);
 // router.get("/:id", getPagoById);
@@ -20,4 +20,4 @@
 // router.put("/:id", validate(pagoSchema.partial()), updatePago); // .partial() porque en update no es obligatorio enviar todos los campos
 // router.delete("/:id", deletePago);
 
-// export default router;
+export default router;
