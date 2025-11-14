@@ -1,6 +1,5 @@
 // src/controllers/prestamo.controller.ts
 import { Request, Response } from "express";
-import prisma from "../prisma/client";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import * as prestamoService from "../services/prestamo.services";
 import { any } from "zod";

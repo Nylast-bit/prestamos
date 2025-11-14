@@ -1,6 +1,6 @@
-// src/controllers/user.controller.ts
-import { Request, Response } from "express";
+// // src/controllers/user.controller.ts
+// import { Request, Response } from "express";
 
-export const getAllUsers = (req: Request, res: Response) => {
-  res.json({ message: "Lista de usuarios" });
-};
+// export const getAllUsers = (req: Request, res: Response) => {
+//   res.json({ message: "Lista de usuarios" });
+// };

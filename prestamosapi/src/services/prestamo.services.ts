@@ -1,5 +1,4 @@
 // src/services/prestamo.service.ts
-import prisma from "../prisma/client";
 import { supabase } from "../config/supabaseClient";
 import { z } from "zod";
 // Asumo que tu schema de Zod está aquí
