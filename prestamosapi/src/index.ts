@@ -32,6 +32,10 @@ app.use("/api/pagos", pagoRoutes);
 
 app.use(errorHandler);
 
+//health check
+app.get("/api/health", (req, res) => {
+  res.send("Api is running");
+});
 app.listen(PORT, () => {
   console.log(`🚀 Server corriendo en http://localhost:${PORT}`);
 });

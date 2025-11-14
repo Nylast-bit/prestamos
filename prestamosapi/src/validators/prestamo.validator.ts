@@ -1,3 +1,4 @@
+// src/schemas/prestamo.schema.ts
 import { z } from "zod";
 
 const modalidadPagoEnum = z.union([

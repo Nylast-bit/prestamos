@@ -1,3 +1,4 @@
+// src/routes/prestamo.routes.ts
 import { Router } from "express";
 import {
   getPrestamos,

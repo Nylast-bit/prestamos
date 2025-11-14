@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User } from 'lucide-react'
 
+
 interface Cliente {
   IdCliente: number
   Nombre: string
@@ -24,6 +25,7 @@ interface Cliente {
 }
 
 
+let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
 export function ClientesContent() {
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -45,7 +47,8 @@ export function ClientesContent() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch('http://localhost:3001/api/clientes')
+        const res = await fetch(`${API_BASE_URL}/api/clientes`);
+
         if (!res.ok) throw new Error('Error al cargar clientes')
         const data = await res.json()
         setClientes(data)

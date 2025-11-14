@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from "express";
 // import prisma from "../prisma/client"; 
 
 // 2. IMPORTAMOS EL NUEVO CLIENTE SUPABASE
-import { supabaseAdmin } from "../config/supabaseClient";
+import { supabase } from "../config/supabaseClient";
 
 // Asumimos que tu tabla en Supabase se llama 'cliente'
 const CLIENT_TABLE_NAME = 'Cliente';
@@ -12,7 +12,7 @@ export const getAllClientes = async (req: Request, res: Response, next: NextFunc
   try {
 
     // ASÍ ES CON SUPABASE:
-    const { data: clientes, error } = await supabaseAdmin
+    const { data: clientes, error } = await supabase
       .from(CLIENT_TABLE_NAME)
       .select('*'); // Trae todas las columnas
 
@@ -28,7 +28,7 @@ export const getClienteById = async (req: Request, res: Response, next: NextFunc
   try {
     const id = Number(req.params.id);
     
-    const { data: cliente, error } = await supabaseAdmin
+    const { data: cliente, error } = await supabase
       .from(CLIENT_TABLE_NAME)
       .select('*')
       .eq('IdCliente', id) // Asumiendo que tu columna se llama 'IdCliente'
@@ -49,7 +49,7 @@ export const createCliente = async (req: Request, res: Response, next: NextFunct
     
 
     // ASÍ ES CON SUPABASE:
-    const { data: nuevoCliente, error } = await supabaseAdmin
+    const { data: nuevoCliente, error } = await supabase
       .from(CLIENT_TABLE_NAME)
       .insert(data)
       .select() // .select() hace que te devuelva el objeto creado
@@ -70,7 +70,7 @@ export const updateCliente = async (req: Request, res: Response, next: NextFunct
     const data = req.body;
 
     // ASÍ ES CON SUPABASE:
-    const { data: clienteActualizado, error } = await supabaseAdmin
+    const { data: clienteActualizado, error } = await supabase
       .from(CLIENT_TABLE_NAME)
       .update(data)        // 1. Los datos a actualizar
       .eq('IdCliente', id) // 2. El 'WHERE' (dónde actualizar)
@@ -92,7 +92,7 @@ export const deleteCliente = async (req: Request, res: Response, next: NextFunct
     const id = Number(req.params.id);
 
     // ASÍ ES CON SUPABASE:
-    const { error, data } = await supabaseAdmin
+    const { error, data } = await supabase
       .from(CLIENT_TABLE_NAME)
       .delete()            // 1. El comando 'DELETE'
       .eq('IdCliente', id) // 2. El 'WHERE' (cuál borrar)

@@ -15,7 +15,7 @@
     "@prisma/client": "^6.19.0",
     "@supabase/supabase-js": "^2.80.0",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.1",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "node-cron": "^4.2.1",
     "postgres": "^3.4.7",
