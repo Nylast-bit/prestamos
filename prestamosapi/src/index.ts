@@ -1,6 +1,6 @@
-import express from "express";
 import cors from "cors";
 import { errorHandler } from "./middlewares/errorHandler";
+import express, { Request, Response } from 'express';
 import routes from "./routes";
 import prestamoRoutes from "./routes/prestamo.routes";
 import clienteRoutes from "./routes/cliente.routes";
@@ -33,7 +33,7 @@ app.use("/api/pagos", pagoRoutes);
 app.use(errorHandler);
 
 //health check
-app.get("/api/health", (req, res) => {
+app.get("/api/health", (req: Request, res: Response) => {
   res.send("Api is running");
 });
 app.listen(PORT, () => {
