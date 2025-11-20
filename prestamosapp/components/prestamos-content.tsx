@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,306 +9,237 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Search, Edit, Trash2, DollarSign, Calendar, TrendingUp, AlertTriangle, Eye } from 'lucide-react'
+import { Textarea } from "@/components/ui/textarea"
+import { Plus, Search, Edit, Trash2, DollarSign, Calendar, TrendingUp, AlertTriangle, Eye, Calculator } from 'lucide-react'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
-// Actualizar la interfaz Prestamo para que coincida exactamente con la base de datos
 interface Prestamo {
   IdPrestamo: number
   IdCliente: number
   IdPrestatario: number
-  clienteNombre: string // Campo calculado para mostrar
-  prestatarioNombre: string // Campo calculado para mostrar
+  clienteNombre?: string
+  prestatarioNombre?: string
   MontoPrestado: number
-  TipoCalculo: "Amortizable" | "Capital+Interes"
+  TipoCalculo: string
   InteresPorcentaje: number
   InteresMontoTotal: number
+  CapitalRestante: number
   CapitalTotalPagar: number
   MontoCuota: number
   CantidadCuotas: number
   CuotasRestantes: number
-  ModalidadPago: "Mensual" | "Quincenal" | "Semanal"
+  ModalidadPago: string
   FechaInicio: string
   FechaFinEstimada: string
   FechaUltimoPago: string | null
-  Estado: "Activo" | "Pagado" | "Vencido" | "En Mora"
-  Ajustable: boolean
-  Observaciones: string
+  Estado: string
+  TablaPagos?: string | null
+  Observaciones?: string | null
 }
 
-// Actualizar los datos iniciales para usar los campos correctos de la base de datos
-const prestamosIniciales: Prestamo[] = [
-  {
-    IdPrestamo: 1,
-    IdCliente: 1,
-    IdPrestatario: 1,
-    clienteNombre: "Juan Carlos Pérez",
-    prestatarioNombre: "María García",
-    MontoPrestado: 150000,
-    TipoCalculo: "Capital+Interes",
-    InteresPorcentaje: 7.0,
-    InteresMontoTotal: 63000,
-    CapitalTotalPagar: 213000,
-    MontoCuota: 21300,
-    CantidadCuotas: 10,
-    CuotasRestantes: 7,
-    ModalidadPago: "Quincenal",
-    FechaInicio: "2024-01-01",
-    FechaFinEstimada: "2024-06-01",
-    FechaUltimoPago: "2024-01-15",
-    Estado: "Activo",
-    Ajustable: true,
-    Observaciones: "Cliente puntual en pagos"
-  },
-  {
-    IdPrestamo: 2,
-    IdCliente: 2,
-    IdPrestatario: 2,
-    clienteNombre: "María Elena García",
-    prestatarioNombre: "Carlos López",
-    MontoPrestado: 80000,
-    TipoCalculo: "Capital+Interes",
-    InteresPorcentaje: 7.0,
-    InteresMontoTotal: 33600,
-    CapitalTotalPagar: 113600,
-    MontoCuota: 14200,
-    CantidadCuotas: 8,
-    CuotasRestantes: 6,
-    ModalidadPago: "Quincenal",
-    FechaInicio: "2024-01-15",
-    FechaFinEstimada: "2024-05-15",
-    FechaUltimoPago: "2024-01-30",
-    Estado: "Activo",
-    Ajustable: true,
-    Observaciones: "Préstamo para inversión en negocio"
-  },
-  {
-    IdPrestamo: 3,
-    IdCliente: 3,
-    IdPrestatario: 3,
-    clienteNombre: "Carlos Alberto López",
-    prestatarioNombre: "Ana Martínez",
-    MontoPrestado: 200000,
-    TipoCalculo: "Amortizable",
-    InteresPorcentaje: 10.0,
-    InteresMontoTotal: 80000,
-    CapitalTotalPagar: 200000,
-    MontoCuota: 30000,
-    CantidadCuotas: 8,
-    CuotasRestantes: 2,
-    ModalidadPago: "Mensual",
-    FechaInicio: "2023-12-01",
-    FechaFinEstimada: "2024-04-01",
-    FechaUltimoPago: "2024-02-01",
-    Estado: "En Mora",
-    Ajustable: false,
-    Observaciones: "Cliente con retraso en los últimos pagos"
-  },
-  {
-    IdPrestamo: 4,
-    IdCliente: 5,
-    IdPrestatario: 4,
-    clienteNombre: "Roberto Silva",
-    prestatarioNombre: "Juan Pérez",
-    MontoPrestado: 120000,
-    TipoCalculo: "Capital+Interes",
-    InteresPorcentaje: 8.0,
-    InteresMontoTotal: 115200,
-    CapitalTotalPagar: 235200,
-    MontoCuota: 19600,
-    CantidadCuotas: 12,
-    CuotasRestantes: 11,
-    ModalidadPago: "Quincenal",
-    FechaInicio: "2024-01-08",
-    FechaFinEstimada: "2024-07-08",
-    FechaUltimoPago: "2024-01-22",
-    Estado: "Activo",
-    Ajustable: true,
-    Observaciones: "Préstamo con garantía hipotecaria"
-  },
-  {
-    IdPrestamo: 5,
-    IdCliente: 1,
-    IdPrestatario: 1,
-    clienteNombre: "Juan Carlos Pérez",
-    prestatarioNombre: "María García",
-    MontoPrestado: 50000,
-    TipoCalculo: "Capital+Interes",
-    InteresPorcentaje: 6.0,
-    InteresMontoTotal: 12000,
-    CapitalTotalPagar: 62000,
-    MontoCuota: 15500,
-    CantidadCuotas: 4,
-    CuotasRestantes: 0,
-    ModalidadPago: "Quincenal",
-    FechaInicio: "2023-11-01",
-    FechaFinEstimada: "2024-01-01",
-    FechaUltimoPago: "2024-01-01",
-    Estado: "Pagado",
-    Ajustable: false,
-    Observaciones: "Préstamo liquidado en su totalidad"
-  }
-]
+interface Cliente {
+  IdCliente: number
+  Nombre: string
+}
 
-const clientesDisponibles = [
-  { id: 1, nombre: "Juan Carlos Pérez" },
-  { id: 2, nombre: "María Elena García" },
-  { id: 3, nombre: "Carlos Alberto López" },
-  { id: 4, nombre: "Ana Sofía Martínez" },
-  { id: 5, nombre: "Roberto Silva" }
-]
+interface Prestatario {
+  IdPrestatario: number
+  Nombre: string
+}
 
-const prestatariosDisponibles = [
-  "María García",
-  "Carlos López", 
-  "Ana Martínez",
-  "Juan Pérez",
-  "Roberto Silva"
-]
+interface SimulacionCuota {
+  numeroCuota: number
+  capital: number
+  interes: number
+  cuota: number
+}
+
+interface SimulacionResumen {
+  montoSolicitado: number
+  tasaInteres: number
+  numeroCuotas: number
+  tipoCalculo: string
+  montoTotalAPagar: number
+  montoTotalInteres: number
+  montoCuota: number
+}
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
 export function PrestamosContent() {
-  const [prestamos, setPrestamos] = useState<Prestamo[]>(prestamosIniciales)
+  const [prestamos, setPrestamos] = useState<Prestamo[]>([])
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [prestatarios, setPrestatarios] = useState<Prestatario[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSimulationDialogOpen, setIsSimulationDialogOpen] = useState(false)
   const [editingPrestamo, setEditingPrestamo] = useState<Prestamo | null>(null)
-  // Actualizar el formData para incluir todos los campos necesarios
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [prestamoToDelete, setPrestamoToDelete] = useState<number | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  
+  // Simulación
+  const [simulacionResumen, setSimulacionResumen] = useState<SimulacionResumen | null>(null)
+  const [simulacionCuotas, setSimulacionCuotas] = useState<SimulacionCuota[]>([])
+  const [simulando, setSimulando] = useState(false)
+
   const [formData, setFormData] = useState({
     IdCliente: "",
     IdPrestatario: "",
     MontoPrestado: "",
-    TipoCalculo: "Capital+Interes" as "Capital+Interes" | "Amortizable",
+    TipoCalculo: "capital+interes",
     InteresPorcentaje: "",
     CantidadCuotas: "",
-    ModalidadPago: "Quincenal" as "Mensual" | "Quincenal" | "Semanal",
+    ModalidadPago: "Quincenal",
     FechaInicio: "",
     FechaFinEstimada: "",
-    Ajustable: true,
-    MontoCuota: "",
     Observaciones: ""
   })
 
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const [prestamosRes, clientesRes, prestatariosRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/prestamos`),
+        fetch(`${API_BASE_URL}/api/clientes`),
+        fetch(`${API_BASE_URL}/api/prestatarios`)
+      ])
+
+      if (prestamosRes.ok) {
+        const prestamosData = await prestamosRes.json()
+        setPrestamos(prestamosData)
+      }
+      if (clientesRes.ok) {
+        const clientesData = await clientesRes.json()
+        setClientes(clientesData)
+      }
+      if (prestatariosRes.ok) {
+        const prestatariosData = await prestatariosRes.json()
+        setPrestatarios(prestatariosData)
+      }
+    } catch (error) {
+      console.error('Error cargando datos:', error)
+      alert('Error al cargar los datos')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const filteredPrestamos = prestamos.filter(prestamo =>
-    prestamo.clienteNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    prestamo.prestatarioNombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    prestamo.Estado.toLowerCase().includes(searchTerm.toLowerCase())
+    (prestamo.clienteNombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    prestamo.prestatarioNombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    prestamo.Estado.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
-  // Agregar función para calcular automáticamente los valores según el tipo de cálculo
-  const calcularPrestamo = () => {
-    const monto = parseFloat(formData.MontoPrestado) || 0
-    const porcentaje = parseFloat(formData.InteresPorcentaje) || 0
-    const cuotas = parseInt(formData.CantidadCuotas) || 1
-    
-    if (formData.TipoCalculo === "Capital+Interes") {
-      const interesTotal = (monto * porcentaje * cuotas) / 100
-      const capitalTotal = monto + interesTotal
-      const cuota = capitalTotal / cuotas
-      
-      return {
-        InteresMontoTotal: interesTotal,
-        CapitalTotalPagar: capitalTotal,
-        MontoCuota: cuota
-      }
-    } else {
-      // Amortizable - el interés se calcula por período
-      const interesPorCuota = (monto * porcentaje) / 100
-      
-      return {
-        InteresMontoTotal: interesPorCuota * cuotas,
-        CapitalTotalPagar: monto,
-        MontoCuota: interesPorCuota // En amortizable la cuota mínima es el interés
-      }
+  const simularPrestamo = async () => {
+    if (!formData.MontoPrestado || !formData.InteresPorcentaje || !formData.CantidadCuotas) {
+      alert('Por favor completa monto, tasa de interés y cantidad de cuotas')
+      return
     }
-  }
 
-  // Agregar función para ajustar cuota y recalcular interés
-  const ajustarCuota = (nuevaCuota: number) => {
-    const monto = parseFloat(formData.MontoPrestado) || 0
-    const cuotas = parseInt(formData.CantidadCuotas) || 1
-    
-    if (formData.TipoCalculo === "Capital+Interes") {
-      const capitalTotal = nuevaCuota * cuotas
-      const interesTotal = capitalTotal - monto
-      const nuevoPorcentaje = (interesTotal * 100) / (monto * cuotas)
-      
-      setFormData({
-        ...formData,
-        MontoCuota: nuevaCuota.toString(),
-        InteresPorcentaje: nuevoPorcentaje.toFixed(2)
+    setSimulando(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/prestamos/simular`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          monto: parseFloat(formData.MontoPrestado),
+          tasaInteres: parseFloat(formData.InteresPorcentaje),
+          numeroCuotas: parseInt(formData.CantidadCuotas),
+          tipoCalculo: formData.TipoCalculo,
+          observaciones: formData.Observaciones
+        })
       })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
+        throw new Error(errorData.message || 'Error al simular préstamo')
+      }
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setSimulacionResumen(data.resumen)
+        setSimulacionCuotas(data.cuotas)
+        setIsSimulationDialogOpen(true)
+      }
+    } catch (error) {
+      console.error('Error en simulación:', error)
+      alert(error instanceof Error ? error.message : 'Error al simular préstamo')
+    } finally {
+      setSimulando(false)
     }
   }
 
-  const calcularCuota = () => {
-    const monto = parseFloat(formData.MontoPrestado) || 0
-    const interes = parseFloat(formData.InteresPorcentaje) || 0
-    const totalPagos = parseInt(formData.CantidadCuotas) || 1
-    
-    if (formData.TipoCalculo === "Capital+Interes") {
-      return (monto + interes) / totalPagos
-    } else {
-      // Amortizable - cálculo simplificado
-      return monto / totalPagos + interes
-    }
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitting(true)
     
-    const clienteSeleccionado = clientesDisponibles.find(c => c.id === parseInt(formData.IdCliente))
-    const { InteresMontoTotal, CapitalTotalPagar, MontoCuota } = calcularPrestamo()
-    
-    if (editingPrestamo) {
-      // Actualizar préstamo existente
-      setPrestamos(prestamos.map(prestamo => 
-        prestamo.IdPrestamo === editingPrestamo.IdPrestamo 
-          ? { 
-              ...prestamo, 
-              IdCliente: parseInt(formData.IdCliente),
-              clienteNombre: clienteSeleccionado?.nombre || "",
-              IdPrestatario: parseInt(formData.IdPrestatario),
-              MontoPrestado: parseFloat(formData.MontoPrestado),
-              TipoCalculo: formData.TipoCalculo,
-              InteresPorcentaje: parseFloat(formData.InteresPorcentaje),
-              InteresMontoTotal: InteresMontoTotal,
-              CapitalTotalPagar: CapitalTotalPagar,
-              MontoCuota: MontoCuota,
-              CantidadCuotas: parseInt(formData.CantidadCuotas),
-              ModalidadPago: formData.ModalidadPago,
-              FechaInicio: formData.FechaInicio,
-              FechaFinEstimada: formData.FechaFinEstimada,
-              Ajustable: formData.Ajustable,
-              Observaciones: formData.Observaciones
-            }
-          : prestamo
-      ))
-    } else {
-      // Crear nuevo préstamo
-      const nuevoPrestamo: Prestamo = {
-        IdPrestamo: Math.max(...prestamos.map(p => p.IdPrestamo)) + 1,
+    try {
+      // Preparar datos según el modelo Prisma
+      const prestamoData = {
         IdCliente: parseInt(formData.IdCliente),
-        clienteNombre: clienteSeleccionado?.nombre || "",
         IdPrestatario: parseInt(formData.IdPrestatario),
-        prestatarioNombre: "", // TODO: Obtener nombre del prestatario
         MontoPrestado: parseFloat(formData.MontoPrestado),
         TipoCalculo: formData.TipoCalculo,
         InteresPorcentaje: parseFloat(formData.InteresPorcentaje),
-        InteresMontoTotal: InteresMontoTotal,
-        CapitalTotalPagar: CapitalTotalPagar,
-        MontoCuota: MontoCuota,
         CantidadCuotas: parseInt(formData.CantidadCuotas),
-        CuotasRestantes: parseInt(formData.CantidadCuotas),
         ModalidadPago: formData.ModalidadPago,
         FechaInicio: formData.FechaInicio,
         FechaFinEstimada: formData.FechaFinEstimada,
-        FechaUltimoPago: null,
-        Estado: "Activo",
-        Ajustable: formData.Ajustable,
-        Observaciones: formData.Observaciones
+        Observaciones: formData.Observaciones || null
       }
-      setPrestamos([...prestamos, nuevoPrestamo])
+
+      if (editingPrestamo) {
+        // Actualizar préstamo existente
+        console.log('Actualizando préstamo:', editingPrestamo.IdPrestamo, prestamoData)
+        
+        const response = await fetch(`${API_BASE_URL}/api/prestamos/${editingPrestamo.IdPrestamo}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(prestamoData)
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
+          console.error('Error del servidor:', errorData)
+          throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
+        }
+        
+        await fetchData()
+        alert('Préstamo actualizado exitosamente')
+      } else {
+        // Crear nuevo préstamo
+        console.log('Creando préstamo:', prestamoData)
+        
+        const response = await fetch(`${API_BASE_URL}/api/prestamos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(prestamoData)
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
+          console.error('Error del servidor:', errorData)
+          throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
+        }
+        
+        await fetchData()
+        alert('Préstamo creado exitosamente')
+      }
+      
+      resetForm()
+    } catch (error) {
+      console.error('Error en handleSubmit:', error)
+      alert(error instanceof Error ? error.message : 'Error en la operación')
+    } finally {
+      setSubmitting(false)
     }
-    
-    resetForm()
   }
 
   const resetForm = () => {
@@ -316,18 +247,19 @@ export function PrestamosContent() {
       IdCliente: "",
       IdPrestatario: "",
       MontoPrestado: "",
-      TipoCalculo: "Capital+Interes",
+      TipoCalculo: "capital+interes",
       InteresPorcentaje: "",
       CantidadCuotas: "",
-      MontoCuota: "",
       ModalidadPago: "Quincenal",
       FechaInicio: "",
       FechaFinEstimada: "",
-      Ajustable: true,
       Observaciones: ""
     })
     setEditingPrestamo(null)
+    setSimulacionResumen(null)
+    setSimulacionCuotas([])
     setIsDialogOpen(false)
+    setIsSimulationDialogOpen(false)
   }
 
   const handleEdit = (prestamo: Prestamo) => {
@@ -340,17 +272,40 @@ export function PrestamosContent() {
       InteresPorcentaje: prestamo.InteresPorcentaje.toString(),
       CantidadCuotas: prestamo.CantidadCuotas.toString(),
       ModalidadPago: prestamo.ModalidadPago,
-      MontoCuota: prestamo.MontoCuota.toString(),
-      FechaInicio: prestamo.FechaInicio,
-      FechaFinEstimada: prestamo.FechaFinEstimada,
-      Ajustable: prestamo.Ajustable,
-      Observaciones: prestamo.Observaciones
+      FechaInicio: prestamo.FechaInicio.split('T')[0],
+      FechaFinEstimada: prestamo.FechaFinEstimada.split('T')[0],
+      Observaciones: prestamo.Observaciones || ""
     })
     setIsDialogOpen(true)
   }
 
-  const handleDelete = (id: number) => {
-    setPrestamos(prestamos.filter(prestamo => prestamo.IdPrestamo !== id))
+  const confirmDelete = (id: number) => {
+    setPrestamoToDelete(id)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (!prestamoToDelete) return
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/prestamos/${prestamoToDelete}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
+        throw new Error(errorData.message || 'Error al eliminar préstamo')
+      }
+      
+      await fetchData()
+      alert('Préstamo eliminado exitosamente')
+    } catch (error) {
+      console.error('Error al eliminar:', error)
+      alert(error instanceof Error ? error.message : 'Error al eliminar préstamo')
+    } finally {
+      setDeleteDialogOpen(false)
+      setPrestamoToDelete(null)
+    }
   }
 
   const getEstadoBadgeColor = (estado: string) => {
@@ -364,9 +319,11 @@ export function PrestamosContent() {
   }
 
   const prestamosActivos = prestamos.filter(p => p.Estado === "Activo").length
-  const capitalEnCalle = prestamos.filter(p => p.Estado === "Activo").reduce((sum, p) => sum + p.MontoPrestado, 0)
-  const interesTotal = prestamos.filter(p => p.Estado === "Activo").reduce((sum, p) => sum + p.InteresMontoTotal, 0)
+  const capitalEnCalle = prestamos.filter(p => p.Estado === "Activo").reduce((sum, p) => sum + Number(p.MontoPrestado), 0)
+  const interesTotal = prestamos.filter(p => p.Estado === "Activo").reduce((sum, p) => sum + Number(p.InteresMontoTotal), 0)
   const prestamosEnMora = prestamos.filter(p => p.Estado === "En Mora").length
+
+  if (loading) return <div className="flex items-center justify-center h-64">Cargando préstamos...</div>
 
   return (
     <div className="space-y-6">
@@ -379,9 +336,7 @@ export function PrestamosContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-[#213685]">{prestamosActivos}</div>
-            <p className="text-xs text-muted-foreground">
-              Total en cartera
-            </p>
+            <p className="text-xs text-muted-foreground">Total en cartera</p>
           </CardContent>
         </Card>
         
@@ -394,9 +349,7 @@ export function PrestamosContent() {
             <div className="text-2xl font-bold text-green-600">
               ${capitalEnCalle.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Saldo pendiente total
-            </p>
+            <p className="text-xs text-muted-foreground">Saldo pendiente total</p>
           </CardContent>
         </Card>
         
@@ -409,9 +362,7 @@ export function PrestamosContent() {
             <div className="text-2xl font-bold text-blue-600">
               ${interesTotal.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Interés programado
-            </p>
+            <p className="text-xs text-muted-foreground">Interés programado</p>
           </CardContent>
         </Card>
         
@@ -422,9 +373,7 @@ export function PrestamosContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{prestamosEnMora}</div>
-            <p className="text-xs text-muted-foreground">
-              Requieren atención
-            </p>
+            <p className="text-xs text-muted-foreground">Requieren atención</p>
           </CardContent>
         </Card>
       </div>
@@ -435,9 +384,7 @@ export function PrestamosContent() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Gestión de Préstamos</CardTitle>
-              <CardDescription>
-                Administra todos los préstamos de la plataforma
-              </CardDescription>
+              <CardDescription>Administra todos los préstamos de la plataforma</CardDescription>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
@@ -446,7 +393,7 @@ export function PrestamosContent() {
                   Nuevo Préstamo
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[700px]">
+              <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                     {editingPrestamo ? "Editar Préstamo" : "Nuevo Préstamo"}
@@ -454,125 +401,165 @@ export function PrestamosContent() {
                   <DialogDescription>
                     {editingPrestamo 
                       ? "Actualiza la información del préstamo" 
-                      : "Completa los datos para crear un nuevo préstamo"
+                      : "Completa los datos y simula antes de crear el préstamo"
                     }
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit}>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="IdCliente">Cliente</Label>
-                        <Select value={formData.IdCliente} onValueChange={(value) => setFormData({...formData, IdCliente: value})}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar cliente" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {clientesDisponibles.map((cliente) => (
-                              <SelectItem key={cliente.id} value={cliente.id.toString()}>
-                                {cliente.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="IdPrestatario">Prestatario</Label>
-                        <Select value={formData.IdPrestatario} onValueChange={(value) => setFormData({...formData, IdPrestatario: value})}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar prestatario" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {prestatariosDisponibles.map((prestatario) => (
-                              <SelectItem key={prestatario} value={prestatario}>
-                                {prestatario}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="MontoPrestado">Monto</Label>
-                        <Input
-                          id="MontoPrestado"
-                          type="number"
-                          value={formData.MontoPrestado}
-                          onChange={(e) => setFormData({...formData, MontoPrestado: e.target.value})}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="InteresPorcentaje">Interés (%)</Label>
-                        <Input
-                          id="InteresPorcentaje"
-                          type="number"
-                          value={formData.InteresPorcentaje}
-                          onChange={(e) => setFormData({...formData, InteresPorcentaje: e.target.value})}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="CantidadCuotas">Total Pagos</Label>
-                        <Input
-                          id="CantidadCuotas"
-                          type="number"
-                          value={formData.CantidadCuotas}
-                          onChange={(e) => setFormData({...formData, CantidadCuotas: e.target.value})}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="FechaInicio">Fecha Inicio</Label>
-                        <Input
-                          id="FechaInicio"
-                          type="date"
-                          value={formData.FechaInicio}
-                          onChange={(e) => setFormData({...formData, FechaInicio: e.target.value})}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="FechaFinEstimada">Fecha Vencimiento</Label>
-                        <Input
-                          id="FechaFinEstimada"
-                          type="date"
-                          value={formData.FechaFinEstimada}
-                          onChange={(e) => setFormData({...formData, FechaFinEstimada: e.target.value})}
-                          required
-                        />
-                      </div>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="IdCliente">Cliente</Label>
+                      <Select value={formData.IdCliente} onValueChange={(value) => setFormData({...formData, IdCliente: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar cliente" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clientes.map((cliente) => (
+                            <SelectItem key={cliente.IdCliente} value={cliente.IdCliente.toString()}>
+                              {cliente.Nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="TipoCalculo">Tipo de Préstamo</Label>
-                      <Select value={formData.TipoCalculo} onValueChange={(value: "Capital+Interes" | "Amortizable") => setFormData({...formData, TipoCalculo: value})}>
+                      <Label htmlFor="IdPrestatario">Prestatario</Label>
+                      <Select value={formData.IdPrestatario} onValueChange={(value) => setFormData({...formData, IdPrestatario: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar prestatario" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {prestatarios.map((prestatario) => (
+                            <SelectItem key={prestatario.IdPrestatario} value={prestatario.IdPrestatario.toString()}>
+                              {prestatario.Nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="MontoPrestado">Monto ($)</Label>
+                      <Input
+                        id="MontoPrestado"
+                        type="number"
+                        step="0.01"
+                        value={formData.MontoPrestado}
+                        onChange={(e) => setFormData({...formData, MontoPrestado: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="InteresPorcentaje">Interés (%)</Label>
+                      <Input
+                        id="InteresPorcentaje"
+                        type="number"
+                        step="0.01"
+                        value={formData.InteresPorcentaje}
+                        onChange={(e) => setFormData({...formData, InteresPorcentaje: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="CantidadCuotas">Nº Cuotas</Label>
+                      <Input
+                        id="CantidadCuotas"
+                        type="number"
+                        value={formData.CantidadCuotas}
+                        onChange={(e) => setFormData({...formData, CantidadCuotas: e.target.value})}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="TipoCalculo">Tipo de Cálculo</Label>
+                      <Select value={formData.TipoCalculo} onValueChange={(value) => setFormData({...formData, TipoCalculo: value})}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Capital+Interes">Capital + Interés</SelectItem>
-                          <SelectItem value="Amortizable">Amortizable</SelectItem>
+                          <SelectItem value="capital+interes">Capital + Interés</SelectItem>
+                          <SelectItem value="amortizable">Amortizable</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    {formData.MontoPrestado && formData.InteresPorcentaje && formData.CantidadCuotas && (
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm font-medium">Cuota Calculada: ${calcularCuota().toLocaleString()}</p>
-                      </div>
-                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="ModalidadPago">Modalidad de Pago</Label>
+                      <Select value={formData.ModalidadPago} onValueChange={(value) => setFormData({...formData, ModalidadPago: value})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Mensual">Mensual</SelectItem>
+                          <SelectItem value="Quincenal">Quincenal</SelectItem>
+                          <SelectItem value="Semanal">Semanal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={resetForm}>
-                      Cancelar
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="FechaInicio">Fecha Inicio</Label>
+                      <Input
+                        id="FechaInicio"
+                        type="date"
+                        value={formData.FechaInicio}
+                        onChange={(e) => setFormData({...formData, FechaInicio: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="FechaFinEstimada">Fecha Vencimiento</Label>
+                      <Input
+                        id="FechaFinEstimada"
+                        type="date"
+                        value={formData.FechaFinEstimada}
+                        onChange={(e) => setFormData({...formData, FechaFinEstimada: e.target.value})}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="Observaciones">Observaciones</Label>
+                    <Textarea
+                      id="Observaciones"
+                      value={formData.Observaciones}
+                      onChange={(e) => setFormData({...formData, Observaciones: e.target.value})}
+                      placeholder="Notas adicionales sobre el préstamo..."
+                    />
+                  </div>
+
+                  {!editingPrestamo && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={simularPrestamo}
+                      disabled={simulando || !formData.MontoPrestado || !formData.InteresPorcentaje || !formData.CantidadCuotas}
+                      className="w-full"
+                    >
+                      <Calculator className="h-4 w-4 mr-2" />
+                      {simulando ? "Simulando..." : "Simular Préstamo"}
                     </Button>
-                    <Button type="submit" className="bg-[#213685] hover:bg-[#213685]/90">
-                      {editingPrestamo ? "Actualizar" : "Crear"} Préstamo
-                    </Button>
-                  </DialogFooter>
-                </form>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={resetForm} disabled={submitting}>
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={handleSubmit} 
+                    className="bg-[#213685] hover:bg-[#213685]/90" 
+                    disabled={submitting}
+                  >
+                    {submitting ? "Guardando..." : (editingPrestamo ? "Actualizar" : "Crear")} Préstamo
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
@@ -603,82 +590,214 @@ export function PrestamosContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPrestamos.map((prestamo) => (
-                  <TableRow key={prestamo.IdPrestamo}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{prestamo.clienteNombre}</div>
-                        <div className="text-sm text-muted-foreground">
-                          ID: {prestamo.IdPrestamo}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{prestamo.prestatarioNombre}</TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">${prestamo.MontoPrestado.toLocaleString()}</div>
-                        <div className="text-sm text-muted-foreground">
-                          Saldo: ${prestamo.MontoPrestado.toLocaleString()}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>${prestamo.MontoCuota.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="text-sm">
-                          {prestamo.CantidadCuotas - prestamo.CuotasRestantes}/{prestamo.CantidadCuotas} pagos
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-[#213685] h-2 rounded-full" 
-                            style={{ width: `${((prestamo.CantidadCuotas - prestamo.CuotasRestantes) / prestamo.CantidadCuotas) * 100}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="default"
-                        className={getEstadoBadgeColor(prestamo.Estado)}
-                      >
-                        {prestamo.Estado}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{prestamo.FechaFinEstimada}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="hover:bg-[#213685]/10"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(prestamo)}
-                          className="hover:bg-[#213685]/10"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(prestamo.IdPrestamo)}
-                          className="hover:bg-red-50 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {filteredPrestamos.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      No se encontraron préstamos
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredPrestamos.map((prestamo) => (
+                    <TableRow key={prestamo.IdPrestamo}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{prestamo.clienteNombre || `Cliente #${prestamo.IdCliente}`}</div>
+                          <div className="text-sm text-muted-foreground">ID: {prestamo.IdPrestamo}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{prestamo.prestatarioNombre || `Prestatario #${prestamo.IdPrestatario}`}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">${Number(prestamo.MontoPrestado).toLocaleString()}</div>
+                          <div className="text-sm text-muted-foreground">
+                            Saldo: ${Number(prestamo.CapitalRestante).toLocaleString()}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>${Number(prestamo.MontoCuota).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="text-sm">
+                            {prestamo.CantidadCuotas - prestamo.CuotasRestantes}/{prestamo.CantidadCuotas} pagos
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-[#213685] h-2 rounded-full" 
+                              style={{ width: `${((prestamo.CantidadCuotas - prestamo.CuotasRestantes) / prestamo.CantidadCuotas) * 100}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="default" className={getEstadoBadgeColor(prestamo.Estado)}>
+                          {prestamo.Estado}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(prestamo.FechaFinEstimada).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(prestamo)}
+                            className="hover:bg-[#213685]/10"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => confirmDelete(prestamo.IdPrestamo)}
+                            className="hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog de Simulación */}
+      <Dialog open={isSimulationDialogOpen} onOpenChange={setIsSimulationDialogOpen}>
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Simulación de Préstamo</DialogTitle>
+            <DialogDescription>
+              Revisa los detalles del préstamo antes de crearlo
+            </DialogDescription>
+          </DialogHeader>
+          
+          {simulacionResumen && (
+            <div className="space-y-4">
+              {/* Resumen */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Resumen del Préstamo</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Monto Solicitado</p>
+                      <p className="text-xl font-bold text-[#213685]">
+                        ${simulacionResumen.montoSolicitado.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Tasa de Interés</p>
+                      <p className="text-xl font-bold">{simulacionResumen.tasaInteres}%</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total a Pagar</p>
+                      <p className="text-xl font-bold text-green-600">
+                        ${simulacionResumen.montoTotalAPagar.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Interés Total</p>
+                      <p className="text-xl font-bold text-blue-600">
+                        ${simulacionResumen.montoTotalInteres.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Cuota {formData.ModalidadPago}</p>
+                      <p className="text-xl font-bold text-orange-600">
+                        ${simulacionResumen.montoCuota.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Número de Cuotas</p>
+                      <p className="text-xl font-bold">{simulacionResumen.numeroCuotas}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Tabla de Cuotas */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Plan de Pagos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-20">Cuota</TableHead>
+                          <TableHead className="text-right">Capital</TableHead>
+                          <TableHead className="text-right">Interés</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {simulacionCuotas.map((cuota) => (
+                          <TableRow key={cuota.numeroCuota}>
+                            <TableCell className="font-medium">{cuota.numeroCuota}</TableCell>
+                            <TableCell className="text-right">
+                              ${cuota.capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </TableCell>
+                            <TableCell className="text-right text-blue-600">
+                              ${cuota.interes.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              ${cuota.cuota.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setIsSimulationDialogOpen(false)}
+            >
+              Cerrar
+            </Button>
+            <Button 
+              onClick={handleSubmit} 
+              className="bg-[#213685] hover:bg-[#213685]/90"
+              disabled={submitting}
+            >
+              {submitting ? "Creando..." : "Crear Préstamo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de confirmación de eliminación */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. El préstamo será eliminado permanentemente de la base de datos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPrestamoToDelete(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

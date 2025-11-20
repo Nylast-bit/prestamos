@@ -16,7 +16,7 @@ import { prestamoSchema } from "../validators/prestamo.validator";
 
 const router = Router();
 
-router.get("/", getPrestamos);
+router.get("/", getPrestamos); 
 router.get("/:id", getPrestamoById);
 router.post("/", validate(prestamoSchema), createPrestamo);
 router.put("/:id", validate(prestamoSchema.partial()), updatePrestamo); // .partial() porque en update no es obligatorio todo

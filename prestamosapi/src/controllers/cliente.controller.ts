@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-// 1. ELIMINAMOS PRISMA
-// import prisma from "../prisma/client"; 
+
 
 // 2. IMPORTAMOS EL NUEVO CLIENTE SUPABASE
 import { supabase } from "../config/supabaseClient";

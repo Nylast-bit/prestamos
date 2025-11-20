@@ -37,7 +37,7 @@ interface RangoCuotasInput {
 export const getPrestamosService = async () => {
   // 2. Esta es la consulta de Supabase
   const { data: prestamos, error } = await supabase
-    .from("prestamo") // Elige tu tabla
+    .from("Prestamo") // Elige tu tabla
     .select(`
       *,
       Cliente(*),
@@ -60,7 +60,7 @@ export const getPrestamosService = async () => {
 
 export const getPrestamoByIdService = async (id: number) => {
   const { data: prestamo, error } = await supabase
-    .from("prestamo")
+    .from("Prestamo")
     .select(`
       *,
       Cliente(*),
@@ -94,7 +94,7 @@ export const createPrestamoService = async (data: CreatePrestamoData) => {
   // .select() le dice a Supabase que devuelva la fila recién creada
   // .single() nos da el objeto en lugar de un array
   const { data: nuevoPrestamo, error: errorPrestamo } = await supabase
-    .from("prestamo")
+    .from("Prestamo")
     .insert(data)
     .select()
     .single();
@@ -154,7 +154,7 @@ export const createPrestamoService = async (data: CreatePrestamoData) => {
 export const updatePrestamoService = async (id: number, data: UpdatePrestamoData) => {
   
   const { data: prestamoActualizado, error } = await supabase
-    .from("prestamo")
+    .from("Prestamo")
     .update(data)
     .eq("IdPrestamo", id) // El 'where'
     .select()             // Le pedimos que devuelva la fila actualizada
@@ -182,7 +182,7 @@ export const deletePrestamoService = async (id: number) => {
   
   // 1. Solo borramos el padre (el Préstamo)
   const { data, error } = await supabase
-    .from("prestamo")
+    .from("Prestamo")
     .delete()
     .eq("IdPrestamo", id)
     .select() // Opcional: para saber qué se borró
@@ -214,7 +214,7 @@ export const deletePrestamoService = async (id: number) => {
 export const getPrestamoConDetallesService = async (id: number) => {
   
   const { data: prestamo, error } = await supabase
-    .from("prestamo")
+    .from("Prestamo")
     .select(`
       IdPrestamo,
       MontoPrestado,
