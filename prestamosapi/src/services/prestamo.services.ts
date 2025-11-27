@@ -511,30 +511,35 @@ export const calcularTasaPorCuotaService = (input: TasaPorCuotaInput) => {
         break;
 
       case "amortizable":
-        {
-          const tasaDecimal = tasa / 100;
-          const cuotaFija = cuotaDeseada;
-          let balance = monto;
+            {
+                const tasaDecimal = tasa / 100;
+                const cuotaFija = cuotaDeseada;
+                let balance = monto;
 
-          for (let i = 1; i <= numeroCuotas; i++) {
-            const interes = balance * tasaDecimal;
-            const capital = cuotaFija - interes;
-            balance = balance - capital;
+                for (let i = 1; i <= numeroCuotas; i++) {
+                    const interesPorCuota = balance * tasaDecimal;
+                    const capital = cuotaFija - interesPorCuota;
+                    balance = balance - capital;
 
-            cuotas.push({
-              NumeroCuota: i,
-              cuota: parseFloat(cuotaFija.toFixed(2)),
-              interesMonto: parseFloat(interes.toFixed(2)),
-              capital: parseFloat(capital.toFixed(2)),
-              balance: parseFloat(Math.max(0, balance).toFixed(2)),
-            });
-          }
-        }
-        break;
+                    cuotas.push({
+                        NumeroCuota: i,
+                        cuota: parseFloat(cuotaFija.toFixed(2)),
+                        
+                        // ¡CORRECCIÓN AQUÍ! Cambiar 'interesMonto' por 'interes'
+                        interes: parseFloat(interesPorCuota.toFixed(2)), 
+                        
+                        capital: parseFloat(capital.toFixed(2)),
+                        balance: parseFloat(Math.max(0, balance).toFixed(2)),
+                    });
+                    
+                    // Aquí se debe actualizar el balance para el cálculo de la siguiente cuota
+                }
+            }
+            break;
     }
 
     return cuotas;
-  };
+};  
 
   const planPagos = generarPlanPagos(tasaMedia);
 
