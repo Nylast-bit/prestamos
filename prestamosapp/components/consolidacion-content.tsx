@@ -97,7 +97,7 @@ export function ConsolidacionContent() {
         // Nota: Asumimos que tu API ya puede filtrar por IdConsolidacion, o que
         // la relación Consolidacion.Registros está incluida en la consulta principal.
         // Aquí usamos la ruta directa para GET all, que devuelve todos los registros.
-        const resR = await fetch(`${API_BASE_URL}/api/registroconsolidacion`);
+        const resR = await fetch(`${API_BASE_URL}api/registroconsolidacion`);
         if (!resR.ok) throw new Error("Fallo al obtener todos los registros.");
         const allData: RegistroConsolidacion[] = await resR.json();
         
