@@ -13,7 +13,7 @@ import registroconsolidacionRoutes from "./routes/registroconsolidacion.routes";
 import pagoRoutes from "./routes/pago.routes";
 
 // 👇 importa el job
-import "./jobs/consolidacionJob";
+import "./jobs/capitalJob";
 
 const app = express();
 const PORT = process.env.PORT || 3001;

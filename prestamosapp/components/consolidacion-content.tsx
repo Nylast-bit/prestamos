@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"  
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Search, Edit, Trash2, TrendingUp, TrendingDown, Calendar, DollarSign, AlertCircle } from 'lucide-react'
 
+// --- INTERFACES (Asegúrate de que estas reflejen la salida REAL de tu API) ---
 interface RegistroConsolidacion {
   IdRegistro: number
-  IdConsolidacion: number
+  IdConsolidacion: number // No es opcional aquí, ya que la BBDD lo devuelve
   FechaRegistro: string
   TipoRegistro: "Ingreso" | "Egreso"
   Estado: "Pendiente" | "Depositado" | "Pagado" | "Prestado"
@@ -22,6 +23,7 @@ interface RegistroConsolidacion {
   Monto: number
 }
 
+// Nota: La API devuelve CapitalEntrante/Saliente de la BBDD.
 interface ConsolidacionCapital {
   IdConsolidacion: number
   FechaInicio: string
@@ -30,256 +32,154 @@ interface ConsolidacionCapital {
   CapitalSaliente: number
   Observaciones: string
   FechaGeneracion: string
-  activa: boolean
+  // La propiedad 'activa' debe ser calculada por el frontend o por un endpoint específico.
 }
-
-const consolidacionActual: ConsolidacionCapital = {
-  IdConsolidacion: 1,
-  FechaInicio: "2025-07-23",
-  FechaFin: "2025-08-08",
-  CapitalEntrante: 56904.35,
-  CapitalSaliente: 48820.00,
-  Observaciones: "Fechas de corte: los días 8 de cada mes y los días 23 de cada mes",
-  FechaGeneracion: "2025-08-08",
-  activa: true
-}
-
-const registrosIniciales: RegistroConsolidacion[] = [
-  {
-    IdRegistro: 1,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-24",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Capital cierre",
-    Monto: 12049.35
-  },
-  {
-    IdRegistro: 2,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-26",
-    TipoRegistro: "Egreso",
-    Estado: "Pagado",
-    Descripcion: "Gasto",
-    Monto: 202.00
-  },
-  {
-    IdRegistro: 3,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-26",
-    TipoRegistro: "Ingreso",
-    Estado: "Pendiente",
-    Descripcion: "Pago de Eskayrin Ramirez",
-    Monto: 2800.00
-  },
-  {
-    IdRegistro: 4,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-29",
-    TipoRegistro: "Egreso",
-    Estado: "Prestado",
-    Descripcion: "Reenganche de Jadilson Morillo",
-    Monto: 8012.00
-  },
-  {
-    IdRegistro: 5,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-25",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Saldo de Deyanira Corniel",
-    Monto: 2350.00
-  },
-  {
-    IdRegistro: 6,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-08-01",
-    TipoRegistro: "Ingreso",
-    Estado: "Pagado",
-    Descripcion: "Pago de Prestamo 800k",
-    Monto: 22200.00
-  },
-  {
-    IdRegistro: 7,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-25",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago de Marcos",
-    Monto: 3500.00
-  },
-  {
-    IdRegistro: 8,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-08-04",
-    TipoRegistro: "Egreso",
-    Estado: "Prestado",
-    Descripcion: "Reenganche de Carlos Gil",
-    Monto: 2003.00
-  },
-  {
-    IdRegistro: 9,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-25",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago de Sheila",
-    Monto: 500.00
-  },
-  {
-    IdRegistro: 10,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-08-04",
-    TipoRegistro: "Egreso",
-    Estado: "Prestado",
-    Descripcion: "Reenganche de Dominic",
-    Monto: 14400.00
-  },
-  {
-    IdRegistro: 11,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-28",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago de Carlos Gil",
-    Monto: 3300.00
-  },
-  {
-    IdRegistro: 12,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-08-05",
-    TipoRegistro: "Egreso",
-    Estado: "Prestado",
-    Descripcion: "Prestamo a Luis Cuello",
-    Monto: 2003.00
-  },
-  {
-    IdRegistro: 13,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-29",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago de Joan Campusano",
-    Monto: 500.00
-  },
-  {
-    IdRegistro: 14,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-29",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago de Jadilson Morillo",
-    Monto: 1750.00
-  },
-  {
-    IdRegistro: 15,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-29",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago de Gustavo",
-    Monto: 1000.00
-  },
-  {
-    IdRegistro: 16,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-29",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago de Evelin",
-    Monto: 1000.00
-  },
-  {
-    IdRegistro: 17,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-30",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago de Albert",
-    Monto: 700.00
-  },
-  {
-    IdRegistro: 18,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-31",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago del King",
-    Monto: 2980.00
-  },
-  {
-    IdRegistro: 19,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-31",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago de Meraris",
-    Monto: 1855.00
-  },
-  {
-    IdRegistro: 20,
-    IdConsolidacion: 1,
-    FechaRegistro: "2025-07-31",
-    TipoRegistro: "Ingreso",
-    Estado: "Depositado",
-    Descripcion: "Pago de Angelo",
-    Monto: 3450.00
-  }
-]
 
 export function ConsolidacionContent() {
-  const [registros, setRegistros] = useState<RegistroConsolidacion[]>(registrosIniciales)
-  const [consolidacion] = useState<ConsolidacionCapital>(consolidacionActual)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingRegistro, setEditingRegistro] = useState<RegistroConsolidacion | null>(null)
+  const API_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001";
+
+  // --- ESTADOS DE DATOS Y SELECCIÓN ---
+  const [allConsolidaciones, setAllConsolidaciones] = useState<ConsolidacionCapital[]>([]);
+  const [consolidacion, setConsolidacion] = useState<ConsolidacionCapital | null>(null); // Consolidación actualmente seleccionada
+  const [registros, setRegistros] = useState<RegistroConsolidacion[]>([]);
+  
+  // --- ESTADOS DE UI Y FORMULARIO ---
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRegistro, setEditingRegistro] = useState<RegistroConsolidacion | null>(null);
   const [formData, setFormData] = useState({
     FechaRegistro: "",
     TipoRegistro: "Ingreso" as "Ingreso" | "Egreso",
     Estado: "Pendiente" as "Pendiente" | "Depositado" | "Pagado" | "Prestado",
     Descripcion: "",
     Monto: ""
-  })
+  });
+  // --- FIN ESTADOS ---
 
-  const filteredRegistros = registros.filter(registro =>
-    registro.Descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    registro.Estado.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // --- UTILITY FUNCTIONS ---
 
-  // Calcular totales por estado
+  const formatDate = (isoString: string): string => {
+    if (!isoString) return '';
+    try {
+      const date = new Date(isoString);
+      const formatted = date.toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+      return formatted.replace(/\//g, '-');
+    } catch (e) {
+      return isoString; 
+    }
+  };
+
+  const getEstadoBadgeColor = (estado: string) => {
+    switch (estado) {
+        case "Depositado": return "bg-green-600"
+        case "Pendiente": return "bg-orange-600"
+        case "Prestado": return "bg-[#213685]"
+        case "Pagado": return "bg-blue-600"
+        default: return "bg-gray-600"
+      }
+  }
+
+  const getTipoIcon = (tipo: string) => {
+    return tipo === "Ingreso" ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />
+  }
+
+  // --- LÓGICA DE FETCH PRINCIPAL ---
+  
+  // Función para obtener los registros de una consolidación específica
+  const fetchRegistros = useCallback(async (idConsolidacion: number) => {
+    try {
+        // Nota: Asumimos que tu API ya puede filtrar por IdConsolidacion, o que
+        // la relación Consolidacion.Registros está incluida en la consulta principal.
+        // Aquí usamos la ruta directa para GET all, que devuelve todos los registros.
+        const resR = await fetch(`${API_BASE_URL}/api/registroconsolidacion`);
+        if (!resR.ok) throw new Error("Fallo al obtener todos los registros.");
+        const allData: RegistroConsolidacion[] = await resR.json();
+        
+        // Filtramos en el frontend si el endpoint no soporta el query param
+        const filteredData = allData.filter(r => r.IdConsolidacion === idConsolidacion);
+
+        setRegistros(filteredData);
+    } catch (e: any) {
+        console.error('Error fetching registros:', e);
+        setError(e.message || 'Error al cargar registros.');
+        setRegistros([]);
+    }
+  }, [API_BASE_URL]);
+
+  // Función para cargar todas las consolidaciones
+  const fetchAllConsolidaciones = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+        // 1. Obtener TODAS las consolidaciones
+        const resC = await fetch(`${API_BASE_URL}/api/consolidacioncapital`);
+        if (!resC.ok) throw new Error("Fallo al obtener la lista de consolidaciones.");
+        const dataC: ConsolidacionCapital[] = await resC.json();
+        
+        // Ordenar por FechaInicio descendente para tener la más reciente primero
+        dataC.sort((a, b) => new Date(b.FechaInicio).getTime() - new Date(a.FechaInicio).getTime());
+
+        setAllConsolidaciones(dataC);
+
+        if (dataC.length > 0 && !consolidacion) {
+            // 2. Seleccionar la más reciente (la primera después de ordenar) por defecto
+            const initialConsolidacion = dataC[0];
+            setConsolidacion(initialConsolidacion);
+            
+            // 3. Cargar los registros para esa consolidación
+            await fetchRegistros(initialConsolidacion.IdConsolidacion);
+        }
+
+    } catch (e: any) {
+        console.error('Error fetching all data:', e);
+        setError(e.message || 'Error de conexión con la API.');
+    } finally {
+        setLoading(false);
+    }
+  }, [API_BASE_URL, fetchRegistros, consolidacion]);
+
+  // --- EFECTOS ---
+  
+  // Carga inicial
+  useEffect(() => {
+    fetchAllConsolidaciones();
+  }, [fetchAllConsolidaciones]);
+
+  // Efecto para cambiar los registros cuando se selecciona una nueva consolidación
+  const handleConsolidacionChange = (idString: string) => {
+    const id = parseInt(idString);
+    const newConsolidacion = allConsolidaciones.find(c => c.IdConsolidacion === id);
+    if (newConsolidacion) {
+        setConsolidacion(newConsolidacion);
+        fetchRegistros(id);
+    }
+  };
+
+
+  // --- LÓGICA DE CÁLCULO Y FORMULARIO ---
+
+  const ingresosTotales = registros.filter(r => r.TipoRegistro === "Ingreso").reduce((sum, r) => sum + r.Monto, 0)
+  const gastosTotales = registros.filter(r => r.TipoRegistro === "Egreso").reduce((sum, r) => sum + r.Monto, 0)
+  const balanceNeto = ingresosTotales - gastosTotales
+
   const totalesPorEstado = {
     Depositado: registros.filter(r => r.Estado === "Depositado").reduce((sum, r) => sum + r.Monto, 0),
     Pendiente: registros.filter(r => r.Estado === "Pendiente").reduce((sum, r) => sum + r.Monto, 0),
     Prestado: registros.filter(r => r.Estado === "Prestado").reduce((sum, r) => sum + r.Monto, 0),
     Pagado: registros.filter(r => r.Estado === "Pagado").reduce((sum, r) => sum + r.Monto, 0)
   }
-
-  const ingresosTotales = registros.filter(r => r.TipoRegistro === "Ingreso").reduce((sum, r) => sum + r.Monto, 0)
-  const gastosTotales = registros.filter(r => r.TipoRegistro === "Egreso").reduce((sum, r) => sum + r.Monto, 0)
-  const balanceNeto = ingresosTotales - gastosTotales
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (editingRegistro) {
-      setRegistros(registros.map(registro => 
-        registro.IdRegistro === editingRegistro.IdRegistro 
-          ? { ...registro, ...formData, Monto: parseFloat(formData.Monto) }
-          : registro
-      ))
-    } else {
-      const nuevoRegistro: RegistroConsolidacion = {
-        IdRegistro: Math.max(...registros.map(r => r.IdRegistro)) + 1,
-        IdConsolidacion: consolidacion.IdConsolidacion,
-        ...formData,
-        Monto: parseFloat(formData.Monto)
-      }
-      setRegistros([...registros, nuevoRegistro])
-    }
-    
-    resetForm()
-  }
-
+  
+  const filteredRegistros = registros.filter(registro =>
+    registro.Descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    registro.Estado.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+  
   const resetForm = () => {
     setFormData({
       FechaRegistro: "",
@@ -292,10 +192,58 @@ export function ConsolidacionContent() {
     setIsDialogOpen(false)
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!consolidacion) return alert("Debe haber una consolidación seleccionada para registrar.")
+
+    const dataToSend = {
+      ...formData,
+      Monto: parseFloat(formData.Monto),
+      // IdConsolidacion ya no es necesario aquí gracias a la lógica del servicio
+      // Pero si se llama al servicio directamente sin IdConsolidacion, la validación fallaría.
+      // Ya que el servicio espera que Zod lo haga opcional, NO lo enviamos.
+      
+      // FechaRegistro debe ir en formato YYYY-MM-DD
+      FechaRegistro: formData.FechaRegistro 
+    }
+    
+    try {
+      const url = editingRegistro 
+        ? `${API_BASE_URL}/api/registroconsolidacion/${editingRegistro.IdRegistro}`
+        : `${API_BASE_URL}/api/registroconsolidacion`;
+
+      const method = editingRegistro ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToSend)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }))
+        console.error('Error del servidor:', errorData)
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`)
+      }
+      
+      // Si la operación fue exitosa, recargamos los registros
+      await fetchRegistros(consolidacion.IdConsolidacion); 
+      // Y recargamos todas las consolidaciones para actualizar los totales CapitalEntrante/Saliente
+      await fetchAllConsolidaciones(); 
+      
+      alert(`Registro ${editingRegistro ? "actualizado" : "creado"} exitosamente`)
+      resetForm()
+
+    } catch (e: any) {
+      alert(`Fallo la operación: ${e.message}`)
+    }
+  }
+
   const handleEdit = (registro: RegistroConsolidacion) => {
     setEditingRegistro(registro)
     setFormData({
-      FechaRegistro: registro.FechaRegistro,
+      FechaRegistro: registro.FechaRegistro.split('T')[0], // Formatear para input type="date"
       TipoRegistro: registro.TipoRegistro,
       Estado: registro.Estado,
       Descripcion: registro.Descripcion,
@@ -304,53 +252,84 @@ export function ConsolidacionContent() {
     setIsDialogOpen(true)
   }
 
-  const handleDelete = (id: number) => {
-    setRegistros(registros.filter(registro => registro.IdRegistro !== id))
-  }
+  const handleDelete = async (id: number) => {
+    if (!consolidacion) return;
+    if (!confirm("¿Está seguro de que desea eliminar este registro?")) return;
 
-  const getEstadoBadgeColor = (estado: string) => {
-    switch (estado) {
-      case "Depositado": return "bg-green-600"
-      case "Pendiente": return "bg-orange-600"
-      case "Prestado": return "bg-[#213685]"
-      case "Pagado": return "bg-blue-600"
-      default: return "bg-gray-600"
+    try {
+        const url = `${API_BASE_URL}/api/registroconsolidacion/${id}`;
+        const response = await fetch(url, { method: 'DELETE' });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Fallo al eliminar' }));
+            throw new Error(errorData.error || `Error ${response.status}`);
+        }
+        
+        // Recargar datos después de la eliminación
+        await fetchRegistros(consolidacion.IdConsolidacion);
+        await fetchAllConsolidaciones();
+        alert("Registro eliminado exitosamente.");
+
+    } catch (e: any) {
+        alert(`Fallo al eliminar: ${e.message}`);
     }
   }
+  
+  // --- ESTADOS DE CARGA Y ERROR EN HTML ---
+  if (loading) {
+    return <Card><CardContent className="p-6 text-center">Cargando todas las consolidaciones...</CardContent></Card>
+  }
 
-  const getTipoIcon = (tipo: string) => {
-    return tipo === "Ingreso" ? <TrendingUp className="h-4 w-4 text-green-600" /> : <TrendingDown className="h-4 w-4 text-red-600" />
+  if (error || allConsolidaciones.length === 0 || !consolidacion) {
+    return <Card><CardContent className="p-6 text-center text-red-600">
+        {error ? `Error de API: ${error}` : "No hay consolidaciones disponibles. Por favor, crea una en el backend."}
+    </CardContent></Card>
   }
 
   return (
     <div className="space-y-6">
       {/* Header con información de la consolidación */}
+      
       <Card className="border-l-4 border-l-[#213685]">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex flex-col gap-1">
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-[#213685]" />
-                Consolidación de Capital - Período Activo
+                Consolidación de Capital
               </CardTitle>
-              <CardDescription>
-                {consolidacion.FechaInicio} al {consolidacion.FechaFin}
-              </CardDescription>
+              {/* SELECTOR DE CONSOLIDACIÓN */}
+              <Select 
+                value={consolidacion.IdConsolidacion.toString()} 
+                onValueChange={handleConsolidacionChange}
+              >
+                <SelectTrigger className="w-[300px] mt-1">
+                  <SelectValue placeholder="Seleccionar Período" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allConsolidaciones.map(c => (
+                    <SelectItem key={c.IdConsolidacion} value={c.IdConsolidacion.toString()}>
+                      {formatDate(c.FechaInicio)} al {formatDate(c.FechaFin)} (ID: {c.IdConsolidacion})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* FIN SELECTOR */}
             </div>
             <Badge className="bg-[#213685] text-white">
-              Activa
+              Seleccionada
             </Badge>
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-4">
             <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">RD${ingresosTotales.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">Ingresos Totales</div>
+              <div className="text-2xl font-bold text-green-600">RD${consolidacion.CapitalEntrante.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Capital Entrante </div>
             </div>
             <div className="text-center p-4 bg-red-50 rounded-lg">
-              <div className="text-2xl font-bold text-red-600">-RD${gastosTotales.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">Gastos Totales</div>
+              <div className="text-2xl font-bold text-red-600">-RD${consolidacion.CapitalSaliente.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Capital Saliente </div>
             </div>
             <div className="text-center p-4 bg-[#213685]/10 rounded-lg">
               <div className={`text-2xl font-bold ${balanceNeto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -561,7 +540,7 @@ export function ConsolidacionContent() {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>{registro.FechaRegistro}</TableCell>
+                    <TableCell>{formatDate(registro.FechaRegistro)}</TableCell>
                     <TableCell>
                       <div className="max-w-xs">
                         <span className="text-sm">{registro.Descripcion}</span>

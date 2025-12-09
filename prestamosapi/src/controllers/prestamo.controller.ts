@@ -1,7 +1,7 @@
 // src/controllers/prestamo.controller.ts
 import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
-import * as prestamoService from "../services/prestamo.services";
+import * as prestamoService from "../services/prestamo.service";
 import { any } from "zod";
 
 
