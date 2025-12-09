@@ -36,7 +36,7 @@ interface ConsolidacionCapital {
 }
 
 export function ConsolidacionContent() {
-  const API_BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ;
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ;
 
   // --- ESTADOS DE DATOS Y SELECCIÓN ---
   const [allConsolidaciones, setAllConsolidaciones] = useState<ConsolidacionCapital[]>([]);
