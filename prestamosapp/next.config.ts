@@ -1,12 +1,9 @@
-import type { NextConfig } from "next";
+// ./next.config.ts
 
-const nextConfig: NextConfig = {
-  /* config options here */
-  eslint: {
-    // Advertencia: Esto permite que la compilación de producción
-    // termine con éxito incluso si tu proyecto tiene errores de ESLint.
-    ignoreDuringBuilds: true,
-  },
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Ahora solo incluye las opciones válidas de NextConfig
+  // La configuración de ESLint se ha movido
 };
 
-export default nextConfig;
+module.exports = nextConfig;
