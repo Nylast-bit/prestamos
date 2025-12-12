@@ -13,7 +13,7 @@ import registroconsolidacionRoutes from "./routes/registroconsolidacion.routes";
 import pagoRoutes from "./routes/pago.routes";
 
 // 👇 importa el job
-import "./jobs/capitalJob";
+import { startCapitalJob } from "./jobs/capitalJob";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -39,4 +39,6 @@ app.get("/api/health", (req: Request, res: Response) => {
 });
 app.listen(PORT, () => {
   console.log(`🚀 Server corriendo en http://localhost:${PORT}`);
+  startCapitalJob(); 
+  console.log("✅ Cron Job scheduler iniciado.");
 });

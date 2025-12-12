@@ -9,6 +9,7 @@ import { PrestamosContent } from "@/components/prestamos-content"
 import { PrestatariosContent } from "@/components/prestatarios-content"
 import { ConsolidacionContent } from "@/components/consolidacion-content"
 import { ConfiguracionContent } from "@/components/configuracion-content"
+import { GastoFijoContent } from "@/components/gastofijo-content"
 
 export default function Page() {
   const [activeSection, setActiveSection] = useState("dashboard")
@@ -25,6 +26,8 @@ export default function Page() {
         return <PrestamosContent />
       case "consolidacion":
         return <ConsolidacionContent />
+      case "gastosfijos":
+        return <GastoFijoContent />
       case "configuracion":
         return <ConfiguracionContent />
       default:
@@ -44,6 +47,8 @@ export default function Page() {
         return "Gestión de Préstamos"
       case "consolidacion":
         return "Consolidación de Capital"
+      case "gastosfijos":
+        return "Gestión de Gastos Fijos"
       case "configuracion":
         return "Configuración"
       default:

@@ -53,10 +53,12 @@ const getConsolidacionActivaId = async (fechaRegistro: string): Promise<number> 
     // 1. Buscamos la Consolidación donde FechaRegistro >= FechaInicio AND FechaRegistro <= FechaFin
     const { data: consolidacion, error } = await supabase
         .from("ConsolidacionCapital")
-        .select("IdConsolidacion") // Solo necesitamos el ID
-        .lte("FechaInicio", fechaRegistro)   // FechaInicio <= FechaRegistro
-        .gte("FechaFin", fechaRegistro)      // FechaFin >= FechaRegistro
-        .maybeSingle(); 
+        .select("IdConsolidacion") 
+        .lte("FechaInicio", fechaRegistro)   
+        .gte("FechaFin", fechaRegistro)      
+        .order('FechaGeneracion', { ascending: false }) // 🚨 AÑADIMOS ORDEN 🚨
+        .limit(1)                                     // 🚨 AÑADIMOS LÍMITE 🚨
+        .maybeSingle(); // Ahora esto es seguro
 
     if (error) {
         throw new Error(`Error de BBDD al buscar consolidación activa: ${error.message}`);
@@ -75,26 +77,42 @@ const getConsolidacionActivaId = async (fechaRegistro: string): Promise<number> 
 // Asumo que el validador Zod y la interfaz se actualizarán para no requerir IdConsolidacion.
 export const createRegistroConsolidacionService = async (data: RegistroConsolidacionData) => {
     
-    // 1. Lógica de negocio: BUSCAR el ID ACTIVO
-    // Si la llamada falla, lanzará el error "No existe consolidación activa..."
-    const fechaRegistro = data.FechaRegistro 
-                       ? new Date(data.FechaRegistro).toISOString() 
-                       : new Date().toISOString();
-    const idConsolidacionActiva = await getConsolidacionActivaId(fechaRegistro); 
+    let idConsolidacionFinal: number;
 
-    // 2. Crear el registro en la consolidación encontrada
+    // 1. DETERMINAR EL ID DE CONSOLIDACIÓN A USAR
+    if (data.IdConsolidacion) {
+        // Opción A: El ID fue proporcionado (usado por el Job/Actualización). CONFIAMOS en el ID.
+        idConsolidacionFinal = data.IdConsolidacion;
+    } else {
+        // Opción B: El ID NO fue proporcionado (usado por el controlador/frontend). Debemos buscarlo por fecha.
+        
+        // Determinar la fecha de registro (usar la proporcionada o la actual)
+        const fechaRegistroParaBusqueda = data.FechaRegistro 
+            ? new Date(data.FechaRegistro).toISOString() 
+            : new Date().toISOString();
+        
+        // 🚨 Llamar a la función que busca el ID activo por fecha
+        idConsolidacionFinal = await getConsolidacionActivaId(fechaRegistroParaBusqueda); 
+
+        // Si la búsqueda falla, getConsolidacionActivaId lanzará un error.
+    }
+
+    // 2. DETERMINAR LA FECHA DE REGISTRO FINAL (usar la proporcionada o la actual)
+    // Ya que la BBDD espera una cadena ISO
+    const fechaFinalISO = data.FechaRegistro 
+        ? new Date(data.FechaRegistro).toISOString() 
+        : new Date().toISOString();
+    
+    // 3. Crear el registro en la consolidación
     const { data: nuevoRegistro, error } = await supabase
         .from("RegistroConsolidacion") 
         .insert({
-            // ASIGNAMOS el ID encontrado dinámicamente
-            IdConsolidacion: idConsolidacionActiva, 
-            
-            FechaRegistro: fechaRegistro.toString(),
+            IdConsolidacion: idConsolidacionFinal, // <-- Usamos el ID final determinado
+            FechaRegistro: fechaFinalISO, // <-- Usamos la fecha en formato ISO
             TipoRegistro: data.TipoRegistro,
             Estado: data.Estado,
             Descripcion: data.Descripcion,
             Monto: data.Monto,
-            // Los campos que ya vienen en 'data' del controlador
         })
         .select()
         .single();
