@@ -110,24 +110,48 @@ export const updateConsolidacionCapitalService = async (id: number, data: Consol
   return actualizado;
 };
 
-// --- ELIMINAR ---
+// --- ELIMINAR CON DEPENDENCIA ---
 export const deleteConsolidacionCapitalService = async (id: number) => {
-  // Eliminación simple (asumiendo que las tablas dependientes tienen ON DELETE CASCADE)
-  const { data: deleted, error } = await supabase
-    .from("VistaConsolidacionCapital")
-    .delete()
-    .eq("IdConsolidacion", id)
-    .select()
-    .maybeSingle(); // Usamos maybeSingle para verificar si existía
+    
+    // 1. Eliminar los registros hijos de RegistroConsolidacion
+    const { error: errorRegistro } = await supabase
+        .from("RegistroConsolidacion")
+        .delete()
+        .eq("IdConsolidacion", id);
 
-  if (error) {
-    console.error("Error en deleteConsolidacionCapitalService:", error.message);
-    throw new Error(`Error eliminando consolidación: ${error.message}`);
-  }
-  
-  if (!deleted) {
-    throw new Error("Consolidación no encontrada para eliminar");
-  }
+    if (errorRegistro) {
+        console.error(`Error eliminando registros de consolidación para ${id}:`, errorRegistro.message);
+        throw new Error(`Error eliminando registros dependientes: ${errorRegistro.message}`);
+    }
 
-  return { message: "Consolidación de capital eliminada" };
+    // 🚨 2. ELIMINAR LOS REGISTROS HIJOS DE GastoFijoRegistro (La nueva dependencia)
+    const { error: errorGastoFijo } = await supabase
+        .from("GastoFijoRegistro")
+        .delete()
+        .eq("IdConsolidacion", id);
+
+    if (errorGastoFijo) {
+        console.error(`Error eliminando GastoFijoRegistro para ${id}:`, errorGastoFijo.message);
+        throw new Error(`Error eliminando registros de gastos fijos dependientes: ${errorGastoFijo.message}`);
+    }
+
+
+    // 3. Eliminar la ConsolidacionCapital padre
+    const { data: deleted, error: errorConsolidacion } = await supabase
+        .from("ConsolidacionCapital")
+        .delete()
+        .eq("IdConsolidacion", id)
+        .select()
+        .maybeSingle();
+
+    if (errorConsolidacion) {
+        console.error("Error en deleteConsolidacionCapitalService:", errorConsolidacion.message);
+        throw new Error(`Error eliminando consolidación: ${errorConsolidacion.message}`);
+    }
+    
+    if (!deleted) {
+        throw new Error("Consolidación no encontrada para eliminar");
+    }
+
+    return { message: "Consolidación de capital y todos sus registros dependientes eliminados" };
 };

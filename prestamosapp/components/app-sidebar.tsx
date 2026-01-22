@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { BarChart3, Building2, Calculator, CreditCard, DollarSign, FileText, HandCoins, Home, PiggyBank, Receipt, Settings, TrendingUp, Users, UserCheck, Calendar, Shield } from 'lucide-react'
+import { BarChart3, Building2, Calculator, CreditCard, TrendingDown, DollarSign, FileText, HandCoins, Home, PiggyBank, Receipt, Settings, TrendingUp, Users, UserCheck, Calendar, Shield } from 'lucide-react'
 
 import {
   Sidebar,
@@ -68,6 +68,11 @@ const data = {
       title: "Consolidación Capital",
       key: "consolidacion",
       icon: PiggyBank,
+    },
+    {
+      title: "Gastos Fijos",
+      key: "gastosfijos", 
+      icon: TrendingDown, 
     },
     {
       title: "Volantes",

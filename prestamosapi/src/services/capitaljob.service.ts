@@ -34,6 +34,7 @@ export const checkAndCreateConsolidation = async () => {
 
     // 2. LÓGICA DE CIERRE: Solo si es día 8 o día 23
     if (diaActual === 8 || diaActual === 23) {
+    //if (true) {
         
         const ultimaConsolidacion = await getUltimaConsolidacionCerrada();
         
@@ -42,10 +43,12 @@ export const checkAndCreateConsolidation = async () => {
             ? (ultimaConsolidacion.CapitalEntrante - ultimaConsolidacion.CapitalSaliente)
             : 0; 
             
+        // DETERMINAR TIPO Y MONTO ABSOLUTO
+        
         // 3. Crear el período de la nueva Consolidación
         // La FechaFin se define como 7 (si estamos en el 8) o 22 (si estamos en el 23) del mes siguiente
         const fechaInicioNueva = hoy.toISOString();
-        const fechaFinNueva = new Date(hoy.getFullYear(), hoy.getMonth() + (diaActual === 8 ? 0 : 1), (diaActual === 8 ? 22 : 7)).toISOString(); // Lógica temporal para un rango
+        const fechaFinNueva = new Date(hoy.getFullYear(), hoy.getMonth() + (diaActual === 8 ? 0 : 1), (diaActual === 23 ? 22 : 7)).toISOString(); // Lógica temporal para un rango
 
         const nuevaConsolidacion = {
             FechaInicio: fechaInicioNueva,
@@ -70,14 +73,12 @@ export const checkAndCreateConsolidation = async () => {
         // 5. Crear el REGISTRO de Capital Cierre
         if (capitalCierre !== 0) {
             await registroConsolidacionService.createRegistroConsolidacionService({
-                // NOTA: Tuvimos que modificar tu servicio createRegistroConsolidacionService para que no busque el ID
-                // Ya que aquí lo estamos proporcionando manualmente
                 IdConsolidacion: consolidacionCreada.IdConsolidacion, 
                 FechaRegistro: hoy.toISOString(),
-                TipoRegistro: "Ingreso", 
+                TipoRegistro: "Ingreso", // <-- Usar el tipo determinado
                 Estado: "Depositado",
                 Descripcion: "Capital Cierre (Transferencia automática de período anterior)",
-                Monto: capitalCierre,
+                Monto: capitalCierre, // <-- Usar el valor absoluto
             });
         }
 
