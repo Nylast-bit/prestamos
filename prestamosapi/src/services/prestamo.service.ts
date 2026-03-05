@@ -1,4 +1,5 @@
 import { supabase } from "../config/supabaseClient";
+import * as capitalJobService from './capitaljob.service'; 
 
 // --- INTERFACES ---
 interface CreatePrestamoData {
@@ -29,8 +30,8 @@ interface CreatePrestamoData {
 export const createPrestamoService = async (data: CreatePrestamoData) => {
   const hoy = new Date().toISOString();
 
-  // 1. Validar Caja
-  const { data: consolidacion } = await supabase
+  // 1. INTENTAR OBTENER CAJA ABIERTA
+  let { data: consolidacion } = await supabase
     .from("ConsolidacionCapital")
     .select("IdConsolidacion")
     .lte("FechaInicio", hoy)
@@ -39,7 +40,26 @@ export const createPrestamoService = async (data: CreatePrestamoData) => {
     .limit(1)
     .maybeSingle();
 
-  if (!consolidacion) throw new Error("No existe una consolidación activa (Caja Cerrada).");
+  // 🚨 PLAN DE EMERGENCIA: SI NO HAY CAJA, LA CREAMOS AHORA MISMO
+  if (!consolidacion) {
+      console.log("⚠️ Caja cerrada detectada al crear préstamo. Ejecutando apertura de emergencia...");
+      try {
+          // Llamamos al servicio que creamos antes
+          const nuevaCaja = await capitalJobService.checkAndCreateConsolidation();
+          
+          if (nuevaCaja && nuevaCaja.IdConsolidacion) {
+              consolidacion = { IdConsolidacion: nuevaCaja.IdConsolidacion };
+              console.log("✅ Caja de emergencia creada y asignada.");
+          }
+      } catch (e) {
+          console.error("❌ Falló la apertura de emergencia:", e);
+      }
+  }
+
+  // Si después del intento sigue sin haber consolidación, ahí sí lanzamos error
+  if (!consolidacion) {
+    throw new Error("ERROR CRÍTICO: No se pudo abrir la caja del día automáticamente. Verifica el sistema.");
+  }
 
   // 2. Obtener Cliente
   const { data: cliente } = await supabase
@@ -59,7 +79,7 @@ export const createPrestamoService = async (data: CreatePrestamoData) => {
 
   if (errorPrestamo) throw new Error(errorPrestamo.message);
 
-  // 4. Registrar Salida de dinero
+  // 4. Registrar Salida de dinero (Egreso)
   const { error: errorRegistro } = await supabase
     .from("RegistroConsolidacion")
     .insert({
@@ -165,55 +185,52 @@ export const simularPrestamoService = (params: {
   let totalPagar = 0;
 
   if (tipoCalculo === "amortizable") {
-    // Sistema Francés
-    // Cuota = P * (i * (1+i)^n) / ((1+i)^n - 1)
     const i = tasaInteres / 100;
-    const n = numeroCuotas;
-    
-    // Evitar división por cero si tasa es 0
     if (i === 0) {
-        montoCuota = monto / n;
+        montoCuota = monto / numeroCuotas;
     } else {
-        montoCuota = monto * ( (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1) );
+        montoCuota = monto * ( (i * Math.pow(1 + i, numeroCuotas)) / (Math.pow(1 + i, numeroCuotas) - 1) );
     }
 
     let saldo = monto;
-    totalPagar = montoCuota * n;
+    totalPagar = montoCuota * numeroCuotas;
     totalInteres = totalPagar - monto;
 
-    for (let j = 1; j <= n; j++) {
+    for (let j = 1; j <= numeroCuotas; j++) {
       const interesPeriodo = saldo * i;
       const capitalPeriodo = montoCuota - interesPeriodo;
-      saldo -= capitalPeriodo;
       
+      let nuevoSaldo = saldo - capitalPeriodo;
+      if (j === numeroCuotas) nuevoSaldo = 0; // Ajuste final
+
       cuotas.push({
         numeroCuota: j,
-        cuota: montoCuota,
-        interes: interesPeriodo,
-        capital: capitalPeriodo,
-        saldo: saldo > 0 ? saldo : 0
+        cuota: Number(montoCuota.toFixed(2)),
+        interes: Number(interesPeriodo.toFixed(2)),
+        capital: Number(capitalPeriodo.toFixed(2)),
+        saldo: nuevoSaldo > 0 ? Number(nuevoSaldo.toFixed(2)) : 0
       });
+      saldo = nuevoSaldo;
     }
 
   } else {
-    // Capital + Interés (Flat)
-    // Interés fijo mensual sobre el capital inicial
-    const interesMensual = monto * (tasaInteres / 100);
-    const capitalMensual = monto / numeroCuotas;
-    montoCuota = capitalMensual + interesMensual;
+    // FLAT
+    const interesPorCuota = monto * (tasaInteres / 100);
+    const capitalPorCuota = monto / numeroCuotas;
+    montoCuota = capitalPorCuota + interesPorCuota;
     
-    totalInteres = interesMensual * numeroCuotas;
+    totalInteres = interesPorCuota * numeroCuotas;
     totalPagar = monto + totalInteres;
 
     let saldo = monto;
     for (let j = 1; j <= numeroCuotas; j++) {
-      saldo -= capitalMensual;
+      saldo -= capitalPorCuota;
       cuotas.push({
         numeroCuota: j,
-        cuota: montoCuota,
-        interes: interesMensual,
-        capital: capitalMensual,
-        saldo: saldo > 0 ? saldo : 0
+        cuota: Number(montoCuota.toFixed(2)),
+        interes: Number(interesPorCuota.toFixed(2)),
+        capital: Number(capitalPorCuota.toFixed(2)),
+        saldo: saldo > 0 ? Number(saldo.toFixed(2)) : 0
       });
     }
   }
@@ -321,4 +338,18 @@ export const obtenerRangoCuotasService = (params: { monto: number, numeroCuotas:
         cuotaMinima: Number(cuotaMinima.toFixed(2)),
         cuotaMaximaSugerida: Number(cuotaMaximaSugerida.toFixed(2))
     };
+};
+
+export const countPrestamosActivosByPrestatarioService = async (idPrestatario: number) => {
+  const { count, error } = await supabase
+    .from("Prestamo")
+    .select("*", { count: "exact", head: true }) // 'head: true' significa "solo dame el número, no los datos"
+    .eq("IdPrestatario", idPrestatario)
+    .eq("Estado", "Activo"); // O el estado que uses para definir 'Activo'
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return count || 0;
 };

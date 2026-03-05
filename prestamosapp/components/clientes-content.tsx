@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,9 +9,10 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, Loader2 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
+// Actualizamos la interfaz para coincidir con el servicio del backend
 interface Cliente {
   IdCliente: number
   Nombre: string
@@ -21,10 +21,10 @@ interface Cliente {
   Email: string
   Direccion: string
   FechaRegistro: string
-  prestamosActivos?: number
+  cantidadPrestamosActivos?: number // <--- Nombre actualizado según tu servicio
 }
 
-let API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
 export function ClientesContent() {
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -36,6 +36,7 @@ export function ClientesContent() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [clienteToDelete, setClienteToDelete] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  
   const [formData, setFormData] = useState({
     Nombre: "",
     Cedula: "",
@@ -66,7 +67,7 @@ export function ClientesContent() {
   const filteredClientes = clientes.filter(cliente =>
     cliente.Nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cliente.Cedula.includes(searchTerm) ||
-    cliente.Email.toLowerCase().includes(searchTerm.toLowerCase())
+    (cliente.Email && cliente.Email.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,38 +79,30 @@ export function ClientesContent() {
         // Actualizar cliente existente
         const response = await fetch(`${API_BASE_URL}/api/clientes/${editingCliente.IdCliente}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         })
         
         if (!response.ok) {
-          const errorData = await response.json()
+          const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
           throw new Error(errorData.message || 'Error al actualizar cliente')
         }
         
-        // Recargar la lista de clientes
         await fetchClientes()
-        alert('Cliente actualizado exitosamente')
       } else {
         // Crear nuevo cliente
         const response = await fetch(`${API_BASE_URL}/api/clientes`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
         })
         
         if (!response.ok) {
-          const errorData = await response.json()
+          const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
           throw new Error(errorData.message || 'Error al crear cliente')
         }
         
-        // Recargar la lista de clientes
         await fetchClientes()
-        alert('Cliente creado exitosamente')
       }
       
       resetForm()
@@ -158,13 +151,11 @@ export function ClientesContent() {
       })
       
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
         throw new Error(errorData.message || 'Error al eliminar cliente')
       }
       
-      // Recargar la lista de clientes
       await fetchClientes()
-      alert('Cliente eliminado exitosamente')
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Error al eliminar cliente')
     } finally {
@@ -173,74 +164,85 @@ export function ClientesContent() {
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64">Cargando clientes...</div>
+  // Cálculos para las tarjetas
+  const totalClientes = clientes.length;
+  const clientesActivos = clientes.filter(c => (c.cantidadPrestamosActivos || 0) > 0).length;
+  const porcentajeActivos = totalClientes > 0 ? Math.round((clientesActivos / totalClientes) * 100) : 0;
+
+  if (loading) return (
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin mb-2" />
+          <p>Cargando clientes...</p>
+      </div>
+  )
+
   if (error) return <div className="flex items-center justify-center h-64 text-red-600">Error: {error}</div>
 
   return (
     <div className="space-y-6">
       {/* Header con estadísticas */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-l-4 border-l-[#213685]">
+        <Card className="border-l-4 border-l-[#213685] shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clientes</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Clientes</CardTitle>
             <User className="h-4 w-4 text-[#213685]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#213685]">{clientes.length}</div>
-            <p className="text-xs text-muted-foreground">
-              +2 este mes
-            </p>
+            <div className="text-2xl font-bold text-[#213685]">{totalClientes}</div>
+            <p className="text-xs text-muted-foreground">Registrados en el sistema</p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-green-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clientes Activos</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Clientes Activos</CardTitle>
             <User className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {clientes.filter(c => c.prestamosActivos && c.prestamosActivos > 0).length}
+              {clientesActivos}
             </div>
             <p className="text-xs text-muted-foreground">
-              {clientes.length > 0 ? Math.round((clientes.filter(c => c.prestamosActivos && c.prestamosActivos > 0).length / clientes.length) * 100) : 0}% del total
+              {porcentajeActivos}% del total
             </p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Con Préstamos</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Con Préstamos</CardTitle>
             <User className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {clientes.filter(c => c.prestamosActivos && c.prestamosActivos > 0).length}
+              {clientesActivos}
             </div>
             <p className="text-xs text-muted-foreground">
-              Clientes con préstamos activos
+              Tienen deuda pendiente
             </p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="border-l-4 border-l-orange-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nuevos Este Mes</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Sin Préstamos</CardTitle>
             <User className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">2</div>
+            <div className="text-2xl font-bold text-orange-600">
+                {totalClientes - clientesActivos}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Registrados en enero
+              Disponibles para ofrecer crédito
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Barra de búsqueda y botón nuevo */}
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <CardTitle>Gestión de Clientes</CardTitle>
               <CardDescription>
@@ -249,7 +251,7 @@ export function ClientesContent() {
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-[#213685] hover:bg-[#213685]/90">
+                <Button className="bg-[#213685] hover:bg-[#213685]/90 w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Nuevo Cliente
                 </Button>
@@ -327,7 +329,8 @@ export function ClientesContent() {
                       Cancelar
                     </Button>
                     <Button type="submit" className="bg-[#213685] hover:bg-[#213685]/90" disabled={submitting}>
-                      {submitting ? "Guardando..." : (editingCliente ? "Actualizar" : "Crear")} Cliente
+                      {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {submitting ? "Guardando..." : (editingCliente ? "Actualizar" : "Crear")}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -336,20 +339,21 @@ export function ClientesContent() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
+          <div className="flex items-center space-x-2 mb-4 bg-gray-50 p-2 rounded-md border">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nombre, cédula o email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
+              className="max-w-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
           
           <div className="rounded-md border">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-gray-50">
+                  <TableHead>ID</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Contacto</TableHead>
                   <TableHead>Cédula</TableHead>
@@ -362,71 +366,81 @@ export function ClientesContent() {
               <TableBody>
                 {filteredClientes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No se encontraron clientes
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredClientes.map((cliente) => (
-                    <TableRow key={cliente.IdCliente}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{cliente.Nombre}</div>
-                          <div className="text-sm text-muted-foreground flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {cliente.Direccion.substring(0, 30)}...
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="text-sm flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {cliente.Telefono}
-                          </div>
-                          <div className="text-sm flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            {cliente.Email}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{cliente.Cedula}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={cliente.prestamosActivos && cliente.prestamosActivos > 0 ? "default" : "secondary"}
-                          className={cliente.prestamosActivos && cliente.prestamosActivos > 0 ? "bg-[#213685]" : ""}
-                        >
-                          {cliente.prestamosActivos && cliente.prestamosActivos > 0 ? "Activo" : "Inactivo"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {cliente.prestamosActivos || 0} activos
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{cliente.FechaRegistro}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(cliente)}
-                            className="hover:bg-[#213685]/10"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => confirmDelete(cliente.IdCliente)}
-                            className="hover:bg-red-50 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredClientes.map((cliente) => {
+                    const tienePrestamos = (cliente.cantidadPrestamosActivos || 0) > 0;
+                    return (
+                        <TableRow key={cliente.IdCliente} className="hover:bg-gray-50/50">
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                            {cliente.IdCliente}
+                        </TableCell>
+                        <TableCell>
+                            <div>
+                            <div className="font-medium text-gray-900">{cliente.Nombre}</div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <MapPin className="h-3 w-3" />
+                                <span className="truncate max-w-[200px]">{cliente.Direccion}</span>
+                            </div>
+                            </div>
+                        </TableCell>
+                        <TableCell>
+                            <div className="space-y-1">
+                            <div className="text-sm flex items-center gap-1.5 text-gray-600">
+                                <Phone className="h-3.5 w-3.5 text-gray-400" />
+                                {cliente.Telefono}
+                            </div>
+                            <div className="text-sm flex items-center gap-1.5 text-gray-600">
+                                <Mail className="h-3.5 w-3.5 text-gray-400" />
+                                {cliente.Email}
+                            </div>
+                            </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-700">{cliente.Cedula}</TableCell>
+                        <TableCell>
+                            <Badge 
+                            variant={tienePrestamos ? "default" : "secondary"}
+                            className={tienePrestamos 
+                                ? "bg-green-100 text-green-700 hover:bg-green-200 border-green-200" 
+                                : "bg-gray-100 text-gray-500 hover:bg-gray-200 border-gray-200"}
+                            >
+                            {tienePrestamos ? "Activo" : "Sin Deuda"}
+                            </Badge>
+                        </TableCell>
+                        <TableCell>
+                            <Badge variant="outline" className="font-mono">
+                            {cliente.cantidadPrestamosActivos || 0} activos
+                            </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                            {new Date(cliente.FechaRegistro).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(cliente)}
+                                className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600"
+                            >
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => confirmDelete(cliente.IdCliente)}
+                                className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                            </div>
+                        </TableCell>
+                        </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
@@ -440,7 +454,11 @@ export function ClientesContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El cliente será eliminado permanentemente de la base de datos.
+              Esta acción no se puede deshacer. El cliente será eliminado permanentemente.
+              <br/>
+              <span className="text-red-600 font-semibold text-xs mt-2 block">
+                Si el cliente tiene préstamos asociados, elimínalos primero.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

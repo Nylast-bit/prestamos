@@ -6,36 +6,46 @@ import {
   getProximaCuota,
   updatePago,
   deletePago,
-} from "../controllers/pago.controller"; // Verifica si tu archivo es 'pago.controller' o 'pagos.controller'
+  getHistorialPagos
+} from "../controllers/pago.controller";
 import { validate } from "../middlewares/validate";
-// Asegúrate de tener estos esquemas creados (te dejo el código abajo por si acaso)
 import { pagoSchema, pagoAutomaticoSchema } from "../validators/pago.validator";
 
 const router = Router();
 
-// --- RUTAS DE CONSULTA ---
+// ==========================================
+// RUTAS DE CONSULTA (GET)
+// ==========================================
 
-// Obtener todos los pagos del sistema
+// 1. Obtener todos los pagos
 router.get("/", getAllPagos);
 
-// Obtener información de la próxima cuota de un préstamo
-// 🚨 CAMBIO: Método GET y parámetro :IdPrestamo explícito
+// 2. Rutas ESPECÍFICAS (Deben ir antes de las genéricas con :id)
+// Obtener historial completo de un préstamo (para la tabla clickable)
+// URL Final: /api/pagos/historial/:id
+router.get("/historial/:id", getHistorialPagos);
+
+// Obtener información de la próxima cuota
+// URL Final: /api/pagos/proxima-cuota/:IdPrestamo
 router.get("/proxima-cuota/:IdPrestamo", getProximaCuota);
 
-// Obtener un pago específico por su ID
+// 3. Ruta GENÉRICA (Debe ir al final de los GETs)
+// Obtener un pago específico por su ID de pago
+// URL Final: /api/pagos/:id
 router.get("/:id", getPagoById);
 
 
-// --- RUTAS DE ACCIÓN ---
+// ==========================================
+// RUTAS DE ACCIÓN (POST, PUT, DELETE)
+// ==========================================
 
 // Registrar un nuevo pago (Cobrar)
-// Usa el esquema 'pagoAutomaticoSchema' que valida IdPrestamo, Monto y TipoPago
 router.post("/", validate(pagoAutomaticoSchema), createPago);
 
-// Actualizar un pago (Corrección de errores)
+// Actualizar un pago
 router.put("/:id", validate(pagoSchema.partial()), updatePago); 
 
-// Eliminar un pago (Reversión)
+// Eliminar un pago
 router.delete("/:id", deletePago);
 
 export default router;

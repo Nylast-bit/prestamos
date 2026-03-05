@@ -2,7 +2,6 @@
 import cors from "cors";
 import { errorHandler } from "./middlewares/errorHandler";
 import express, { Request, Response } from 'express';
-import routes from "./routes";
 import prestamoRoutes from "./routes/prestamo.routes";
 import clienteRoutes from "./routes/cliente.routes";
 import prestatarioRoutes from "./routes/prestatario.routes";
@@ -21,7 +20,6 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-app.use("/api", routes);
 app.use("/api/prestamos", prestamoRoutes);
 app.use("/api/prestatarios", prestatarioRoutes);
 app.use("/api/clientes", clienteRoutes);

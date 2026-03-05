@@ -1,43 +1,139 @@
 import { supabase } from "../config/supabaseClient";
 
-// ... (Tu interfaz CreatePagoData y createPagoService se quedan igual que antes) ...
+
+// Asegúrate de importar el servicio de consolidación desde la ruta correcta
+import { createRegistroConsolidacionService } from "./registroconsolidacion.service";
+
 
 export const createPagoService = async (data: any) => {
-    // ... (El código de createPagoService que ya tenías) ...
-    // Si necesitas que te lo ponga completo otra vez, avísame.
-    // Aquí asumo que ya lo tienes del mensaje anterior.
-    // Pego solo lo NUEVO abajo:
-    const { IdPrestamo, MontoPagado, TipoPago, Observaciones } = data;
-    const hoy = new Date().toISOString();
+  const { 
+      IdPrestamo, 
+      MontoPagado, 
+      TipoPago, 
+      Observaciones, 
+      MontoInteresPagado, 
+      MontoCapitalAbonado, 
+      NumeroCuota 
+  } = data;
 
-    // ... Lógica de validación de caja y prestamo ...
-    // (Resumido para no hacer spam de código repetido, mantén tu lógica de createPagoService aquí)
-    
-    // NOTA: Si no tienes el código anterior a mano, dímelo y te paso el archivo entero.
-    // Por ahora voy a simular que el createPagoService existe arriba y agrego los nuevos:
-    
-    // --- ESTO ES LO QUE FALTA EN TU CÓDIGO ANTERIOR ---
-    return { mensaje: "Pago creado (Logica resumida)" }; 
+  console.log("--- INICIANDO SERVICIO DE PAGO ---");
+
+  // 1. OBTENER INFO DEL PRÉSTAMO
+  const { data: prestamo, error: errorPrestamo } = await supabase
+    .from("Prestamo")
+    .select("*")
+    .eq("IdPrestamo", IdPrestamo)
+    .single();
+
+  if (errorPrestamo || !prestamo) {
+      throw new Error(`Préstamo no encontrado (ID: ${IdPrestamo})`);
+  }
+
+  // 2. 🔍 OBTENER NOMBRE DEL CLIENTE REAL (CORREGIDO)
+  let nombreCliente = "Cliente Desconocido";
+
+  if (prestamo.IdCliente) {
+      // SOLO PEDIMOS "Nombre", porque "Apellido" NO EXISTE en tu tabla
+      const { data: clienteData, error: errorCliente } = await supabase
+          .from("Cliente")
+          .select("Nombre") 
+          .eq("IdCliente", prestamo.IdCliente)
+          .single();
+      
+      if (errorCliente) {
+          console.error("⚠️ Error buscando cliente:", errorCliente.message);
+      } 
+      
+      if (clienteData) {
+          // Asignamos directamente el nombre
+          nombreCliente = clienteData.Nombre || "Sin Nombre";
+      }
+  }
+
+  console.log(`👤 Cliente identificado: ${nombreCliente}`);
+
+  // 3. CÁLCULOS LÓGICOS (Igual que antes)
+  const cuotasPrevias = prestamo.CuotasRestantes;
+  const nuevasCuotas = cuotasPrevias - 1;
+  const cuotasParaGuardar = nuevasCuotas < 0 ? 0 : nuevasCuotas;
+  
+  const numeroCuotaReal = NumeroCuota || ((prestamo.CantidadCuotas - cuotasPrevias) + 1);
+
+  let nuevoEstado = prestamo.Estado;
+  if (cuotasParaGuardar === 0) nuevoEstado = 'Pagado';
+
+  // 4. INSERTAR EL PAGO (Igual que antes)
+  const { data: pagoRegistrado, error: errorPago } = await supabase
+    .from("Pago")
+    .insert([{
+      IdPrestamo,
+      MontoPagado,
+      TipoPago,
+      Observaciones,
+      FechaPago: new Date(),
+      NumeroCuota: numeroCuotaReal,
+      MontoInteresPagado,
+      MontoCapitalAbonado,
+      CuotasRestantes: cuotasParaGuardar 
+    }])
+    .select()
+    .single();
+
+  if (errorPago) throw new Error("Error DB Pago: " + errorPago.message);
+
+  // 5. ACTUALIZAR EL PRÉSTAMO (Igual que antes)
+  const { error: errorUpdate } = await supabase
+    .from("Prestamo")
+    .update({
+      CuotasRestantes: cuotasParaGuardar,
+      Estado: nuevoEstado,
+      FechaUltimoPago: new Date()
+    })
+    .eq("IdPrestamo", IdPrestamo);
+
+  if (errorUpdate) throw new Error("Error update préstamo: " + errorUpdate.message);
+
+  // 6. REGISTRO EN CONSOLIDACIÓN
+  try {
+      await createRegistroConsolidacionService({
+          IdPago: pagoRegistrado.IdPago, 
+          Monto: Number(MontoPagado),
+          TipoRegistro: "Ingreso",
+          Estado: "Pendiente",
+          Descripcion: `Pago #${numeroCuotaReal} de ${nombreCliente}`,
+          FechaRegistro: new Date()
+      });
+      console.log("✅ Registro de consolidación creado exitosamente.");
+  } catch (errorConsolidacion: any) {
+      console.error("⚠️ Alerta consolidación:", errorConsolidacion.message);
+  }
+
+  return { pago: pagoRegistrado, nuevoEstado };
 };
-
 
 // 1. Obtener todos los pagos
 export const getAllPagosService = async () => {
+  // Aquí está la magia. Pedimos el Pago, el Préstamo asociado, y el Cliente de ese préstamo.
   const { data, error } = await supabase
     .from("Pago")
     .select(`
       *,
       Prestamo (
         IdPrestamo,
-        Cliente (Nombre)
+        Cliente (
+          Nombre
+        )
       )
     `)
-    .order("FechaPago", { ascending: false });
+    .order('FechaPago', { ascending: false }); // Ordenamos del más reciente al más viejo
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("Error Supabase getAllPagos:", error);
+    throw new Error(error.message);
+  }
+  
   return data;
 };
-
 // 2. Obtener un pago por ID
 export const getPagoByIdService = async (id: number) => {
   const { data, error } = await supabase
@@ -76,14 +172,66 @@ export const getProximaCuotaService = async (idPrestamo: number) => {
 };
 
 // 4. Eliminar Pago (Cuidado: esto debería revertir saldo, por ahora solo borra)
-export const deletePagoService = async (id: number) => {
-  const { error } = await supabase
-    .from("Pago")
-    .delete()
-    .eq("IdPago", id);
+export const deletePagoService = async (idPago: number) => {
+    console.log(`--- INICIANDO REVERSIÓN DEL PAGO #${idPago} ---`);
 
-  if (error) throw new Error(error.message);
-  return true;
+    // 1. OBTENER DATOS DEL PAGO ANTES DE BORRARLO
+    const { data: pago, error: errorPago } = await supabase
+        .from("Pago")
+        .select("IdPrestamo, MontoPagado")
+        .eq("IdPago", idPago)
+        .single();
+
+    if (errorPago || !pago) {
+        throw new Error("No se encontró el pago original para revertir.");
+    }
+
+    // 2. OBTENER EL PRÉSTAMO ACTUAL
+    const { data: prestamo, error: errorPrestamo } = await supabase
+        .from("Prestamo")
+        .select("CuotasRestantes, Estado")
+        .eq("IdPrestamo", pago.IdPrestamo)
+        .single();
+
+    if (errorPrestamo || !prestamo) {
+        throw new Error("No se encontró el préstamo asociado a este pago.");
+    }
+
+    // 3. CÁLCULO DE REVERSIÓN
+    // Le devolvemos la cuota que había pagado
+    const nuevasCuotas = prestamo.CuotasRestantes + 1;
+    // Si estaba "Pagado", lo revivimos a "Activo"
+    const nuevoEstado = prestamo.Estado === 'Pagado' ? 'Activo' : prestamo.Estado;
+
+    console.log(`Revertiendo Préstamo #${pago.IdPrestamo}: Cuotas subirán a ${nuevasCuotas}, Estado será ${nuevoEstado}`);
+
+    // 4. ACTUALIZAR EL PRÉSTAMO
+    const { error: errorUpdate } = await supabase
+        .from("Prestamo")
+        .update({
+            CuotasRestantes: nuevasCuotas,
+            Estado: nuevoEstado
+            // Opcional: podrías poner la FechaUltimoPago en null, pero mejor dejarla quieta
+        })
+        .eq("IdPrestamo", pago.IdPrestamo);
+
+    if (errorUpdate) {
+        throw new Error("Error restaurando las cuotas del préstamo: " + errorUpdate.message);
+    }
+
+    // 5. BORRAR EL PAGO (🔥 El ON DELETE CASCADE borrará la consolidación automáticamente)
+    const { error: errorDelete } = await supabase
+        .from("Pago")
+        .delete()
+        .eq("IdPago", idPago);
+
+    if (errorDelete) {
+        // En caso raro de fallo, habría que revisar a mano, pero con Supabase es casi atómico.
+        throw new Error("Error al eliminar el registro del pago: " + errorDelete.message);
+    }
+
+    console.log("--- REVERSIÓN COMPLETADA CON ÉXITO ---");
+    return true;
 };
 
 // 5. Actualizar Pago (Básico - Solo observaciones o tipo)

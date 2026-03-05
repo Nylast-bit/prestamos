@@ -26,41 +26,73 @@ export const createPrestatarioService = async (data: PrestatarioData) => {
 
 // --- OBTENER TODOS ---
 export const getAllPrestatariosService = async () => {
-  const { data: lista, error } = await supabase
+  // 1. Hacemos el select incluyendo la relación Prestamo
+  const { data, error } = await supabase
     .from("Prestatario")
-    .select("*");
+    .select(`
+      *,
+      Prestamo (
+        Estado
+      )
+    `)
+    .order('IdPrestatario', { ascending: true }); // Ordenar para que la tabla no brinque
 
   if (error) {
     console.error("Error en getAllPrestatariosService:", error.message);
     throw new Error("Error obteniendo prestatarios: " + error.message);
   }
-  return lista;
+
+  // 2. Transformamos la data para agregar el campo "cantidadActivos"
+  // Supabase nos devuelve: { Nombre: "Juan", Prestamo: [{Estado: "Activo"}, {Estado: "Pagado"}] }
+  // Nosotros queremos: { Nombre: "Juan", cantidadActivos: 1 }
+  
+  const listaFormateada = data.map((prestatario: any) => {
+      // Filtramos solo los que están "Activo" (o el estado que uses)
+      const prestamosActivos = prestatario.Prestamo?.filter((p: any) => p.Estado === 'Activo') || [];
+      
+      return {
+          ...prestatario,
+          cantidadActivos: prestamosActivos.length, // Aquí está el número mágico
+          // Opcional: Si no quieres ensuciar el objeto con el array de préstamos, puedes borrarlo:
+          // Prestamo: undefined 
+      };
+  });
+
+  return listaFormateada;
 };
 
-// --- OBTENER POR ID ---
+// --- OBTENER POR ID (Con conteo de activos) ---
 export const getPrestatarioByIdService = async (id: number) => {
   const { data: prestatario, error } = await supabase
     .from("Prestatario")
-    .select("*")
+    .select(`
+      *,
+      Prestamo (
+        Estado
+      )
+    `)
     .eq("IdPrestatario", id)
     .single();
 
   if (error) {
-    // Si es un error de PostgREST, lo lanzamos.
     if (error.code !== 'PGRST116') { 
         console.error("Error buscando prestatario:", error.message);
         throw new Error("Error buscando prestatario: " + error.message);
     }
   }
   
-  // Si no se encontró el registro (el resultado de .single() es null sin error PGRST116)
   if (!prestatario) {
     throw new Error("Prestatario no encontrado");
   }
 
-  return prestatario;
-};
+  // Hacemos el mismo cálculo para el detalle individual
+  const prestamosActivos = prestatario.Prestamo?.filter((p: any) => p.Estado === 'Activo') || [];
 
+  return {
+      ...prestatario,
+      cantidadActivos: prestamosActivos.length
+  };
+};
 // --- ACTUALIZAR ---
 export const updatePrestatarioService = async (id: number, data: PrestatarioData) => {
   const { data: updated, error } = await supabase

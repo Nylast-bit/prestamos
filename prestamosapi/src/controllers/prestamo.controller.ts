@@ -262,4 +262,23 @@ export const obtenerRangoCuotas = async (req: Request, res: Response) => {
 };
 
 
+export const getPrestamosActivosCount = async (req: Request, res: Response) => {
+  try {
+    const { idPrestatario } = req.params;
+
+    if (!idPrestatario) {
+      return res.status(400).json({ error: "El ID del prestatario es obligatorio" });
+    }
+
+    const cantidad = await prestamoService.countPrestamosActivosByPrestatarioService(Number(idPrestatario));
+
+    res.json({ 
+        idPrestatario: Number(idPrestatario),
+        cantidadActivos: cantidad 
+    });
+
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
         

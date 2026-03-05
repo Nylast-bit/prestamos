@@ -1,17 +1,19 @@
 // src/services/registroConsolidacion.service.ts
 import { supabase } from "../config/supabaseClient";
+import {  getConsolidacionActivaId } from "./consolidacioncapital.service";
 import { z } from "zod"; // Se usa para inferir tipos si es necesario
 // Asumo que el schema se importa desde el validador, aunque no lo necesitemos aquí
 // import { registroConsolidacionSchema } from "../validators/registroconsolidacion.validator"; 
 
 // Nota: Esta interfaz se infiere del cuerpo de datos de tu controlador
 interface RegistroConsolidacionData {
-  IdConsolidacion?: number;
-  FechaRegistro?: string | Date;
-  TipoRegistro: string;
-  Estado: string;
-  Descripcion: string;
-  Monto: number;
+    IdConsolidacion?: number;
+    FechaRegistro?: string | Date;
+    TipoRegistro: string;
+    Estado: string;
+    Descripcion: string;
+    Monto: number;
+    IdPago?: number;
 }
 
 
@@ -48,28 +50,6 @@ const checkConsolidacionExists = async (id: number) => {
  * @param {string} fechaRegistro - La fecha que debe estar dentro del rango de consolidación.
  * @returns {number} El IdConsolidacion activo.
  */
-const getConsolidacionActivaId = async (fechaRegistro: string): Promise<number> => {
-    
-    // 1. Buscamos la Consolidación donde FechaRegistro >= FechaInicio AND FechaRegistro <= FechaFin
-    const { data: consolidacion, error } = await supabase
-        .from("ConsolidacionCapital")
-        .select("IdConsolidacion") 
-        .lte("FechaInicio", fechaRegistro)   
-        .gte("FechaFin", fechaRegistro)      
-        .order('FechaGeneracion', { ascending: false }) // 🚨 AÑADIMOS ORDEN 🚨
-        .limit(1)                                     // 🚨 AÑADIMOS LÍMITE 🚨
-        .maybeSingle(); // Ahora esto es seguro
-
-    if (error) {
-        throw new Error(`Error de BBDD al buscar consolidación activa: ${error.message}`);
-    }
-
-    if (!consolidacion) {
-        throw new Error("No existe una consolidación activa que cubra la fecha de hoy.");
-    }
-
-    return consolidacion.IdConsolidacion;
-};
 
 
 // --- CREAR REGISTRO (MODIFICADO) ---
@@ -113,6 +93,7 @@ export const createRegistroConsolidacionService = async (data: RegistroConsolida
             Estado: data.Estado,
             Descripcion: data.Descripcion,
             Monto: data.Monto,
+            IdPago: data.IdPago || null
         })
         .select()
         .single();

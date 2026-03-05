@@ -10,6 +10,8 @@ import { PrestatariosContent } from "@/components/prestatarios-content"
 import { ConsolidacionContent } from "@/components/consolidacion-content"
 import { ConfiguracionContent } from "@/components/configuracion-content"
 import { GastoFijoContent } from "@/components/gastofijo-content"
+import { SolicitudesContent } from "@/components/solicitudes-content"
+import { PagosContent } from "@/components/pago-content"
 
 export default function Page() {
   const [activeSection, setActiveSection] = useState("dashboard")
@@ -17,7 +19,7 @@ export default function Page() {
   const renderContent = () => {
     switch (activeSection) {
       case "dashboard":
-        return <DashboardContent />
+        return <DashboardContent onNavigate={setActiveSection} />
       case "clientes":
         return <ClientesContent />
       case "prestatarios":
@@ -26,12 +28,18 @@ export default function Page() {
         return <PrestamosContent />
       case "consolidacion":
         return <ConsolidacionContent />
+      case "pagos":
+        return <PagosContent />
+
+      case "solicitudes":
+        return <SolicitudesContent />
       case "gastosfijos":
         return <GastoFijoContent />
       case "configuracion":
         return <ConfiguracionContent />
       default:
-        return <DashboardContent />
+                return <DashboardContent onNavigate={setActiveSection} />
+
     }
   }
 

@@ -1,9 +1,21 @@
+// 📄 ARCHIVO: components/prestamo-simulation-dialog.tsx
+
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { DollarSign, TrendingUp, Wallet, Calculator, CalendarClock } from 'lucide-react'
+
+// Helper para formato de dinero exacto
+const formatMoney = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+};
 
 export function PrestamoSimulationDialog({ 
   isOpen, 
@@ -17,14 +29,8 @@ export function PrestamoSimulationDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      {/* FIX SCROLL: 
-         - max-h-[90vh]: Limita la altura al 90% de la pantalla.
-         - flex flex-col: Organiza los hijos verticalmente.
-         - overflow-hidden: Evita que aparezca scroll en el contenedor principal.
-      */}
       <DialogContent className="sm:max-w-[900px] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         
-        {/* HEADER LIMPIO (Sin banner azul) */}
         <DialogHeader className="px-6 py-4 border-b bg-white">
             <div className="flex items-center justify-between">
                 <div>
@@ -42,21 +48,16 @@ export function PrestamoSimulationDialog({
             </div>
         </DialogHeader>
 
-        {/* CUERPO SCROLEABLE 
-           - flex-1: Ocupa todo el espacio disponible restante.
-           - overflow-y-auto: Solo esta parte tendrá scroll si es muy larga.
-        */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30">
             
-            {/* 1. SECCIÓN DE KPI (Tarjetas) */}
+            {/* KPI CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Monto Prestado */}
                 <Card className="shadow-sm">
                     <CardContent className="p-4 flex items-center justify-between">
                         <div>
                             <p className="text-xs font-medium text-muted-foreground uppercase">Monto Prestado</p>
                             <p className="text-xl font-bold text-gray-900 mt-1">
-                                ${resumen.montoSolicitado.toLocaleString()}
+                                {formatMoney(resumen.montoSolicitado)}
                             </p>
                         </div>
                         <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -65,14 +66,13 @@ export function PrestamoSimulationDialog({
                     </CardContent>
                 </Card>
 
-                {/* Interés (Ganancia) */}
                 <Card className="shadow-sm">
                     <CardContent className="p-4 flex items-center justify-between">
                         <div>
                             <p className="text-xs font-medium text-muted-foreground uppercase">Interés Total</p>
                             <div className="flex items-baseline gap-2 mt-1">
                                 <p className="text-xl font-bold text-orange-600">
-                                    ${resumen.montoTotalInteres.toLocaleString()}
+                                    {formatMoney(resumen.montoTotalInteres)}
                                 </p>
                                 <span className="text-xs font-medium text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">
                                     {resumen.tasaInteres}%
@@ -85,13 +85,12 @@ export function PrestamoSimulationDialog({
                     </CardContent>
                 </Card>
 
-                {/* Total a Pagar */}
                 <Card className="shadow-sm border-l-4 border-l-green-600">
                     <CardContent className="p-4 flex items-center justify-between">
                         <div>
                             <p className="text-xs font-medium text-muted-foreground uppercase">Total a Pagar</p>
                             <p className="text-xl font-bold text-green-700 mt-1">
-                                ${resumen.montoTotalAPagar.toLocaleString()}
+                                {formatMoney(resumen.montoTotalAPagar)}
                             </p>
                         </div>
                         <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
@@ -101,32 +100,32 @@ export function PrestamoSimulationDialog({
                 </Card>
             </div>
 
-            {/* 2. INFO DE CUOTA */}
+            {/* INFO CUOTA */}
             <div className="bg-white p-4 rounded-lg border flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-gray-100 rounded-md">
                         <CalendarClock className="h-5 w-5 text-gray-600" />
                     </div>
                     <div>
-                        <h4 className="font-semibold text-sm text-gray-900">Cuota {resumen.ModalidadPago || "Recurrente"}</h4>
-                        <p className="text-xs text-muted-foreground">Pago fijo estimado</p>
+                        {/* Se capitaliza la primera letra de la modalidad */}
+                        <h4 className="font-semibold text-sm text-gray-900 capitalize">
+                            Cuota {resumen.ModalidadPago || "Fija"}
+                        </h4>
+                        <p className="text-xs text-muted-foreground">Pago estimado por periodo</p>
                     </div>
                 </div>
                 <div className="text-right">
                     <span className="text-2xl font-bold text-[#213685]">
-                        ${resumen.montoCuota.toLocaleString()}
+                        {formatMoney(resumen.montoCuota)}
                     </span>
                 </div>
             </div>
 
-            {/* 3. TABLA DE AMORTIZACIÓN */}
+            {/* TABLA */}
             <div className="border rounded-md overflow-hidden bg-white shadow-sm">
-                <div className="bg-gray-50 px-4 py-2 border-b flex justify-between items-center">
+                <div className="bg-gray-50 px-4 py-2 border-b">
                     <h3 className="font-semibold text-sm text-gray-700">Tabla de Amortización</h3>
                 </div>
-                {/* IMPORTANTE: Este div tiene su propio scroll si la tabla es muy larga, 
-                    pero está contenido dentro del flex-1 principal.
-                */}
                 <div className="max-h-[300px] overflow-y-auto">
                     <Table>
                         <TableHeader className="bg-white sticky top-0 z-10 shadow-sm">
@@ -144,13 +143,13 @@ export function PrestamoSimulationDialog({
                                         {c.numeroCuota}
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums">
-                                        ${c.capital.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                        {formatMoney(c.capital)}
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums text-muted-foreground">
-                                        ${c.interes.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                        {formatMoney(c.interes)}
                                     </TableCell>
                                     <TableCell className="text-right tabular-nums font-bold text-green-700 bg-green-50/20">
-                                        ${c.cuota.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                        {formatMoney(c.cuota)}
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -160,11 +159,8 @@ export function PrestamoSimulationDialog({
             </div>
         </div>
 
-        {/* FOOTER FIJO */}
         <DialogFooter className="p-4 border-t bg-white z-20">
-            <Button variant="outline" onClick={onClose}>
-                Cancelar
-            </Button>
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
             <Button 
                 className="bg-[#213685] hover:bg-[#213685]/90 min-w-[150px]" 
                 onClick={onConfirm} 

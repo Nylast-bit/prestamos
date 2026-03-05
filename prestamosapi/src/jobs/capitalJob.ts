@@ -1,29 +1,24 @@
-// src/jobs/capitalJob.ts
 import cron from 'node-cron';
-import * as capitalJobService from '../services/capitaljob.service'; // Nuevo servicio
-import * as registroConsolidacionService from '../services/registroconsolidacion.service'; // Para los registros
+// Importamos la función de lógica que acabamos de arreglar en el servicio
+import { checkAndCreateConsolidation } from '../services/capitaljob.service';
 
 export const startCapitalJob = () => {
-    // Se ejecuta todos los días a las 00:00 (medianoche)
+    
+    // Programación: Todos los días a las 00:00 (Medianoche)
     cron.schedule('0 0 * * *', async () => { 
-        console.log('🤖 Corriendo trabajo de cierre de capital...');
+        console.log('⏰ CRON JOB: Iniciando verificación de cierre de caja...');
         
         try {
-            // 1. VERIFICAR Y CREAR NUEVA CONSOLIDACIÓN
-            const nuevaConsolidacion = await capitalJobService.checkAndCreateConsolidation();
-
-            if (nuevaConsolidacion) {
-                console.log(`✅ Nueva Consolidación ID: ${nuevaConsolidacion.IdConsolidacion} creada.`);
-                
-                // 2. PROCESAR GASTOS FIJOS (Se haría aquí en el siguiente paso)
-                // await capitalJobService.processFixedExpenses(nuevaConsolidacion.IdConsolidacion);
-
-            } else {
-                console.log('⏩ No es día de cierre. Tarea completada.');
+            // Llamamos a la lógica "Lazy" que verifica si hace falta crearla
+            const resultado = await checkAndCreateConsolidation();
+            
+            if (resultado) {
+                console.log(`✅ CRON JOB: Caja del día asegurada (ID: ${resultado.IdConsolidacion})`);
             }
-
         } catch (error: any) {
-            console.error('❌ Error fatal en el Job de Capital:', error.message);
+            console.error('❌ CRON JOB ERROR:', error.message);
         }
     });
+
+    console.log("✅ Cron Job scheduler iniciado (00:00 Daily).");
 };

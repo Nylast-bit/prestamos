@@ -39,3 +39,16 @@ export const deleteConsolidacionCapital = asyncHandler(async (req: Request, res:
   const resultado = await consolidacionService.deleteConsolidacionCapitalService(id);
   res.json(resultado);
 });
+
+export const getResumenConsolidacionActiva = async (req: Request, res: Response) => {
+  try {
+    const resumen = await consolidacionService.getResumenConsolidacionActivaService();
+    // Respondemos con el JSON que espera el componente DashboardConsolidacion
+    res.json(resumen);
+  } catch (error: any) {
+    res.status(500).json({ 
+      error: "Error obteniendo el resumen de la consolidación activa", 
+      details: error.message 
+    });
+  }
+};

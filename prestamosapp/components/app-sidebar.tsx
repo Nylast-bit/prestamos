@@ -74,11 +74,7 @@ const data = {
       key: "gastosfijos", 
       icon: TrendingDown, 
     },
-    {
-      title: "Volantes",
-      key: "volantes",
-      icon: Receipt,
-    },
+    
   ],
   navSecondary: [
     {

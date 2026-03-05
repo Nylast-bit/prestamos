@@ -8,16 +8,17 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Search, Edit, Trash2, Phone, Mail, User, Building, Lock } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Phone, Mail, User, Building, Lock, Loader2 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
+// Interfaz actualizada para coincidir con el servicio
 interface Prestatario {
   IdPrestatario: number
   Nombre: string
   Telefono?: string | null
   Email?: string | null
   Clave: string
-  prestamosActivos?: number
+  cantidadActivos?: number // <--- Campo nuevo que viene del backend
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
@@ -52,6 +53,7 @@ export function PrestatariosContent() {
       const res = await fetch(`${API_BASE_URL}/api/prestatarios`)
       if (!res.ok) throw new Error('Error al cargar prestatarios')
       const data = await res.json()
+      // El backend ahora devuelve objetos con la propiedad 'cantidadActivos'
       setPrestatarios(data)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
@@ -71,7 +73,6 @@ export function PrestatariosContent() {
     setSubmitting(true)
     
     try {
-      // Preparar datos - solo enviar campos que no estén vacíos
       const dataToSend: any = {
         Nombre: formData.Nombre,
         Clave: formData.Clave
@@ -81,49 +82,39 @@ export function PrestatariosContent() {
       if (formData.Email) dataToSend.Email = formData.Email
 
       if (editingPrestatario) {
-        // Actualizar prestatario existente
-        console.log('Actualizando prestatario:', editingPrestatario.IdPrestatario, dataToSend)
-        
+        // Actualizar
         const response = await fetch(`${API_BASE_URL}/api/prestatarios/${editingPrestatario.IdPrestatario}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSend),
         })
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
-          console.error('Error del servidor:', errorData)
-          throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
+          throw new Error(errorData.message || `Error ${response.status}`)
         }
         
         await fetchPrestatarios()
-        alert('Prestatario actualizado exitosamente')
       } else {
-        // Crear nuevo prestatario
-        
+        // Crear
         const response = await fetch(`${API_BASE_URL}/api/prestatarios`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSend),
         })
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
-          console.error('Error del servidor:', errorData)
-          throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`)
+          throw new Error(errorData.message || `Error ${response.status}`)
         }
         
         await fetchPrestatarios()
-        alert('Prestatario creado exitosamente')
       }
       
       resetForm()
+      setIsDialogOpen(false) // Cerramos el modal explícitamente aquí por si acaso
     } catch (error) {
-      console.error('Error en handleSubmit:', error)
+      console.error('Error:', error)
       alert(error instanceof Error ? error.message : 'Error en la operación')
     } finally {
       setSubmitting(false)
@@ -148,7 +139,7 @@ export function PrestatariosContent() {
       Nombre: prestatario.Nombre,
       Telefono: prestatario.Telefono || "",
       Email: prestatario.Email || "",
-      Clave: prestatario.Clave
+      Clave: prestatario.Clave // Asegúrate de que el backend devuelve la clave si quieres editarla, sino déjala vacía
     })
     setIsDialogOpen(true)
   }
@@ -168,95 +159,93 @@ export function PrestatariosContent() {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
-        throw new Error(errorData.message || 'Error al eliminar prestatario')
+        throw new Error(errorData.message || 'Error al eliminar')
       }
       
       await fetchPrestatarios()
-      alert('Prestatario eliminado exitosamente')
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error al eliminar prestatario')
+      alert(error instanceof Error ? error.message : 'Error al eliminar')
     } finally {
       setDeleteDialogOpen(false)
       setPrestatarioToDelete(null)
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64">Cargando prestatarios...</div>
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin mb-2" />
+        <p>Cargando prestatarios...</p>
+    </div>
+  )
+  
   if (error) return <div className="flex items-center justify-center h-64 text-red-600">Error: {error}</div>
 
   return (
     <div className="space-y-6">
       {/* Header con estadísticas */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-l-4 border-l-[#213685]">
+        <Card className="border-l-4 border-l-[#213685] shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Prestatarios</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Prestatarios</CardTitle>
             <Building className="h-4 w-4 text-[#213685]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-[#213685]">{prestatarios.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Prestamistas activos
-            </p>
+            <p className="text-xs text-muted-foreground">Registrados en el sistema</p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-green-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Préstamos Gestionados</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Préstamos Activos</CardTitle>
             <User className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {prestatarios.reduce((sum, p) => sum + (p.prestamosActivos || 0), 0)}
+              {/* Sumamos usando la nueva propiedad cantidadActivos */}
+              {prestatarios.reduce((sum, p) => sum + (p.cantidadActivos || 0), 0)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Total de préstamos activos
-            </p>
+            <p className="text-xs text-muted-foreground">Total en cartera viva</p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Promedio por Prestatario</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Promedio / Prestatario</CardTitle>
             <User className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
               {prestatarios.length > 0 
-                ? Math.round(prestatarios.reduce((sum, p) => sum + (p.prestamosActivos || 0), 0) / prestatarios.length)
+                ? Math.round(prestatarios.reduce((sum, p) => sum + (p.cantidadActivos || 0), 0) / prestatarios.length)
                 : 0
               }
             </div>
-            <p className="text-xs text-muted-foreground">
-              Préstamos por prestatario
-            </p>
+            <p className="text-xs text-muted-foreground">Préstamos por persona</p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="border-l-4 border-l-orange-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Más Activo</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Más Activo</CardTitle>
             <User className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
               {prestatarios.length > 0 
-                ? Math.max(...prestatarios.map(p => p.prestamosActivos || 0))
+                ? Math.max(...prestatarios.map(p => p.cantidadActivos || 0))
                 : 0
               }
             </div>
-            <p className="text-xs text-muted-foreground">
-              Máximo préstamos gestionados
-            </p>
+            <p className="text-xs text-muted-foreground">Máximo de préstamos</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Tabla de prestatarios */}
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <CardTitle>Gestión de Prestatarios</CardTitle>
               <CardDescription>
@@ -265,7 +254,7 @@ export function PrestatariosContent() {
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-[#213685] hover:bg-[#213685]/90">
+                <Button className="bg-[#213685] hover:bg-[#213685]/90 w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Nuevo Prestatario
                 </Button>
@@ -277,11 +266,12 @@ export function PrestatariosContent() {
                   </DialogTitle>
                   <DialogDescription>
                     {editingPrestatario 
-                      ? "Actualiza la información del prestatario (prestamista)" 
-                      : "Completa los datos para registrar un nuevo prestatario (prestamista)"
+                      ? "Actualiza la información del prestatario." 
+                      : "Completa los datos para registrar un nuevo prestatario."
                     }
                   </DialogDescription>
                 </DialogHeader>
+                
                 <div className="grid gap-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="nombre">Nombre Completo *</Label>
@@ -302,7 +292,7 @@ export function PrestatariosContent() {
                         type={showPassword ? "text" : "password"}
                         value={formData.Clave}
                         onChange={(e) => setFormData({...formData, Clave: e.target.value})}
-                        placeholder="Ingrese una contraseña"
+                        placeholder="Contraseña de acceso"
                         required
                       />
                       <Button
@@ -312,34 +302,36 @@ export function PrestatariosContent() {
                         className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
                       >
-                        <Lock className="h-4 w-4" />
+                        <Lock className="h-4 w-4 text-gray-500" />
                       </Button>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="telefono">Teléfono (Opcional)</Label>
-                    <Input
-                      id="telefono"
-                      value={formData.Telefono}
-                      onChange={(e) => setFormData({...formData, Telefono: e.target.value})}
-                      placeholder="809-000-0000"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="telefono">Teléfono</Label>
+                        <Input
+                          id="telefono"
+                          value={formData.Telefono}
+                          onChange={(e) => setFormData({...formData, Telefono: e.target.value})}
+                          placeholder="809-000-0000"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.Email}
+                          onChange={(e) => setFormData({...formData, Email: e.target.value})}
+                          placeholder="correo@ejemplo.com"
+                        />
+                      </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email (Opcional)</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.Email}
-                      onChange={(e) => setFormData({...formData, Email: e.target.value})}
-                      placeholder="correo@ejemplo.com"
-                    />
-                  </div>
-
-                  <p className="text-xs text-muted-foreground">* Campos requeridos</p>
+                  <p className="text-xs text-muted-foreground text-right">* Campos requeridos</p>
                 </div>
+
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={resetForm} disabled={submitting}>
                     Cancelar
@@ -349,7 +341,8 @@ export function PrestatariosContent() {
                     className="bg-[#213685] hover:bg-[#213685]/90" 
                     disabled={submitting || !formData.Nombre || !formData.Clave}
                   >
-                    {submitting ? "Guardando..." : (editingPrestatario ? "Actualizar" : "Crear")} Prestatario
+                    {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {editingPrestatario ? "Actualizar" : "Crear"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -357,88 +350,89 @@ export function PrestatariosContent() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
+          <div className="flex items-center space-x-2 mb-4 bg-gray-50 p-2 rounded-md border">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nombre, teléfono o email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm"
+              className="max-w-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
           
           <div className="rounded-md border">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Prestatario</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Préstamos Activos</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                <TableRow className="bg-gray-50">
+                  <TableHead className="font-semibold text-gray-700">Prestatario</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Contacto</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Estado</TableHead>
+                  <TableHead className="text-right font-semibold text-gray-700">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredPrestatarios.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                       No se encontraron prestatarios
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredPrestatarios.map((prestatario) => (
-                    <TableRow key={prestatario.IdPrestatario}>
+                    <TableRow key={prestatario.IdPrestatario} className="hover:bg-gray-50/50">
                       <TableCell>
-                        <div>
-                          <div className="font-medium">{prestatario.Nombre}</div>
-                          <div className="text-sm text-muted-foreground">
-                            ID: {prestatario.IdPrestatario}
-                          </div>
+                        <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-full bg-[#213685]/10 flex items-center justify-center text-[#213685] font-bold">
+                                {prestatario.Nombre.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <div className="font-medium text-gray-900">{prestatario.Nombre}</div>
+                                <div className="text-xs text-muted-foreground">ID: {prestatario.IdPrestatario}</div>
+                            </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {prestatario.Telefono ? (
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {prestatario.Telefono}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {prestatario.Email ? (
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            {prestatario.Email}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
-                        )}
+                         <div className="space-y-1">
+                            {prestatario.Telefono ? (
+                              <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                                <Phone className="h-3.5 w-3.5 text-gray-400" />
+                                {prestatario.Telefono}
+                              </div>
+                            ) : null}
+                            {prestatario.Email ? (
+                              <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                                <Mail className="h-3.5 w-3.5 text-gray-400" />
+                                {prestatario.Email}
+                              </div>
+                            ) : null}
+                            {!prestatario.Telefono && !prestatario.Email && <span className="text-xs text-gray-400">Sin contacto</span>}
+                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge 
-                          variant="outline"
-                          className="bg-[#213685]/10 text-[#213685] border-[#213685]/20"
+                          variant={prestatario.cantidadActivos && prestatario.cantidadActivos > 0 ? "default" : "secondary"}
+                          className={prestatario.cantidadActivos && prestatario.cantidadActivos > 0 
+                            ? "bg-green-100 text-green-700 hover:bg-green-200 border-green-200" 
+                            : "bg-gray-100 text-gray-500 hover:bg-gray-200 border-gray-200"}
                         >
-                          {prestatario.prestamosActivos || 0} préstamos
+                          {prestatario.cantidadActivos || 0} Activos
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(prestatario)}
-                            className="hover:bg-[#213685]/10"
+                            className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => confirmDelete(prestatario.IdPrestatario)}
-                            className="hover:bg-red-50 hover:text-red-600"
+                            className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -459,7 +453,11 @@ export function PrestatariosContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El prestatario será eliminado permanentemente de la base de datos.
+              Esta acción eliminará al prestatario permanentemente.
+              <br/>
+              <span className="text-red-600 font-semibold text-xs mt-2 block">
+                Nota: Si el prestatario tiene préstamos activos, la eliminación podría fallar o dejar datos huérfanos.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
