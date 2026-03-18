@@ -1,6 +1,7 @@
-// components/GastoFijoContent.tsx
 "use client"
 
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
+// components/GastoFijoContent.tsx
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -56,7 +57,7 @@ export function GastoFijoContent() {
     const fetchGastos = useCallback(async () => {
         setLoading(true)
         try {
-            const res = await fetch(API_URL)
+            const res = await fetchWithAuth(API_URL)
             if (!res.ok) throw new Error("Fallo al obtener la lista de gastos fijos")
             const data: GastoFijo[] = await res.json()
             setGastos(data)
@@ -120,7 +121,7 @@ export function GastoFijoContent() {
             const url = editingGasto ? `${API_URL}/${editingGasto.IdGasto}` : API_URL;
             const method = editingGasto ? 'PUT' : 'POST';
 
-            const response = await fetch(url, {
+            const response = await fetchWithAuth(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(dataToSend)
@@ -158,7 +159,7 @@ export function GastoFijoContent() {
         if (!confirm("¿Está seguro de que desea eliminar este gasto fijo?")) return;
 
         try {
-            const response = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+            const response = await fetchWithAuth(`${API_URL}/${id}`, { method: 'DELETE' });
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}))

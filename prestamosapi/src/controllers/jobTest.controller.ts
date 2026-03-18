@@ -5,17 +5,18 @@ import * as gastoFijoJobService from "../services/gastofijojob.service";
 import * as capitalJobService from "../services/capitaljob.service"; // Incluimos el servicio de consolidación
 
 // --- EJECUTAR PROCESAMIENTO DE GASTOS FIJOS (Manual) ---
-export const runFixedExpenseProcessor = asyncHandler(async (req: Request, res: Response) => {
+export const runFixedExpenseProcessor = asyncHandler(async (req: any, res: Response) => {
     const idConsolidacion = Number(req.params.id);
+    const idEmpresa = req.user?.IdEmpresa || 1;
 
     if (isNaN(idConsolidacion)) {
         return res.status(400).json({ error: "Debe proporcionar un ID de Consolidación válido." });
     }
 
     console.log(`\n\n=== 🧪 Ejecutando prueba manual de gastos fijos para ID: ${idConsolidacion} ===`);
-    
+
     // 1. Ejecutar la lógica de negocio (el job)
-    const resultado = await gastoFijoJobService.processFixedExpenses(idConsolidacion);
+    const resultado = await gastoFijoJobService.processFixedExpenses(idConsolidacion, idEmpresa);
 
     res.json({
         message: "Procesamiento de gastos fijos completado manualmente.",
@@ -26,12 +27,13 @@ export const runFixedExpenseProcessor = asyncHandler(async (req: Request, res: R
 
 // --- EJECUTAR CIERRE DE CONSOLIDACIÓN (Manual) ---
 // (Opcional, si quieres probar la lógica de transferencia de capital en cualquier momento)
-export const runCheckAndCreateConsolidation = asyncHandler(async (req: Request, res: Response) => {
+export const runCheckAndCreateConsolidation = asyncHandler(async (req: any, res: Response) => {
     console.log('\n\n=== 🧪 Ejecutando prueba manual de Cierre/Apertura de Consolidación ===');
-    
+
+    const idEmpresa = req.user?.IdEmpresa || 1;
     // Esta función encapsula la lógica de verificación de día (8 o 23) y creación.
-    const nuevaConsolidacion = await capitalJobService.checkAndCreateConsolidation();
-    
+    const nuevaConsolidacion = await capitalJobService.checkAndCreateConsolidation(idEmpresa);
+
     if (nuevaConsolidacion) {
         res.json({
             message: "Nueva consolidación creada con transferencia de capital.",

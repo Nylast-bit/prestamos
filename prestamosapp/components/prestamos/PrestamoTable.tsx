@@ -1,3 +1,4 @@
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -105,7 +106,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
         NumeroCuota: numeroCuotaActual
       };
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagos`, {
+      const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -135,7 +136,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
     setHistorialPagos([]); 
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagos/historial/${prestamo.IdPrestamo}`);
+      const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagos/historial/${prestamo.IdPrestamo}`);
       if (res.ok) {
         const data = await res.json();
         setHistorialPagos(data);

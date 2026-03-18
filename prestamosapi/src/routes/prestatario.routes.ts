@@ -9,8 +9,11 @@ import {
 } from "../controllers/prestatario.controller";
 import { validate } from "../middlewares/validate";
 import { prestatarioSchema } from "../validators/prestatario.validator";
+import { requireAuth } from "../middlewares/auth.middleware";
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.get("/", getAllPrestatarios);
 router.get("/:id", getPrestatarioById);

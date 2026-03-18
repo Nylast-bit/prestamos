@@ -1,5 +1,6 @@
 "use client"
 
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -77,8 +78,8 @@ export function SolicitudesContent() {
     try {
       // 🚨 CORRECCIÓN: Rutas actualizadas a /api/solicitudesprestamo
       const [resSolicitudes, resClientes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/solicitudesprestamo`),
-        fetch(`${API_BASE_URL}/api/clientes`)
+        fetchWithAuth(`${API_BASE_URL}/api/solicitudesprestamo`),
+        fetchWithAuth(`${API_BASE_URL}/api/clientes`)
       ]);
 
       if (resSolicitudes.ok) setSolicitudes(await resSolicitudes.json());
@@ -148,7 +149,7 @@ export function SolicitudesContent() {
       
       const method = editingSolicitud ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -175,7 +176,7 @@ export function SolicitudesContent() {
     if (!solicitudToDelete) return
     try {
       // 🚨 CORRECCIÓN: Ruta actualizada a /api/solicitudesprestamo
-      const response = await fetch(`${API_BASE_URL}/api/solicitudesprestamo/${solicitudToDelete}`, { method: 'DELETE' })
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/solicitudesprestamo/${solicitudToDelete}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('Error al eliminar')
       await fetchData()
       alert('Solicitud eliminada exitosamente')

@@ -1,0 +1,19 @@
+# Plan General - Sistema de Préstamos SaaS
+
+## Fase 1: Arquitectura SaaS y Usuarios (EN PROGRESO)
+- [x] Validar esquema SQL con el usuario y creación de tablas Empresa/Usuario en Supabase
+- [x] Actualizar tablas existentes en Supabase (Agregar IdEmpresa)
+- [x] Backend: Crear JWT Middleware e endpoints de login/usuarios/empresas
+- [x] Backend: Modificar los servicios existentes para filtrar por IdEmpresa
+- [x] Frontend: Crear pantalla de Login y manejo local de sesión/token
+- [x] Frontend: Proteger rutas y adaptar Sidebar según roles
+- [ ] Frontend: Crear pantallas de Mantenimiento de Empresas (SuperAdmin) y Usuarios (AdminEmpresa)
+
+## Fase 2: Módulo Cliente, Fiadores y Garantías (PENDIENTE)
+- [ ] Integrar tablas de Garantías y vincular Fiadores.
+
+## Fase 3: Avisos y Recordatorios (PENDIENTE)
+- [ ] Configurar correos y notificaciones (Resend).
+
+## Fase 4: Importación Masiva (PENDIENTE)
+- [ ] Pantalla para subir Excel/CSV de clientes y préstamos iniciales.

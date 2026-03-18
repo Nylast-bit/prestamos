@@ -1,5 +1,5 @@
 import { supabase } from "../config/supabaseClient";
-import * as registroConsolidacionService from './registroconsolidacion.service'; 
+import * as registroConsolidacionService from './registroconsolidacion.service';
 import * as gastoFijoJobService from './gastofijojob.service';
 
 // --- HELPER: CALCULAR EL RANGO DE FECHAS SEGÚN REGLA DE NEGOCIO ---
@@ -27,16 +27,16 @@ const calcularRangoFechas = (fechaActual: Date) => {
         fin = new Date(y, m, 7, 23, 59, 59, 999);
     }
 
-    return { 
-        inicioISO: inicio.toISOString(), 
-        finISO: fin.toISOString() 
+    return {
+        inicioISO: inicio.toISOString(),
+        finISO: fin.toISOString()
     };
 };
 
 // --- FUNCIÓN PRINCIPAL ---
-export const checkAndCreateConsolidation = async () => {
+export const checkAndCreateConsolidation = async (idEmpresa: number) => {
     const hoy = new Date();
-    
+
     // 1. OBTENER LAS FECHAS CORRECTAS DEL PERIODO (GRANULARIDAD 1)
     const { inicioISO, finISO } = calcularRangoFechas(hoy);
 
@@ -46,6 +46,7 @@ export const checkAndCreateConsolidation = async () => {
     const { data: existente } = await supabase
         .from("ConsolidacionCapital")
         .select("*")
+        .eq("IdEmpresa", idEmpresa)
         .eq("FechaInicio", inicioISO) // Buscamos coincidencia exacta de inicio
         .maybeSingle();
 
@@ -61,6 +62,7 @@ export const checkAndCreateConsolidation = async () => {
     const { data: ultima } = await supabase
         .from("ConsolidacionCapital")
         .select("IdConsolidacion, CapitalEntrante, CapitalSaliente")
+        .eq("IdEmpresa", idEmpresa)
         .lt("FechaInicio", inicioISO) // Que haya empezado antes de la nueva
         .order("FechaInicio", { ascending: false })
         .limit(1)
@@ -68,7 +70,7 @@ export const checkAndCreateConsolidation = async () => {
 
     // 4. CALCULAR BALANCE NETO EXACTO
     let balanceAnterior = 0;
-    
+
     if (ultima) {
         const entradas = Number(ultima.CapitalEntrante) || 0;
         const salidas = Number(ultima.CapitalSaliente) || 0;
@@ -83,12 +85,13 @@ export const checkAndCreateConsolidation = async () => {
         FechaInicio: inicioISO,
         FechaFin: finISO,
         // Si el balance es negativo (-3000), entra tal cual (-3000) para que la matemática cuadre
-        CapitalEntrante: balanceAnterior, 
+        CapitalEntrante: balanceAnterior,
         CapitalSaliente: 0,
-        Observaciones: balanceAnterior < 0 
+        Observaciones: balanceAnterior < 0
             ? `⚠️ Apertura con Déficit arrastrado: $${balanceAnterior.toFixed(2)}`
             : `Apertura normal. Saldo anterior: $${balanceAnterior.toFixed(2)}`,
-        FechaGeneracion: hoy.toISOString()
+        FechaGeneracion: hoy.toISOString(),
+        IdEmpresa: idEmpresa
     };
 
     // 6. INSERTAR EN BBDD
@@ -106,35 +109,35 @@ export const checkAndCreateConsolidation = async () => {
     // 7. CREAR EL REGISTRO CONTABLE CORRECTO (CONTABILIDAD AMARRADA)
     // Aquí es donde solucionamos "que no puso el registro en negativo"
     if (balanceAnterior !== 0) {
-        
+
         const esDeficit = balanceAnterior < 0;
         const montoAbsoluto = Math.abs(balanceAnterior);
 
         await registroConsolidacionService.createRegistroConsolidacionService({
-            IdConsolidacion: nueva.IdConsolidacion, 
+            IdConsolidacion: nueva.IdConsolidacion,
             FechaRegistro: hoy.toISOString(), // Registramos el movimiento hoy
-            
+
             // Si es déficit (Negativo), lo registramos como Egreso o como Ingreso Negativo.
             // Para que se vea en rojo en tu tabla, lo ideal es:
             // Opción A: Tipo 'Egreso' con descripción 'Déficit Anterior'
             // Opción B: Tipo 'Ingreso' con monto negativo (Depende de cómo tu frontend sume)
             // Usaremos la lógica de Tipo según el signo para mayor claridad:
-            
-            TipoRegistro: esDeficit ? "Egreso" : "Ingreso", 
+
+            TipoRegistro: esDeficit ? "Egreso" : "Ingreso",
             Estado: "Procesado", // Estado fijo ya que es automático
-            Descripcion: esDeficit 
-                ? `🔻 Arrastre de Déficit (Periodo Anterior)` 
+            Descripcion: esDeficit
+                ? `🔻 Arrastre de Déficit (Periodo Anterior)`
                 : `✅ Saldo Inicial (Periodo Anterior)`,
-            
+
             // Aquí aseguramos que el monto sea el correcto para tus cálculos
             // Si tu sistema resta los 'Egresos', mandamos el positivo absoluto.
-            Monto: montoAbsoluto, 
-        });
+            Monto: montoAbsoluto,
+        }, idEmpresa); // AQUI PASAMOS IDEMPRESA A REGISTRO CONSOLIDACION
     }
 
     // 8. PROCESAR GASTOS FIJOS
     try {
-        await gastoFijoJobService.processFixedExpenses(nueva.IdConsolidacion);
+        await gastoFijoJobService.processFixedExpenses(nueva.IdConsolidacion, idEmpresa);
     } catch (e) {
         console.error("⚠️ Error procesando gastos fijos:", e);
     }

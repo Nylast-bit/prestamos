@@ -1,32 +1,32 @@
 import { Request, Response } from "express";
 // Importamos TODOS los servicios
-import { 
-  createPagoService, 
-  getAllPagosService, 
-  getPagoByIdService, 
-  getProximaCuotaService, 
-  updatePagoService, 
+import {
+  createPagoService,
+  getAllPagosService,
+  getPagoByIdService,
+  getProximaCuotaService,
+  updatePagoService,
   deletePagoService,
   getHistorialPagosService
-} from "../services/pago.service"; 
+} from "../services/pago.service";
 // NOTA: Asegúrate que la ruta al service sea correcta (../services/pagos.service o ../services/pago.service)
 
 // 1. CREAR PAGO (Ya lo tenías, pero asegúrate que esté exportado)
-export const createPago = async (req: Request, res: Response) => {
+export const createPago = async (req: any, res: Response) => {
   try {
     // 1. Recibimos los nuevos parámetros del Frontend
-    const { 
-        IdPrestamo, 
-        MontoPagado, 
-        TipoPago, 
-        Observaciones, 
-        MontoInteresPagado,   // <--- NUEVO
-        MontoCapitalAbonado,  // <--- NUEVO
-        NumeroCuota           // <--- NUEVO
+    const {
+      IdPrestamo,
+      MontoPagado,
+      TipoPago,
+      Observaciones,
+      MontoInteresPagado,   // <--- NUEVO
+      MontoCapitalAbonado,  // <--- NUEVO
+      NumeroCuota           // <--- NUEVO
     } = req.body;
 
     if (!IdPrestamo || !TipoPago || !MontoPagado) {
-        return res.status(400).json({ error: "Datos incompletos." });
+      return res.status(400).json({ error: "Datos incompletos." });
     }
 
     const resultado = await createPagoService({
@@ -35,10 +35,10 @@ export const createPago = async (req: Request, res: Response) => {
       TipoPago,
       Observaciones,
       // Pasamos los datos al servicio
-      MontoInteresPagado: Number(MontoInteresPagado), 
+      MontoInteresPagado: Number(MontoInteresPagado),
       MontoCapitalAbonado: Number(MontoCapitalAbonado),
       NumeroCuota: Number(NumeroCuota)
-    });
+    }, req.user.IdEmpresa);
 
     res.status(201).json({
       success: true,
@@ -53,9 +53,10 @@ export const createPago = async (req: Request, res: Response) => {
 };
 
 // 2. OBTENER TODOS (Faltaba este export)
-export const getAllPagos = async (req: Request, res: Response) => {
+export const getAllPagos = async (req: any, res: Response) => {
   try {
-    const pagos = await getAllPagosService();
+    const idEmpresa = req.user.IdEmpresa;
+    const pagos = await getAllPagosService(idEmpresa);
     res.json(pagos);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -63,10 +64,11 @@ export const getAllPagos = async (req: Request, res: Response) => {
 };
 
 // 3. OBTENER POR ID (Faltaba este export)
-export const getPagoById = async (req: Request, res: Response) => {
+export const getPagoById = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    const pago = await getPagoByIdService(Number(id));
+    const idEmpresa = req.user.IdEmpresa;
+    const pago = await getPagoByIdService(Number(id), idEmpresa);
     res.json(pago);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -74,10 +76,11 @@ export const getPagoById = async (req: Request, res: Response) => {
 };
 
 // 4. OBTENER PRÓXIMA CUOTA (Faltaba este export)
-export const getProximaCuota = async (req: Request, res: Response) => {
+export const getProximaCuota = async (req: any, res: Response) => {
   try {
     const { IdPrestamo } = req.params; // Viene de la URL /proxima-cuota/:IdPrestamo
-    const info = await getProximaCuotaService(Number(IdPrestamo));
+    const idEmpresa = req.user.IdEmpresa;
+    const info = await getProximaCuotaService(Number(IdPrestamo), idEmpresa);
     res.json(info);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -85,11 +88,12 @@ export const getProximaCuota = async (req: Request, res: Response) => {
 };
 
 // 5. ACTUALIZAR PAGO (Faltaba este export)
-export const updatePago = async (req: Request, res: Response) => {
+export const updatePago = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
+    const idEmpresa = req.user.IdEmpresa;
     const data = req.body;
-    const pago = await updatePagoService(Number(id), data);
+    const pago = await updatePagoService(Number(id), idEmpresa, data);
     res.json(pago);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -97,35 +101,37 @@ export const updatePago = async (req: Request, res: Response) => {
 };
 
 // 6. ELIMINAR PAGO (Faltaba este export)
-export const deletePago = async (req: Request, res: Response) => {
+export const deletePago = async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    await deletePagoService(Number(id));
+    const idEmpresa = req.user.IdEmpresa;
+    await deletePagoService(Number(id), idEmpresa);
     res.json({ message: "Pago eliminado correctamente" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };
 
-export const getHistorialPagos = async (req: Request, res: Response) => {
-    try {
-        // 1. Extraemos el idPrestamo de los parámetros de la URL
-        // Por ejemplo: /pagos/historial/123 -> id = 123
-        const { id } = req.params;
+export const getHistorialPagos = async (req: any, res: Response) => {
+  try {
+    // 1. Extraemos el idPrestamo de los parámetros de la URL
+    // Por ejemplo: /pagos/historial/123 -> id = 123
+    const { id } = req.params;
+    const idEmpresa = req.user.IdEmpresa;
 
-        // 2. Validación simple
-        if (!id) {
-            return res.status(400).json({ error: "El ID del préstamo es obligatorio" });
-        }
-
-        // 3. Llamamos al servicio (convertimos el id a Number porque viene como string)
-        const historial = await getHistorialPagosService(Number(id));
-
-        // 4. Respondemos con éxito
-        return res.status(200).json(historial);
-
-    } catch (error: any) {
-        console.error("Error en getHistorialPagosController:", error);
-        return res.status(500).json({ error: error.message || "Error interno del servidor" });
+    // 2. Validación simple
+    if (!id) {
+      return res.status(400).json({ error: "El ID del préstamo es obligatorio" });
     }
+
+    // 3. Llamamos al servicio (convertimos el id a Number porque viene como string)
+    const historial = await getHistorialPagosService(Number(id), idEmpresa);
+
+    // 4. Respondemos con éxito
+    return res.status(200).json(historial);
+
+  } catch (error: any) {
+    console.error("Error en getHistorialPagosController:", error);
+    return res.status(500).json({ error: error.message || "Error interno del servidor" });
+  }
 };

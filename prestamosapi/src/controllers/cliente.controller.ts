@@ -1,26 +1,28 @@
 // controllers/cliente.controller.ts
 import { Request, Response, NextFunction } from "express";
-import { 
-  getAllClientesService, 
-  getClienteByIdService, 
-  createClienteService, 
-  updateClienteService, 
-  deleteClienteService 
+import {
+  getAllClientesService,
+  getClienteByIdService,
+  createClienteService,
+  updateClienteService,
+  deleteClienteService
 } from "../services/cliente.service";
 
-export const getAllClientes = async (req: Request, res: Response, next: NextFunction) => {
+export const getAllClientes = async (req: any, res: Response, next: NextFunction) => {
   try {
-    const clientes = await getAllClientesService();
+    const idEmpresa = req.user.IdEmpresa;
+    const clientes = await getAllClientesService(idEmpresa);
     res.json(clientes);
   } catch (err) {
     next(err);
   }
 };
 
-export const getClienteById = async (req: Request, res: Response, next: NextFunction) => {
+export const getClienteById = async (req: any, res: Response, next: NextFunction) => {
   try {
     const id = Number(req.params.id);
-    const cliente = await getClienteByIdService(id);
+    const idEmpresa = req.user.IdEmpresa;
+    const cliente = await getClienteByIdService(id, idEmpresa);
 
     if (!cliente) {
       return res.status(404).json({ error: "Cliente no encontrado" });
@@ -32,9 +34,10 @@ export const getClienteById = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-export const createCliente = async (req: Request, res: Response, next: NextFunction) => {
+export const createCliente = async (req: any, res: Response, next: NextFunction) => {
   try {
     const data = req.body;
+    data.IdEmpresa = req.user.IdEmpresa;
     const nuevoCliente = await createClienteService(data);
     res.status(201).json(nuevoCliente);
   } catch (err) {
@@ -42,12 +45,16 @@ export const createCliente = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-export const updateCliente = async (req: Request, res: Response, next: NextFunction) => {
+export const updateCliente = async (req: any, res: Response, next: NextFunction) => {
   try {
     const id = Number(req.params.id);
+    const idEmpresa = req.user.IdEmpresa;
     const data = req.body;
-    
-    const clienteActualizado = await updateClienteService(id, data);
+
+    // No permitimos actualizar el IdEmpresa por seguridad
+    if (data.IdEmpresa) delete data.IdEmpresa;
+
+    const clienteActualizado = await updateClienteService(id, idEmpresa, data);
 
     if (!clienteActualizado) {
       return res.status(404).json({ error: "Cliente no encontrado para actualizar" });
@@ -59,10 +66,11 @@ export const updateCliente = async (req: Request, res: Response, next: NextFunct
   }
 };
 
-export const deleteCliente = async (req: Request, res: Response, next: NextFunction) => {
+export const deleteCliente = async (req: any, res: Response, next: NextFunction) => {
   try {
     const id = Number(req.params.id);
-    const fueEliminado = await deleteClienteService(id);
+    const idEmpresa = req.user.IdEmpresa;
+    const fueEliminado = await deleteClienteService(id, idEmpresa);
 
     if (!fueEliminado) {
       return res.status(404).json({ error: "Cliente no encontrado para eliminar" });

@@ -10,8 +10,11 @@ import {
 } from "../controllers/pago.controller";
 import { validate } from "../middlewares/validate";
 import { pagoSchema, pagoAutomaticoSchema } from "../validators/pago.validator";
+import { requireAuth } from "../middlewares/auth.middleware";
 
 const router = Router();
+
+router.use(requireAuth);
 
 // ==========================================
 // RUTAS DE CONSULTA (GET)
@@ -43,7 +46,7 @@ router.get("/:id", getPagoById);
 router.post("/", validate(pagoAutomaticoSchema), createPago);
 
 // Actualizar un pago
-router.put("/:id", validate(pagoSchema.partial()), updatePago); 
+router.put("/:id", validate(pagoSchema.partial()), updatePago);
 
 // Eliminar un pago
 router.delete("/:id", deletePago);

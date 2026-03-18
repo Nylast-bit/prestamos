@@ -1,5 +1,6 @@
 "use client"
 
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -53,7 +54,7 @@ export function ClientesContent() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${API_BASE_URL}/api/clientes`)
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/clientes`)
       if (!res.ok) throw new Error('Error al cargar clientes')
       const data = await res.json()
       setClientes(data)
@@ -77,7 +78,7 @@ export function ClientesContent() {
     try {
       if (editingCliente) {
         // Actualizar cliente existente
-        const response = await fetch(`${API_BASE_URL}/api/clientes/${editingCliente.IdCliente}`, {
+        const response = await fetchWithAuth(`${API_BASE_URL}/api/clientes/${editingCliente.IdCliente}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
@@ -91,7 +92,7 @@ export function ClientesContent() {
         await fetchClientes()
       } else {
         // Crear nuevo cliente
-        const response = await fetch(`${API_BASE_URL}/api/clientes`, {
+        const response = await fetchWithAuth(`${API_BASE_URL}/api/clientes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
@@ -146,7 +147,7 @@ export function ClientesContent() {
     if (!clienteToDelete) return
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/clientes/${clienteToDelete}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/clientes/${clienteToDelete}`, {
         method: 'DELETE',
       })
       

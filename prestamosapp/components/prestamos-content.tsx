@@ -1,5 +1,6 @@
 "use client"
 
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -109,9 +110,9 @@ export function PrestamosContent() {
     setLoading(true)
     try {
       const [prestamosRes, clientesRes, prestatariosRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/prestamos`),
-        fetch(`${API_BASE_URL}/api/clientes`),
-        fetch(`${API_BASE_URL}/api/prestatarios`)
+        fetchWithAuth(`${API_BASE_URL}/api/prestamos`),
+        fetchWithAuth(`${API_BASE_URL}/api/clientes`),
+        fetchWithAuth(`${API_BASE_URL}/api/prestatarios`)
       ])
 
       if (prestamosRes.ok) setPrestamos(await prestamosRes.json())
@@ -183,7 +184,7 @@ export function PrestamosContent() {
           tipoCalculo: formData.TipoCalculo
       };
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -259,7 +260,7 @@ export function PrestamosContent() {
       
       const method = editingPrestamo ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(prestamoData)
@@ -291,7 +292,7 @@ export function PrestamosContent() {
   const handleDelete = async () => {
     if (!prestamoToDelete) return
     try {
-      const response = await fetch(`${API_BASE_URL}/api/prestamos/${prestamoToDelete}`, { method: 'DELETE' })
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/prestamos/${prestamoToDelete}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('Error al eliminar')
       await fetchData()
       alert('Préstamo eliminado exitosamente')

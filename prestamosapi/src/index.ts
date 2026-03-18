@@ -7,10 +7,13 @@ import clienteRoutes from "./routes/cliente.routes";
 import prestatarioRoutes from "./routes/prestatario.routes";
 import gastoFijoRoutes from "./routes/gastofijo.routes";
 import consolidacioncapitalRoutes from "./routes/consolidacioncapital.routes";
-import solicitudprestamoRoutes from "./routes/solicitudprestamo.routes";  
+import solicitudprestamoRoutes from "./routes/solicitudprestamo.routes";
 import registroconsolidacionRoutes from "./routes/registroconsolidacion.routes";
 import pagoRoutes from "./routes/pago.routes";
-
+import authRoutes from "./routes/auth.routes";
+import empresaRoutes from "./routes/empresa.routes";
+import usuarioRoutes from "./routes/usuario.routes";
+import pagopersonalizadoRoutes from "./routes/pagopersonalizado.routes";
 // 👇 importa el job
 import { startCapitalJob } from "./jobs/capitalJob";
 
@@ -28,6 +31,10 @@ app.use("/api/consolidacioncapital", consolidacioncapitalRoutes);
 app.use("/api/solicitudesprestamo", solicitudprestamoRoutes);
 app.use("/api/registroconsolidacion", registroconsolidacionRoutes);
 app.use("/api/pagos", pagoRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/empresas", empresaRoutes);
+app.use("/api/usuarios", usuarioRoutes);
+app.use("/api/pagospersonalizados", pagopersonalizadoRoutes);
 
 app.use(errorHandler);
 
@@ -37,6 +44,6 @@ app.get("/api/health", (req: Request, res: Response) => {
 });
 app.listen(PORT, () => {
   console.log(`🚀 Server corriendo en http://localhost:${PORT}`);
-  startCapitalJob(); 
+  startCapitalJob();
   console.log("✅ Cron Job scheduler iniciado.");
 });

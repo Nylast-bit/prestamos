@@ -1,12 +1,13 @@
 import { supabase } from "../config/supabaseClient";
 
 // Crear solicitud
-export const createSolicitudService = async (data: any) => {
+export const createSolicitudService = async (data: any, idEmpresa: number) => {
   // 1. Validar que el cliente exista
   const { data: clienteExistente, error: errorCliente } = await supabase
     .from("Cliente")
     .select("IdCliente")
     .eq("IdCliente", data.IdCliente)
+    .eq("IdEmpresa", idEmpresa)
     .single();
 
   if (errorCliente || !clienteExistente) {
@@ -23,32 +24,34 @@ export const createSolicitudService = async (data: any) => {
       Estado: data.Estado,
       Notas: data.Notas || null,
       FechaCreacion: new Date(data.FechaCreacion).toISOString(),
+      IdEmpresa: idEmpresa
     }])
     .select()
     .single();
 
   if (errorCreacion) throw new Error(errorCreacion.message);
-  
+
   return nuevaSolicitud;
 };
 
 // Obtener todas
-export const getAllSolicitudesService = async () => {
+export const getAllSolicitudesService = async (idEmpresa: number) => {
   const { data, error } = await supabase
     .from("SolicitudPrestamo")
     .select(`
       *,
       Cliente (*)
     `)
+    .eq("IdEmpresa", idEmpresa)
     .order("FechaCreacion", { ascending: false });
 
   if (error) throw new Error(error.message);
-  
+
   return data;
 };
 
 // Obtener por ID
-export const getSolicitudByIdService = async (id: number) => {
+export const getSolicitudByIdService = async (id: number, idEmpresa: number) => {
   const { data: solicitud, error } = await supabase
     .from("SolicitudPrestamo")
     .select(`
@@ -56,6 +59,7 @@ export const getSolicitudByIdService = async (id: number) => {
       Cliente (*)
     `)
     .eq("IdSolicitud", id)
+    .eq("IdEmpresa", idEmpresa)
     .single();
 
   if (error || !solicitud) {
@@ -66,12 +70,13 @@ export const getSolicitudByIdService = async (id: number) => {
 };
 
 // Actualizar solicitud
-export const updateSolicitudService = async (id: number, data: any) => {
+export const updateSolicitudService = async (id: number, idEmpresa: number, data: any) => {
   // 1. Validar que el cliente exista
   const { data: clienteExistente, error: errorCliente } = await supabase
     .from("Cliente")
     .select("IdCliente")
     .eq("IdCliente", data.IdCliente)
+    .eq("IdEmpresa", idEmpresa)
     .single();
 
   if (errorCliente || !clienteExistente) {
@@ -88,9 +93,10 @@ export const updateSolicitudService = async (id: number, data: any) => {
       Estado: data.Estado,
       Notas: data.Notas || null,
       // Usualmente la FechaCreacion no se actualiza, pero lo dejo por tu código original
-      FechaCreacion: new Date(data.FechaCreacion).toISOString(), 
+      FechaCreacion: new Date(data.FechaCreacion).toISOString(),
     })
     .eq("IdSolicitud", id)
+    .eq("IdEmpresa", idEmpresa)
     .select()
     .single();
 
@@ -100,13 +106,14 @@ export const updateSolicitudService = async (id: number, data: any) => {
 };
 
 // Eliminar solicitud
-export const deleteSolicitudService = async (id: number) => {
+export const deleteSolicitudService = async (id: number, idEmpresa: number) => {
   const { error } = await supabase
     .from("SolicitudPrestamo")
     .delete()
-    .eq("IdSolicitud", id);
+    .eq("IdSolicitud", id)
+    .eq("IdEmpresa", idEmpresa);
 
   if (error) throw new Error(error.message);
-  
+
   return true;
 };

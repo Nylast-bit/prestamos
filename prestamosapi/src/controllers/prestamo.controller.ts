@@ -14,21 +14,25 @@ interface SimulacionInput {
 
 
 // Obtener todos los préstamos
-export const getPrestamos = asyncHandler(async (req: Request, res: Response) => {
-  const prestamos = await prestamoService.getPrestamosService();
+export const getPrestamos = asyncHandler(async (req: any, res: Response) => {
+  const idEmpresa = req.user.IdEmpresa;
+  const prestamos = await prestamoService.getPrestamosService(idEmpresa);
   res.json(prestamos);
 });
 
 // Obtener un préstamo por ID
-export const getPrestamoById = asyncHandler(async (req: Request, res: Response) => {
+export const getPrestamoById = asyncHandler(async (req: any, res: Response) => {
   const { id } = req.params;
-  const prestamo = await prestamoService.getPrestamoByIdService(Number(id));
+  const idEmpresa = req.user.IdEmpresa;
+  const prestamo = await prestamoService.getPrestamoByIdService(Number(id), idEmpresa);
   res.json(prestamo);
 });
 
 // Crear préstamo
-export const createPrestamo = asyncHandler(async (req: Request, res: Response) => {
-  const nuevoPrestamo = await prestamoService.createPrestamoService(req.body);
+export const createPrestamo = asyncHandler(async (req: any, res: Response) => {
+  const data = req.body;
+  data.IdEmpresa = req.user.IdEmpresa;
+  const nuevoPrestamo = await prestamoService.createPrestamoService(data, req.user.IdEmpresa);
   res.status(201).json({
     success: true,
     prestamo: nuevoPrestamo,
@@ -36,18 +40,21 @@ export const createPrestamo = asyncHandler(async (req: Request, res: Response) =
 });
 
 // Actualizar préstamo
-export const updatePrestamo = asyncHandler(async (req: Request, res: Response) => {
+export const updatePrestamo = asyncHandler(async (req: any, res: Response) => {
   const { id } = req.params;
+  const idEmpresa = req.user.IdEmpresa;
   const data = req.body;
-  const prestamo = await prestamoService.updatePrestamoService(Number(id), data);
+  if (data.IdEmpresa) delete data.IdEmpresa;
+  const prestamo = await prestamoService.updatePrestamoService(Number(id), idEmpresa, data);
   res.json(prestamo);
 });
 
 // Eliminar préstamo
-export const deletePrestamo = asyncHandler(async (req: Request, res: Response) => {
+export const deletePrestamo = asyncHandler(async (req: any, res: Response) => {
   const { id } = req.params;
   const idPrestamo = Number(id);
-  const resultado = await prestamoService.deletePrestamoService(idPrestamo);
+  const idEmpresa = req.user.IdEmpresa;
+  const resultado = await prestamoService.deletePrestamoService(idPrestamo, idEmpresa);
 
   res.json({
     success: true,
@@ -61,16 +68,17 @@ export const deletePrestamo = asyncHandler(async (req: Request, res: Response) =
 
 
 // Función adicional para obtener información antes de eliminar
-export const getPrestamoParaEliminar = asyncHandler(async (req: Request, res: Response) => {
+export const getPrestamoParaEliminar = asyncHandler(async (req: any, res: Response) => {
   const { id } = req.params;
   const idPrestamo = Number(id);
+  const idEmpresa = req.user.IdEmpresa;
 
-  
+
   // 1. Llamamos al servicio para obtener los datos crudos
   // El 'try/catch' ya no es necesario aquí, 'asyncHandler' lo hace
-  const prestamo = await prestamoService.getPrestamoConDetallesService(idPrestamo);
+  const prestamo = await prestamoService.getPrestamoConDetallesService(idPrestamo, idEmpresa);
 
-  
+
   // 2. El controlador se encarga de 'dar formato' a la respuesta
   res.json({
     success: true,
@@ -78,7 +86,7 @@ export const getPrestamoParaEliminar = asyncHandler(async (req: Request, res: Re
     prestamo: {
       id: prestamo.IdPrestamo,
       cliente: prestamo.Cliente[0].Nombre,
-      prestatario: prestamo.Prestatario[0].Nombre, 
+      prestatario: prestamo.Prestatario[0].Nombre,
       monto: prestamo.MontoPrestado,
       estado: prestamo.Estado
     },
@@ -126,15 +134,15 @@ export const simularPrestamo = async (req: Request, res: Response) => {
       success: true,
       ...simulacion, // El objeto que devolvió el servicio
     });
-    
+
   } catch (error: any) {
     console.error(error);
-    
+
     // 4. Atrapamos el error que 'lanzó' el servicio
     if (error.message === "Tipo de cálculo no soportado") {
       return res.status(400).json({ error: error.message });
     }
-    
+
     // Cualquier otro error inesperado
     return res.status(500).json({ error: "Error en simulación", details: error.message });
   }
@@ -165,15 +173,15 @@ export const opcionesSimularPrestamoCapitalInteres = async (
       success: true,
       prestamos, // El array que devolvió el servicio
     });
-    
+
   } catch (error: any) {
     console.error(error);
-    
+
     // 4. Atrapamos el error de lógica de negocio (el que añadimos)
     if (error.message.includes("El número de cuotas debe ser mayor a 2")) {
       return res.status(400).json({ error: error.message });
     }
-    
+
     return res.status(500).json({ error: "Error en simulación", details: error.message });
   }
 };
@@ -201,10 +209,10 @@ export const calcularTasaPorCuota = async (req: Request, res: Response) => {
       success: true,
       ...resultadoCalculo, // El objeto que devolvió el servicio
     });
-    
+
   } catch (error: any) {
     console.error(error);
-    
+
     // 4. Atrapamos los errores de lógica de negocio
     if (error.message.includes("No se pudo encontrar una tasa válida")) {
       return res.status(400).json({ error: error.message });
@@ -248,37 +256,37 @@ export const obtenerRangoCuotas = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error(error);
-    
+
     // 4. Atrapamos el error de lógica de negocio (división por cero)
     if (error.message.includes("El número de cuotas debe ser un valor positivo")) {
-        return res.status(400).json({ error: error.message });
+      return res.status(400).json({ error: error.message });
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       error: "Error al calcular rango de cuotas",
-      details: error.message 
+      details: error.message
     });
   }
 };
 
 
-export const getPrestamosActivosCount = async (req: Request, res: Response) => {
+export const getPrestamosActivosCount = async (req: any, res: Response) => {
   try {
     const { idPrestatario } = req.params;
+    const idEmpresa = req.user.IdEmpresa;
 
     if (!idPrestatario) {
       return res.status(400).json({ error: "El ID del prestatario es obligatorio" });
     }
 
-    const cantidad = await prestamoService.countPrestamosActivosByPrestatarioService(Number(idPrestatario));
+    const cantidad = await prestamoService.countPrestamosActivosByPrestatarioService(Number(idPrestatario), idEmpresa);
 
-    res.json({ 
-        idPrestatario: Number(idPrestatario),
-        cantidadActivos: cantidad 
+    res.json({
+      idPrestatario: Number(idPrestatario),
+      cantidadActivos: cantidad
     });
 
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };
-        

@@ -13,10 +13,14 @@ import {
   getPrestamosActivosCount
 } from "../controllers/prestamo.controller";
 
+import { requireAuth } from "../middlewares/auth.middleware";
+
 const router = Router();
 
+router.use(requireAuth);
+
 // ✅ ESTAS RUTAS DEBEN IR PRIMERO Y SER 'POST'
-router.post("/simular", simularPrestamo); 
+router.post("/simular", simularPrestamo);
 router.post("/simular-opciones", opcionesSimularPrestamoCapitalInteres);
 router.post("/calcular-tasa", calcularTasaPorCuota);
 router.post("/rango-cuotas", obtenerRangoCuotas);

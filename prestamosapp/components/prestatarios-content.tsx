@@ -1,5 +1,6 @@
 "use client"
 
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -50,7 +51,7 @@ export function PrestatariosContent() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${API_BASE_URL}/api/prestatarios`)
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios`)
       if (!res.ok) throw new Error('Error al cargar prestatarios')
       const data = await res.json()
       // El backend ahora devuelve objetos con la propiedad 'cantidadActivos'
@@ -83,7 +84,7 @@ export function PrestatariosContent() {
 
       if (editingPrestatario) {
         // Actualizar
-        const response = await fetch(`${API_BASE_URL}/api/prestatarios/${editingPrestatario.IdPrestatario}`, {
+        const response = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios/${editingPrestatario.IdPrestatario}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSend),
@@ -97,7 +98,7 @@ export function PrestatariosContent() {
         await fetchPrestatarios()
       } else {
         // Crear
-        const response = await fetch(`${API_BASE_URL}/api/prestatarios`, {
+        const response = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSend),
@@ -153,7 +154,7 @@ export function PrestatariosContent() {
     if (!prestatarioToDelete) return
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/prestatarios/${prestatarioToDelete}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios/${prestatarioToDelete}`, {
         method: 'DELETE',
       })
       

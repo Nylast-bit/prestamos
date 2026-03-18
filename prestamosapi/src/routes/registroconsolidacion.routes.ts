@@ -9,8 +9,11 @@ import {
 } from "../controllers/registroconsolidacion.controller";
 import { validate } from "../middlewares/validate";
 import { registroConsolidacionSchema } from "../validators/registroconsolidacion.validator";
+import { requireAuth } from "../middlewares/auth.middleware";
 
 const router = Router();
+
+router.use(requireAuth);
 
 // Rutas
 router.get("/", getAllRegistrosConsolidacion);

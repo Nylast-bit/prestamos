@@ -1,5 +1,6 @@
 "use client"
 
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -40,11 +41,11 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
       try {
         // 🚨 OJO AL ORDEN AQUÍ: Tienen que ser exactamente 5 peticiones
         const [resPrestamos, resClientes, resPrestatarios, resConsolidacion, resSolicitudes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/prestamos`),
-          fetch(`${API_BASE_URL}/api/clientes`),
-          fetch(`${API_BASE_URL}/api/prestatarios`),
-          fetch(`${API_BASE_URL}/api/consolidacioncapital/activa`),
-          fetch(`${API_BASE_URL}/api/solicitudesprestamo`) // <--- RUTA CORRECTA
+          fetchWithAuth(`${API_BASE_URL}/api/prestamos`),
+          fetchWithAuth(`${API_BASE_URL}/api/clientes`),
+          fetchWithAuth(`${API_BASE_URL}/api/prestatarios`),
+          fetchWithAuth(`${API_BASE_URL}/api/consolidacioncapital/activa`),
+          fetchWithAuth(`${API_BASE_URL}/api/solicitudesprestamo`) // <--- RUTA CORRECTA
         ]);
 
         if (resPrestamos.ok) setPrestamos(await resPrestamos.json());

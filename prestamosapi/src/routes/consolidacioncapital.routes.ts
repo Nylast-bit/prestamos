@@ -10,8 +10,11 @@ import {
 } from "../controllers/consolidacioncapital.controller";
 import { validate } from "../middlewares/validate";
 import { consolidacionCapitalSchema } from "../validators/consolidacioncapital.validator";
+import { requireAuth } from "../middlewares/auth.middleware";
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.get("/", getAllConsolidacionesCapital);
 router.get("/activa", getResumenConsolidacionActiva);

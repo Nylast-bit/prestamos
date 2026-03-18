@@ -9,6 +9,7 @@ interface GastoFijoData {
   Dia1?: number;
   Dia2?: number | null;
   Activo?: boolean;
+  IdEmpresa?: number;
 }
 
 // --- CREAR ---
@@ -27,10 +28,11 @@ export const createGastoFijoService = async (data: GastoFijoData) => {
 };
 
 // --- OBTENER TODOS ---
-export const getAllGastosFijosService = async () => {
+export const getAllGastosFijosService = async (idEmpresa: number) => {
   const { data: lista, error } = await supabase
     .from("GastoFijo")
-    .select("*");
+    .select("*")
+    .eq('IdEmpresa', idEmpresa);
 
   if (error) {
     console.error("Error en getAllGastosFijosService:", error.message);
@@ -40,17 +42,18 @@ export const getAllGastosFijosService = async () => {
 };
 
 // --- OBTENER POR ID ---
-export const getGastoFijoByIdService = async (id: number) => {
+export const getGastoFijoByIdService = async (id: number, idEmpresa: number) => {
   const { data: gasto, error } = await supabase
     .from("GastoFijo")
     .select("*")
     .eq("IdGasto", id)
+    .eq("IdEmpresa", idEmpresa)
     .maybeSingle();
 
   if (error) {
     throw new Error(`Error de BBDD al buscar gasto: ${error.message}`);
   }
-  
+
   if (!gasto) {
     throw new Error("Gasto fijo no encontrado");
   }
@@ -59,11 +62,12 @@ export const getGastoFijoByIdService = async (id: number) => {
 };
 
 // --- ACTUALIZAR ---
-export const updateGastoFijoService = async (id: number, data: GastoFijoData) => {
+export const updateGastoFijoService = async (id: number, idEmpresa: number, data: GastoFijoData) => {
   const { data: actualizado, error } = await supabase
     .from("GastoFijo")
     .update(data)
     .eq("IdGasto", id)
+    .eq("IdEmpresa", idEmpresa)
     .select()
     .single();
 
@@ -71,7 +75,7 @@ export const updateGastoFijoService = async (id: number, data: GastoFijoData) =>
     console.error("Error en updateGastoFijoService:", error.message);
     throw new Error(`Error actualizando gasto fijo: ${error.message}`);
   }
-  
+
   if (!actualizado) {
     throw new Error("Gasto fijo no encontrado para actualizar");
   }
@@ -80,17 +84,18 @@ export const updateGastoFijoService = async (id: number, data: GastoFijoData) =>
 };
 
 // --- ELIMINAR ---
-export const deleteGastoFijoService = async (id: number) => {
+export const deleteGastoFijoService = async (id: number, idEmpresa: number) => {
   // Nota: Si hay registros en GastoFijoRegistro, la BBDD impedirá esto si no hay CASCADE.
   const { error } = await supabase
     .from("GastoFijo")
     .delete()
-    .eq("IdGasto", id);
+    .eq("IdGasto", id)
+    .eq("IdEmpresa", idEmpresa);
 
   if (error) {
     console.error("Error en deleteGastoFijoService:", error.message);
     throw new Error(`Error eliminando gasto fijo: ${error.message}`);
   }
-  
+
   return { message: "Gasto fijo eliminado" };
 };

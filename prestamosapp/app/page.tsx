@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuthStore } from "@/store/authStore"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { DashboardContent } from "@/components/dashboard-content"
@@ -12,9 +14,28 @@ import { ConfiguracionContent } from "@/components/configuracion-content"
 import { GastoFijoContent } from "@/components/gastofijo-content"
 import { SolicitudesContent } from "@/components/solicitudes-content"
 import { PagosContent } from "@/components/pago-content"
+import { PagosPersonalizadosContent } from "@/components/pagospersonalizados-content"
 
 export default function Page() {
+  const router = useRouter()
+  const { isAuthenticated, user } = useAuthStore()
   const [activeSection, setActiveSection] = useState("dashboard")
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+    if (!isAuthenticated()) {
+      router.push("/login")
+    }
+  }, [isAuthenticated, router])
+
+  if (!isMounted || !isAuthenticated()) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
 
   const renderContent = () => {
     switch (activeSection) {
@@ -30,6 +51,8 @@ export default function Page() {
         return <ConsolidacionContent />
       case "pagos":
         return <PagosContent />
+      case "pagospersonalizados":
+        return <PagosPersonalizadosContent />
 
       case "solicitudes":
         return <SolicitudesContent />
@@ -38,7 +61,7 @@ export default function Page() {
       case "configuracion":
         return <ConfiguracionContent />
       default:
-                return <DashboardContent onNavigate={setActiveSection} />
+        return <DashboardContent onNavigate={setActiveSection} />
 
     }
   }
@@ -55,6 +78,10 @@ export default function Page() {
         return "Gestión de Préstamos"
       case "consolidacion":
         return "Consolidación de Capital"
+      case "pagos":
+        return "Gestión de Pagos"
+      case "pagospersonalizados":
+        return "Gestión de Pagos Personalizados"
       case "gastosfijos":
         return "Gestión de Gastos Fijos"
       case "configuracion":

@@ -1,5 +1,5 @@
 import { supabase } from "../config/supabaseClient";
-import * as capitalJobService from './capitaljob.service'; 
+import * as capitalJobService from './capitaljob.service';
 
 // --- INTERFACES ---
 interface CreatePrestamoData {
@@ -21,19 +21,21 @@ interface CreatePrestamoData {
   CuotasRestantes?: number;
   TablaPagos?: string; // JSON string
   Estado?: string;
+  IdEmpresa?: number;
 }
 
 // ==========================================
 // 1. CRUD BÁSICO (Ya lo tenías, lo mantengo)
 // ==========================================
 
-export const createPrestamoService = async (data: CreatePrestamoData) => {
+export const createPrestamoService = async (data: CreatePrestamoData, idEmpresa: number) => {
   const hoy = new Date().toISOString();
 
   // 1. INTENTAR OBTENER CAJA ABIERTA
   let { data: consolidacion } = await supabase
     .from("ConsolidacionCapital")
     .select("IdConsolidacion")
+    .eq("IdEmpresa", idEmpresa)
     .lte("FechaInicio", hoy)
     .gte("FechaFin", hoy)
     .order("FechaInicio", { ascending: false })
@@ -42,18 +44,18 @@ export const createPrestamoService = async (data: CreatePrestamoData) => {
 
   // 🚨 PLAN DE EMERGENCIA: SI NO HAY CAJA, LA CREAMOS AHORA MISMO
   if (!consolidacion) {
-      console.log("⚠️ Caja cerrada detectada al crear préstamo. Ejecutando apertura de emergencia...");
-      try {
-          // Llamamos al servicio que creamos antes
-          const nuevaCaja = await capitalJobService.checkAndCreateConsolidation();
-          
-          if (nuevaCaja && nuevaCaja.IdConsolidacion) {
-              consolidacion = { IdConsolidacion: nuevaCaja.IdConsolidacion };
-              console.log("✅ Caja de emergencia creada y asignada.");
-          }
-      } catch (e) {
-          console.error("❌ Falló la apertura de emergencia:", e);
+    console.log("⚠️ Caja cerrada detectada al crear préstamo. Ejecutando apertura de emergencia...");
+    try {
+      // Llamamos al servicio que creamos antes
+      const nuevaCaja = await capitalJobService.checkAndCreateConsolidation(idEmpresa);
+
+      if (nuevaCaja && nuevaCaja.IdConsolidacion) {
+        consolidacion = { IdConsolidacion: nuevaCaja.IdConsolidacion };
+        console.log("✅ Caja de emergencia creada y asignada.");
       }
+    } catch (e) {
+      console.error("❌ Falló la apertura de emergencia:", e);
+    }
   }
 
   // Si después del intento sigue sin haber consolidación, ahí sí lanzamos error
@@ -66,6 +68,7 @@ export const createPrestamoService = async (data: CreatePrestamoData) => {
     .from("Cliente")
     .select("Nombre")
     .eq("IdCliente", data.IdCliente)
+    .eq("IdEmpresa", idEmpresa)
     .single();
 
   if (!cliente) throw new Error("Cliente no encontrado.");
@@ -96,14 +99,15 @@ export const createPrestamoService = async (data: CreatePrestamoData) => {
   return nuevoPrestamo;
 };
 
-export const getPrestamosService = async () => {
+export const getPrestamosService = async (idEmpresa: number) => {
   const { data, error } = await supabase
     .from("Prestamo")
     .select(`*, Cliente(Nombre), Prestatario(Nombre)`)
+    .eq("IdEmpresa", idEmpresa)
     .order("IdPrestamo", { ascending: false });
 
   if (error) throw new Error(error.message);
-  
+
   return data.map((p: any) => ({
     ...p,
     clienteNombre: p.Cliente?.Nombre || 'N/A',
@@ -111,22 +115,24 @@ export const getPrestamosService = async () => {
   }));
 };
 
-export const getPrestamoByIdService = async (id: number) => {
+export const getPrestamoByIdService = async (id: number, idEmpresa: number) => {
   const { data, error } = await supabase
     .from("Prestamo")
     .select(`*, Cliente(*), Prestatario(*)`)
     .eq("IdPrestamo", id)
+    .eq("IdEmpresa", idEmpresa)
     .single();
 
   if (error) throw new Error(error.message);
   return data;
 };
 
-export const updatePrestamoService = async (id: number, data: any) => {
+export const updatePrestamoService = async (id: number, idEmpresa: number, data: any) => {
   const { data: updated, error } = await supabase
     .from("Prestamo")
     .update(data)
     .eq("IdPrestamo", id)
+    .eq("IdEmpresa", idEmpresa)
     .select()
     .single();
 
@@ -134,7 +140,11 @@ export const updatePrestamoService = async (id: number, data: any) => {
   return updated;
 };
 
-export const deletePrestamoService = async (id: number) => {
+export const deletePrestamoService = async (id: number, idEmpresa: number) => {
+  // Verificamos propiedad de la empresa primero
+  const prest = await getPrestamoByIdService(id, idEmpresa);
+  if (!prest) throw new Error("No tienes permisos o no existe");
+
   // Primero borramos registros hijos para evitar errores de FK si no tienes Cascade
   await supabase.from("Pago").delete().eq("IdPrestamo", id);
   await supabase.from("Volantes").delete().eq("IdPrestamo", id);
@@ -150,7 +160,7 @@ export const deletePrestamoService = async (id: number) => {
 // ==========================================
 
 // A. Obtener detalles completos para eliminar
-export const getPrestamoConDetallesService = async (id: number) => {
+export const getPrestamoConDetallesService = async (id: number, idEmpresa: number) => {
   const { data, error } = await supabase
     .from("Prestamo")
     .select(`
@@ -163,11 +173,12 @@ export const getPrestamoConDetallesService = async (id: number) => {
         Volantes (IdVolante)
     `)
     .eq("IdPrestamo", id)
+    .eq("IdEmpresa", idEmpresa)
     .single();
 
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Préstamo no encontrado");
-  
+
   return data;
 };
 
@@ -187,9 +198,9 @@ export const simularPrestamoService = (params: {
   if (tipoCalculo === "amortizable") {
     const i = tasaInteres / 100;
     if (i === 0) {
-        montoCuota = monto / numeroCuotas;
+      montoCuota = monto / numeroCuotas;
     } else {
-        montoCuota = monto * ( (i * Math.pow(1 + i, numeroCuotas)) / (Math.pow(1 + i, numeroCuotas) - 1) );
+      montoCuota = monto * ((i * Math.pow(1 + i, numeroCuotas)) / (Math.pow(1 + i, numeroCuotas) - 1));
     }
 
     let saldo = monto;
@@ -199,7 +210,7 @@ export const simularPrestamoService = (params: {
     for (let j = 1; j <= numeroCuotas; j++) {
       const interesPeriodo = saldo * i;
       const capitalPeriodo = montoCuota - interesPeriodo;
-      
+
       let nuevoSaldo = saldo - capitalPeriodo;
       if (j === numeroCuotas) nuevoSaldo = 0; // Ajuste final
 
@@ -218,7 +229,7 @@ export const simularPrestamoService = (params: {
     const interesPorCuota = monto * (tasaInteres / 100);
     const capitalPorCuota = monto / numeroCuotas;
     montoCuota = capitalPorCuota + interesPorCuota;
-    
+
     totalInteres = interesPorCuota * numeroCuotas;
     totalPagar = monto + totalInteres;
 
@@ -255,14 +266,14 @@ export const opcionesSimularPrestamoService = (params: {
 }) => {
   // Generamos 3 opciones: la pedida, +2 cuotas, +4 cuotas (ejemplo)
   const opcionesCuotas = [params.numeroCuotas, params.numeroCuotas + 2, params.numeroCuotas + 4];
-  
+
   const resultados = opcionesCuotas.map(n => {
-     return simularPrestamoService({
-        monto: params.monto,
-        tasaInteres: params.tasaInteres,
-        numeroCuotas: n,
-        tipoCalculo: 'capital+interes' // Por defecto para esta vista rápida
-     });
+    return simularPrestamoService({
+      monto: params.monto,
+      tasaInteres: params.tasaInteres,
+      numeroCuotas: n,
+      tipoCalculo: 'capital+interes' // Por defecto para esta vista rápida
+    });
   });
 
   return resultados;
@@ -270,81 +281,82 @@ export const opcionesSimularPrestamoService = (params: {
 
 // D. Calcular Tasa Inversa (Dado un monto de cuota, hallar el %)
 export const calcularTasaPorCuotaService = (params: {
-    monto: number;
-    cuotaDeseada: number;
-    numeroCuotas: number;
-    tipoCalculo: string;
+  monto: number;
+  cuotaDeseada: number;
+  numeroCuotas: number;
+  tipoCalculo: string;
 }) => {
-    const { monto, cuotaDeseada, numeroCuotas, tipoCalculo } = params;
-    
-    // Validación inicial: La cuota debe cubrir al menos el capital
-    const capitalMinimo = monto / numeroCuotas;
-    if (cuotaDeseada <= capitalMinimo) {
-        throw new Error("La cuota deseada es muy baja, no cubre el capital.");
+  const { monto, cuotaDeseada, numeroCuotas, tipoCalculo } = params;
+
+  // Validación inicial: La cuota debe cubrir al menos el capital
+  const capitalMinimo = monto / numeroCuotas;
+  if (cuotaDeseada <= capitalMinimo) {
+    throw new Error("La cuota deseada es muy baja, no cubre el capital.");
+  }
+
+  let tasaEncontrada = 0;
+
+  if (tipoCalculo === 'capital+interes') {
+    // Fórmula directa: Cuota = (Monto/n) + (Monto * Tasa/100)
+    // Despejando Tasa:
+    // InteresMonto = Cuota - (Monto/n)
+    // Tasa = (InteresMonto / Monto) * 100
+    const interesMonto = cuotaDeseada - capitalMinimo;
+    tasaEncontrada = (interesMonto / monto) * 100;
+
+  } else {
+    // Amortizable (Newton-Raphson o Búsqueda Binaria)
+    // Usaremos búsqueda binaria simple entre 0% y 100% mensual
+    let low = 0;
+    let high = 100;
+    let epsilon = 0.001; // Precisión
+
+    for (let i = 0; i < 100; i++) { // Max 100 iteraciones
+      let mid = (low + high) / 2;
+      const sim = simularPrestamoService({
+        monto, tasaInteres: mid, numeroCuotas, tipoCalculo: 'amortizable'
+      });
+
+      if (Math.abs(sim.montoCuota - cuotaDeseada) < epsilon) {
+        tasaEncontrada = mid;
+        break;
+      } else if (sim.montoCuota < cuotaDeseada) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+      tasaEncontrada = mid;
     }
+  }
 
-    let tasaEncontrada = 0;
-
-    if (tipoCalculo === 'capital+interes') {
-        // Fórmula directa: Cuota = (Monto/n) + (Monto * Tasa/100)
-        // Despejando Tasa:
-        // InteresMonto = Cuota - (Monto/n)
-        // Tasa = (InteresMonto / Monto) * 100
-        const interesMonto = cuotaDeseada - capitalMinimo;
-        tasaEncontrada = (interesMonto / monto) * 100;
-
-    } else {
-        // Amortizable (Newton-Raphson o Búsqueda Binaria)
-        // Usaremos búsqueda binaria simple entre 0% y 100% mensual
-        let low = 0;
-        let high = 100;
-        let epsilon = 0.001; // Precisión
-        
-        for(let i=0; i<100; i++) { // Max 100 iteraciones
-            let mid = (low + high) / 2;
-            const sim = simularPrestamoService({ 
-                monto, tasaInteres: mid, numeroCuotas, tipoCalculo: 'amortizable' 
-            });
-            
-            if (Math.abs(sim.montoCuota - cuotaDeseada) < epsilon) {
-                tasaEncontrada = mid;
-                break;
-            } else if (sim.montoCuota < cuotaDeseada) {
-                low = mid;
-            } else {
-                high = mid;
-            }
-            tasaEncontrada = mid;
-        }
-    }
-
-    return {
-        monto,
-        numeroCuotas,
-        cuotaObjetivo: cuotaDeseada,
-        tasaCalculada: Number(tasaEncontrada.toFixed(2)),
-        tipoCalculo
-    };
+  return {
+    monto,
+    numeroCuotas,
+    cuotaObjetivo: cuotaDeseada,
+    tasaCalculada: Number(tasaEncontrada.toFixed(2)),
+    tipoCalculo
+  };
 };
 
 // E. Obtener Rango de Cuotas
 export const obtenerRangoCuotasService = (params: { monto: number, numeroCuotas: number }) => {
-    if (params.numeroCuotas <= 0) throw new Error("El número de cuotas debe ser un valor positivo");
+  if (params.numeroCuotas <= 0) throw new Error("El número de cuotas debe ser un valor positivo");
 
-    const cuotaMinima = params.monto / params.numeroCuotas; // 0% interés
-    const cuotaMaximaSugerida = cuotaMinima * 2; // Ejemplo: hasta 100% de interés total (muy alto, pero es un techo)
+  const cuotaMinima = params.monto / params.numeroCuotas; // 0% interés
+  const cuotaMaximaSugerida = cuotaMinima * 2; // Ejemplo: hasta 100% de interés total (muy alto, pero es un techo)
 
-    return {
-        cuotaMinima: Number(cuotaMinima.toFixed(2)),
-        cuotaMaximaSugerida: Number(cuotaMaximaSugerida.toFixed(2))
-    };
+  return {
+    cuotaMinima: Number(cuotaMinima.toFixed(2)),
+    cuotaMaximaSugerida: Number(cuotaMaximaSugerida.toFixed(2))
+  };
 };
 
-export const countPrestamosActivosByPrestatarioService = async (idPrestatario: number) => {
+export const countPrestamosActivosByPrestatarioService = async (idPrestatario: number, idEmpresa: number) => {
   const { count, error } = await supabase
     .from("Prestamo")
     .select("*", { count: "exact", head: true }) // 'head: true' significa "solo dame el número, no los datos"
     .eq("IdPrestatario", idPrestatario)
+    .eq("IdEmpresa", idEmpresa)
     .eq("Estado", "Activo"); // O el estado que uses para definir 'Activo'
 
   if (error) {

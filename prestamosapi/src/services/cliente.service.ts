@@ -3,7 +3,7 @@ import { supabase } from "../config/supabaseClient";
 
 const CLIENT_TABLE_NAME = 'Cliente';
 
-export const getAllClientesService = async () => {
+export const getAllClientesService = async (idEmpresa: number) => {
   // 1. Pedimos los clientes Y sus préstamos (solo el estado para no pesar tanto)
   const { data, error } = await supabase
     .from(CLIENT_TABLE_NAME)
@@ -13,6 +13,7 @@ export const getAllClientesService = async () => {
         Estado
       )
     `)
+    .eq('IdEmpresa', idEmpresa)
     .order('IdCliente', { ascending: true }); // Ordenamos para que no salgan desordenados
 
   if (error) throw new Error(error.message);
@@ -34,19 +35,20 @@ export const getAllClientesService = async () => {
 
   return clientesConConteo;
 };
-export const getClienteByIdService = async (id: number) => {
+export const getClienteByIdService = async (id: number, idEmpresa: number) => {
   const { data, error } = await supabase
     .from(CLIENT_TABLE_NAME)
     .select('*')
     .eq('IdCliente', id)
+    .eq('IdEmpresa', idEmpresa)
     .single();
 
   if (error) {
     // Si el error es que no encontró filas, devolvemos null para manejarlo en el controller
-    if (error.code === 'PGRST116') return null; 
+    if (error.code === 'PGRST116') return null;
     throw new Error(error.message);
   }
-  
+
   return data;
 };
 
@@ -61,11 +63,12 @@ export const createClienteService = async (clienteData: any) => {
   return data;
 };
 
-export const updateClienteService = async (id: number, clienteData: any) => {
+export const updateClienteService = async (id: number, idEmpresa: number, clienteData: any) => {
   const { data, error } = await supabase
     .from(CLIENT_TABLE_NAME)
     .update(clienteData)
     .eq('IdCliente', id)
+    .eq('IdEmpresa', idEmpresa)
     .select()
     .single();
 
@@ -76,15 +79,16 @@ export const updateClienteService = async (id: number, clienteData: any) => {
   return data;
 };
 
-export const deleteClienteService = async (id: number) => {
+export const deleteClienteService = async (id: number, idEmpresa: number) => {
   const { data, error } = await supabase
     .from(CLIENT_TABLE_NAME)
     .delete()
     .eq('IdCliente', id)
+    .eq('IdEmpresa', idEmpresa)
     .select();
 
   if (error) throw new Error(error.message);
-  
+
   // Si data está vacío, significa que no borró nada porque no existía el ID
   return data && data.length > 0;
 };

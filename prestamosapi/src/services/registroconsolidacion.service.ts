@@ -1,6 +1,6 @@
 // src/services/registroConsolidacion.service.ts
 import { supabase } from "../config/supabaseClient";
-import {  getConsolidacionActivaId } from "./consolidacioncapital.service";
+import { getConsolidacionActivaId } from "./consolidacioncapital.service";
 import { z } from "zod"; // Se usa para inferir tipos si es necesario
 // Asumo que el schema se importa desde el validador, aunque no lo necesitemos aquí
 // import { registroConsolidacionSchema } from "../validators/registroconsolidacion.validator"; 
@@ -55,8 +55,8 @@ const checkConsolidacionExists = async (id: number) => {
 // --- CREAR REGISTRO (MODIFICADO) ---
 // Nota: Eliminamos IdConsolidacion de la interfaz de datos si ya no viene del frontend.
 // Asumo que el validador Zod y la interfaz se actualizarán para no requerir IdConsolidacion.
-export const createRegistroConsolidacionService = async (data: RegistroConsolidacionData) => {
-    
+export const createRegistroConsolidacionService = async (data: RegistroConsolidacionData, idEmpresa: number) => {
+
     let idConsolidacionFinal: number;
 
     // 1. DETERMINAR EL ID DE CONSOLIDACIÓN A USAR
@@ -65,27 +65,27 @@ export const createRegistroConsolidacionService = async (data: RegistroConsolida
         idConsolidacionFinal = data.IdConsolidacion;
     } else {
         // Opción B: El ID NO fue proporcionado (usado por el controlador/frontend). Debemos buscarlo por fecha.
-        
+
         // Determinar la fecha de registro (usar la proporcionada o la actual)
-        const fechaRegistroParaBusqueda = data.FechaRegistro 
-            ? new Date(data.FechaRegistro).toISOString() 
+        const fechaRegistroParaBusqueda = data.FechaRegistro
+            ? new Date(data.FechaRegistro).toISOString()
             : new Date().toISOString();
-        
+
         // 🚨 Llamar a la función que busca el ID activo por fecha
-        idConsolidacionFinal = await getConsolidacionActivaId(fechaRegistroParaBusqueda); 
+        idConsolidacionFinal = await getConsolidacionActivaId(fechaRegistroParaBusqueda, idEmpresa);
 
         // Si la búsqueda falla, getConsolidacionActivaId lanzará un error.
     }
 
     // 2. DETERMINAR LA FECHA DE REGISTRO FINAL (usar la proporcionada o la actual)
     // Ya que la BBDD espera una cadena ISO
-    const fechaFinalISO = data.FechaRegistro 
-        ? new Date(data.FechaRegistro).toISOString() 
+    const fechaFinalISO = data.FechaRegistro
+        ? new Date(data.FechaRegistro).toISOString()
         : new Date().toISOString();
-    
+
     // 3. Crear el registro en la consolidación
     const { data: nuevoRegistro, error } = await supabase
-        .from("RegistroConsolidacion") 
+        .from("RegistroConsolidacion")
         .insert({
             IdConsolidacion: idConsolidacionFinal, // <-- Usamos el ID final determinado
             FechaRegistro: fechaFinalISO, // <-- Usamos la fecha en formato ISO
@@ -106,14 +106,15 @@ export const createRegistroConsolidacionService = async (data: RegistroConsolida
 };
 
 // --- OBTENER TODOS ---
-export const getAllRegistrosConsolidacionService = async () => {
+export const getAllRegistrosConsolidacionService = async (idEmpresa: number) => {
     // Traducción de findMany con include: Consolidacion
     const { data: lista, error } = await supabase
         .from("RegistroConsolidacion")
         .select(`
             *,
-            Consolidacion:ConsolidacionCapital (*) // Alias para la tabla padre
-        `);
+            ConsolidacionCapital!inner (*) // Alias para la tabla padre
+        `)
+        .eq("ConsolidacionCapital.IdEmpresa", idEmpresa);
 
     if (error) {
         console.error("Error en getAllRegistrosConsolidacionService:", error.message);
@@ -123,14 +124,15 @@ export const getAllRegistrosConsolidacionService = async () => {
 };
 
 // --- OBTENER POR ID ---
-export const getRegistroConsolidacionByIdService = async (id: number) => {
+export const getRegistroConsolidacionByIdService = async (id: number, idEmpresa: number) => {
     const { data: registro, error } = await supabase
         .from("RegistroConsolidacion")
         .select(`
             *,
-            Consolidacion:ConsolidacionCapital (*)
+            ConsolidacionCapital!inner (*)
         `)
         .eq("IdRegistro", id)
+        .eq("ConsolidacionCapital.IdEmpresa", idEmpresa)
         .maybeSingle(); // Usamos maybeSingle para manejar el 404
 
     if (error) {
@@ -143,13 +145,13 @@ export const getRegistroConsolidacionByIdService = async (id: number) => {
 };
 
 // --- ACTUALIZAR ---
-export const updateRegistroConsolidacionService = async (id: number, data: RegistroConsolidacionData) => {
-    // Lógica de negocio: Validar que la Consolidación exista
-    await (data.IdConsolidacion); 
+export const updateRegistroConsolidacionService = async (id: number, idEmpresa: number, data: RegistroConsolidacionData) => {
 
-    const fechaRegistro = data.FechaRegistro 
-                       ? new Date(data.FechaRegistro).toISOString() 
-                       : new Date().toISOString();
+    await getRegistroConsolidacionByIdService(id, idEmpresa);
+
+    const fechaRegistro = data.FechaRegistro
+        ? new Date(data.FechaRegistro).toISOString()
+        : new Date().toISOString();
 
     const { data: actualizado, error } = await supabase
         .from("RegistroConsolidacion")
@@ -175,13 +177,16 @@ export const updateRegistroConsolidacionService = async (id: number, data: Regis
 };
 
 // --- ELIMINAR ---
-export const deleteRegistroConsolidacionService = async (id: number) => {
+export const deleteRegistroConsolidacionService = async (id: number, idEmpresa: number) => {
+
+    await getRegistroConsolidacionByIdService(id, idEmpresa);
+
     const { data, error } = await supabase
         .from("RegistroConsolidacion")
         .delete()
         .eq("IdRegistro", id)
         .select()
-        .maybeSingle(); 
+        .maybeSingle();
 
     if (error) {
         throw new Error(`Error eliminando registro: ${error.message}`);

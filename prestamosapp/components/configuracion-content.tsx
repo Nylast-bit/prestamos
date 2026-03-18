@@ -194,11 +194,11 @@ export function ConfiguracionContent() {
             </div>
             <div>
               <Label className="text-sm font-medium">Última Actualización</Label>
-              <p className="text-sm text-muted-foreground">Enero 2025</p>
+              <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString()}</p>
             </div>
             <div>
               <Label className="text-sm font-medium">Desarrollado por</Label>
-              <p className="text-sm text-muted-foreground">Préstamos Pro Team</p>
+              <p className="text-sm text-muted-foreground">Nylast-Bit</p>
             </div>
             <div>
               <Label className="text-sm font-medium">Soporte</Label>

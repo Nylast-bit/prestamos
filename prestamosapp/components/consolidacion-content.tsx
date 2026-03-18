@@ -1,5 +1,6 @@
 "use client"
 
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useCallback } from "react"  
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -79,7 +80,7 @@ export function ConsolidacionContent() {
   // --- FETCH LOGIC ---
   const fetchRegistros = useCallback(async (idConsolidacion: number) => {
     try {
-        const resR = await fetch(`${API_BASE_URL}/api/registroconsolidacion`);
+        const resR = await fetchWithAuth(`${API_BASE_URL}/api/registroconsolidacion`);
         if (!resR.ok) throw new Error("Fallo al obtener todos los registros.");
         const allData: RegistroConsolidacion[] = await resR.json();
         const filteredData = allData.filter(r => r.IdConsolidacion === idConsolidacion);
@@ -95,7 +96,7 @@ export function ConsolidacionContent() {
     setLoading(true);
     setError(null);
     try {
-        const resC = await fetch(`${API_BASE_URL}/api/consolidacioncapital`);
+        const resC = await fetchWithAuth(`${API_BASE_URL}/api/consolidacioncapital`);
         if (!resC.ok) throw new Error("Fallo al obtener la lista de consolidaciones.");
         const dataC: ConsolidacionCapital[] = await resC.json();
         
@@ -170,7 +171,7 @@ export function ConsolidacionContent() {
       const url = editingRegistro ? `${API_BASE_URL}/api/registroconsolidacion/${editingRegistro.IdRegistro}` : `${API_BASE_URL}/api/registroconsolidacion`;
       const method = editingRegistro ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dataToSend)
@@ -204,7 +205,7 @@ export function ConsolidacionContent() {
     if (!consolidacion) return;
     if (!confirm("¿Está seguro de que desea eliminar este registro?")) return;
     try {
-        const response = await fetch(`${API_BASE_URL}/api/registroconsolidacion/${id}`, { method: 'DELETE' });
+        const response = await fetchWithAuth(`${API_BASE_URL}/api/registroconsolidacion/${id}`, { method: 'DELETE' });
         if (!response.ok) throw new Error(`Error ${response.status}`);
         
         await fetchRegistros(consolidacion.IdConsolidacion);

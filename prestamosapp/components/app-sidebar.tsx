@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { BarChart3, Building2, Calculator, CreditCard, TrendingDown, DollarSign, FileText, HandCoins, Home, PiggyBank, Receipt, Settings, TrendingUp, Users, UserCheck, Calendar, Shield } from 'lucide-react'
+import { useRouter } from "next/navigation"
+import { BarChart3, Building2, Calculator, CreditCard, TrendingDown, DollarSign, FileText, HandCoins, Home, PiggyBank, Receipt, Settings, TrendingUp, Users, UserCheck, Calendar, Shield, LogOut } from 'lucide-react'
+import { useAuthStore } from "@/store/authStore"
 
 import {
   Sidebar,
@@ -56,7 +58,7 @@ const data = {
     },
     {
       title: "Pagos Personalizados",
-      key: "pagos-personalizados",
+      key: "pagospersonalizados",
       icon: Calendar,
     },
     {
@@ -71,10 +73,10 @@ const data = {
     },
     {
       title: "Gastos Fijos",
-      key: "gastosfijos", 
-      icon: TrendingDown, 
+      key: "gastosfijos",
+      icon: TrendingDown,
     },
-    
+
   ],
   navSecondary: [
     {
@@ -86,9 +88,26 @@ const data = {
 }
 
 export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSidebarProps) {
+  const router = useRouter()
+  const { user, logout } = useAuthStore()
+
   const handleConfigClick = () => {
     onSectionChange("configuracion")
   }
+
+  const handleLogout = () => {
+    logout()
+    router.push("/login")
+  }
+
+  // Si no está definido el usuario (cargando), mostramos versión genérica
+  const nombreUsuario = user?.nombre || "Cargando..."
+  const emailUsuario = user?.email || ""
+  const nombreEmpresa = user?.nombreEmpresa || "Cargando Empresa..."
+  const esSuperAdmin = user?.rol === "admin_sistema"
+
+  // Filtramos las pestañas según rol. (Super admin tiene acceso a empresas, pero la vista de empresas aún no está. Por ahora todos ven config)
+  const navMainFiltrado = data.navMain; // A futuro aquí filtramos Items de Mantenimiento de Super Admin
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -101,8 +120,8 @@ export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSide
                   <Building2 className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Préstamos Pro</span>
-                  <span className="truncate text-xs">Gestión Financiera</span>
+                  <span className="truncate font-semibold">{nombreEmpresa}</span>
+                  <span className="truncate text-xs">CreditWay Platform</span>
                 </div>
               </a>
             </SidebarMenuButton>
@@ -114,9 +133,9 @@ export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSide
           <SidebarGroupLabel>Gestión Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {data.navMain.map((item) => (
+              {navMainFiltrado.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     tooltip={item.title}
                     isActive={activeSection === item.key}
                     className="hover:bg-[#213685]/10 data-[active=true]:bg-[#213685] data-[active=true]:text-white cursor-pointer"
@@ -135,7 +154,7 @@ export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSide
             <SidebarMenu>
               {data.navSecondary.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
                     size="sm"
                     className="hover:bg-[#213685]/10 cursor-pointer"
                     onClick={() => onSectionChange(item.key)}
@@ -157,9 +176,15 @@ export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSide
                 <UserCheck className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">Admin Usuario</span>
-                <span className="truncate text-xs">admin@prestamos.com</span>
+                <span className="truncate font-semibold">{nombreUsuario}</span>
+                <span className="truncate text-xs">{emailUsuario}</span>
               </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton className="text-red-500 hover:bg-red-50 hover:text-red-600 cursor-pointer" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Cerrar Sesión</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

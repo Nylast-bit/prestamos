@@ -1,5 +1,6 @@
 "use client"
 
+import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useRef } from "react"
 import { useReactToPrint } from "react-to-print" // <--- Importante
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -89,7 +90,7 @@ export function PagosContent() {
   async function fetchPagos() {
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE_URL}/api/pagos`)
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/pagos`)
       if (!res.ok) throw new Error('Error al cargar pagos')
       const data = await res.json()
       // Ordenamos por fecha descendente (lo más nuevo primero)
@@ -130,7 +131,7 @@ export function PagosContent() {
     setIsDeleting(true)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/pagos/${pagoToDelete}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/pagos/${pagoToDelete}`, {
         method: 'DELETE',
       })
       

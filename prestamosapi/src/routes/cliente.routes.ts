@@ -9,8 +9,11 @@ import {
 } from "../controllers/cliente.controller";
 import { validate } from "../middlewares/validate";
 import { clienteSchema } from "../validators/cliente.validator";
+import { requireAuth } from "../middlewares/auth.middleware";
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.get("/", getAllClientes);
 router.get("/:id", getClienteById);
