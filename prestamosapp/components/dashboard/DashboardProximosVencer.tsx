@@ -67,7 +67,7 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
   listaRadar.sort((a, b) => a.diasRestantes - b.diasRestantes);
 
   return (
-    <Card className="lg:col-span-2 flex flex-col h-full">
+    <Card className="flex flex-col h-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-orange-500" />

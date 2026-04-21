@@ -15,7 +15,9 @@ import { DashboardResumen } from "@/components/dashboard/DashboardResumen"
 import { DashboardConsolidacion } from "@/components/dashboard/DashboardConsolidacion"
 import { DashboardAcciones } from "@/components/dashboard/DashboardAcciones"
 import { DashboardProximosVencer } from "@/components/dashboard/DashboardProximosVencer"
+import { DashboardCobrosFrecuencia } from "@/components/dashboard/DashboardCobrosFrecuencia"
 import { DashboardSolicitudes } from "@/components/dashboard/DashboardSolicitudes"
+import { ProyeccionesCard } from "@/components/prestamos/ProyeccionMesesCard"
 
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
@@ -25,7 +27,7 @@ interface DashboardContentProps {
 }
 
 export function DashboardContent({ onNavigate }: DashboardContentProps) {
-// 1. Estados para la Base de Datos
+  // 1. Estados para la Base de Datos
   const [prestamos, setPrestamos] = useState<any[]>([])
   const [clientes, setClientes] = useState<any[]>([])
   const [prestatarios, setPrestatarios] = useState<any[]>([])
@@ -51,15 +53,15 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
         if (resPrestamos.ok) setPrestamos(await resPrestamos.json());
         if (resClientes.ok) setClientes(await resClientes.json());
         if (resPrestatarios.ok) setPrestatarios(await resPrestatarios.json());
-        
+
         if (resConsolidacion.ok) {
-           const consData = await resConsolidacion.json();
-           setResumenConsolidacion({
-             ingresos: consData.ingresosTotal || 0,
-             egresos: consData.egresosTotal || 0,
-             fechaInicio: consData.FechaInicio,
-             fechaFin: consData.FechaFin
-           });
+          const consData = await resConsolidacion.json();
+          setResumenConsolidacion({
+            ingresos: consData.ingresosTotal || 0,
+            egresos: consData.egresosTotal || 0,
+            fechaInicio: consData.FechaInicio,
+            fechaFin: consData.FechaFin
+          });
         }
 
         // 👇 DEBUG: Vamos a ver si esto da OK y trae tu array
@@ -70,19 +72,19 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
         } else {
           console.error("❌ Falló el fetch de solicitudes. Status:", resSolicitudes.status);
         }
-        
+
       } catch (error) {
         console.error("💥 Error general cargando datos del dashboard:", error);
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchData();
   }, []);
 
   // 3. Filtrar por prestatario si es necesario
-  const prestamosFiltrados = prestamos.filter(p => 
+  const prestamosFiltrados = prestamos.filter(p =>
     filtroPrestatario === "todos" || p.IdPrestatario.toString() === filtroPrestatario
   );
 
@@ -101,26 +103,35 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
       {/* Header con selector de prestatario */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Dashboard General</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {filtroPrestatario === "todos"
+              ? "Dashboard General"
+              : `Dashboard: ${prestatarios.find(p => p.IdPrestatario.toString() === filtroPrestatario)?.Nombre || ''}`}
+          </h2>
           <p className="text-muted-foreground">
-            Resumen completo de la plataforma de préstamos
+            {filtroPrestatario === "todos"
+              ? "Resumen completo de la plataforma de préstamos"
+              : "Resumen de préstamos del prestatario seleccionado"}
           </p>
+
         </div>
-        <Select defaultValue="todos">
+        <Select value={filtroPrestatario} onValueChange={setFiltroPrestatario}>
           <SelectTrigger className="w-[200px] border-[#213685]/20 focus:ring-[#213685]">
             <SelectValue placeholder="Seleccionar prestatario" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los prestatarios</SelectItem>
-            <SelectItem value="prestatario1">Juan Pérez</SelectItem>
-            <SelectItem value="prestatario2">María García</SelectItem>
-            <SelectItem value="prestatario3">Carlos López</SelectItem>
+            {prestatarios.map((p) => (
+              <SelectItem key={p.IdPrestatario} value={p.IdPrestatario.toString()}>
+                {p.Nombre}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
       {/* Métricas principales */}
-      <DashboardStats 
+      <DashboardStats
         capitalEnCalle={capitalEnCalle}
         interesEsperado={interesEsperado}
         pagosQuincenales={totalCuotasActivas}
@@ -128,27 +139,33 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
       />
 
       {/* Sección de alertas y próximos vencimientos */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 items-start">
 
+        <ProyeccionesCard prestamos={prestamosFiltrados} />
         <DashboardProximosVencer prestamos={prestamosFiltrados} />
 
-        <DashboardResumen 
+
+        <DashboardResumen
           prestamosActivos={prestamosActivos.length}
-          clientesTotales={clientes.length}
-          prestatariosTotales={prestatarios.length}
+          clientesTotales={filtroPrestatario === "todos"
+            ? clientes.length
+            : new Set(prestamosFiltrados.map(p => p.IdCliente)).size}
+          prestatariosTotales={filtroPrestatario === "todos" ? prestatarios.length : 1}
         />
+
+        <DashboardCobrosFrecuencia prestamos={prestamosFiltrados} />
       </div>
 
       {/* Solicitudes futuras y consolidación */}
       <div className="grid gap-4 md:grid-cols-2">
-        
+
         {/* 🌟 NUEVO COMPONENTE DE SOLICITUDES */}
-        <DashboardSolicitudes 
-          solicitudes={solicitudes} 
-          onNavigate={onNavigate} 
+        <DashboardSolicitudes
+          solicitudes={solicitudes}
+          onNavigate={onNavigate}
         />
 
-        <DashboardConsolidacion 
+        <DashboardConsolidacion
           ingresos={resumenConsolidacion.ingresos}
           egresos={resumenConsolidacion.egresos}
           fechaInicio={resumenConsolidacion.fechaInicio}
@@ -158,7 +175,7 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
       </div>
 
       {/* Acciones rápidas */}
-      
+
       <DashboardAcciones onNavigate={onNavigate} />
     </div>
   )
