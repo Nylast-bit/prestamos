@@ -14,6 +14,8 @@ import authRoutes from "./routes/auth.routes";
 import empresaRoutes from "./routes/empresa.routes";
 import usuarioRoutes from "./routes/usuario.routes";
 import pagopersonalizadoRoutes from "./routes/pagopersonalizado.routes";
+import planRoutes from "./routes/plan.routes";
+import suscripcionRoutes from "./routes/suscripcion.routes";
 // 👇 importa el job
 import { startCapitalJob } from "./jobs/capitalJob";
 
@@ -35,6 +37,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/empresas", empresaRoutes);
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/pagospersonalizados", pagopersonalizadoRoutes);
+app.use("/api/planes", planRoutes);
+app.use("/api/suscripciones", suscripcionRoutes);
 
 app.use(errorHandler);
 

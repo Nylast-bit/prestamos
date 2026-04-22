@@ -9,6 +9,16 @@ interface UserData {
     rol: string;
     idEmpresa: number;
     nombreEmpresa: string;
+    colorFondo?: string;
+    iconoEmpresa?: string;
+    suscripcion?: {
+        fechaVencimiento: string;
+        plan: {
+             LimiteUsuarios: number;
+             LimitePrestamos: number;
+             Nombre: string;
+        }
+    } | null;
 }
 
 interface AuthState {

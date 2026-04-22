@@ -1,11 +1,14 @@
 import { Router } from 'express';
-import { getEmpresas, createEmpresa } from '../controllers/empresa.controller';
+import { getEmpresas, createEmpresa, updateEmpresa } from '../controllers/empresa.controller';
 import { requireAuth, requireRole } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-// Solo el SuperAdmin puede ver todas o crear nuevas empresas.
+// Rutas de SuperAdmin
 router.get('/', requireAuth, requireRole(['SuperAdmin']), getEmpresas);
 router.post('/', requireAuth, requireRole(['SuperAdmin']), createEmpresa);
+
+// Rutas de configuración de la Empresa local
+router.put('/', requireAuth, requireRole(['SuperAdmin', 'AdminEmpresa', 'admin_empresa', 'Admin', 'admin_sistema']), updateEmpresa);
 
 export default router;

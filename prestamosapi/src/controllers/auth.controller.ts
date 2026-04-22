@@ -37,12 +37,26 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        // Buscar la empresa relacionada para traer el nombre (Opcional pero útil)
+        // Buscar la empresa relacionada para traer el nombre
         const { data: empresa } = await supabase
             .from('Empresa')
-            .select('Nombre')
+            .select('Nombre, ColorFondo, Icono')
             .eq('IdEmpresa', usuario.IdEmpresa)
             .single();
+
+        // Buscar plan activo
+        const { data: suscripcion } = await supabase
+            .from('Suscripcion')
+            .select(`
+                FechaVencimiento,
+                Estado,
+                Plan:IdPlan (LimiteUsuarios, LimitePrestamos, Nombre)
+            `)
+            .eq('IdEmpresa', usuario.IdEmpresa)
+            .eq('Estado', 'Activa')
+            .order('IdSuscripcion', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
         // Generar Token JWT
         const token = generateToken({
@@ -60,7 +74,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                 email: usuario.Email,
                 rol: usuario.Rol,
                 idEmpresa: usuario.IdEmpresa,
-                nombreEmpresa: empresa ? empresa.Nombre : 'Desconocida'
+                nombreEmpresa: empresa ? empresa.Nombre : 'Desconocida',
+                colorFondo: empresa?.ColorFondo || '#213685',
+                iconoEmpresa: empresa?.Icono || 'Building2',
+                suscripcion: suscripcion ? {
+                    fechaVencimiento: suscripcion.FechaVencimiento,
+                    plan: Array.isArray(suscripcion.Plan) ? suscripcion.Plan[0] : suscripcion.Plan
+                } : null
             }
         });
 

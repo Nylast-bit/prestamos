@@ -38,3 +38,23 @@ export const createEmpresa = async (req: Request, res: Response): Promise<void> 
         res.status(500).json({ error: err.message });
     }
 };
+
+export const updateEmpresa = async (req: any, res: Response): Promise<void> => {
+    try {
+        const idEmpresa = req.user.IdEmpresa;
+        const info = req.body;
+        
+        const { data, error } = await supabase
+            .from('Empresa')
+            .update(info)
+            .eq('IdEmpresa', idEmpresa)
+            .select()
+            .single();
+
+        if (error) throw error;
+        
+        res.status(200).json(data);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+};

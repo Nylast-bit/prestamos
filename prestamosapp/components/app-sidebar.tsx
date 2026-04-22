@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { BarChart3, Building2, Calculator, CreditCard, TrendingDown, DollarSign, FileText, HandCoins, Home, PiggyBank, Receipt, Settings, TrendingUp, Users, UserCheck, Calendar, Shield, LogOut } from 'lucide-react'
+import { BarChart3, Building2, Calculator, CreditCard, TrendingDown, DollarSign, FileText, HandCoins, Home, PiggyBank, Receipt, Settings, TrendingUp, Users, UserCheck, Calendar, Shield, LogOut, Briefcase, Landmark, Gem, Rocket, Star } from 'lucide-react'
 import { useAuthStore } from "@/store/authStore"
 
 import {
@@ -104,10 +104,24 @@ export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSide
   const nombreUsuario = user?.nombre || "Cargando..."
   const emailUsuario = user?.email || ""
   const nombreEmpresa = user?.nombreEmpresa || "Cargando Empresa..."
-  const esSuperAdmin = user?.rol === "admin_sistema"
+  const colorFondo = user?.colorFondo || "#213685"
+  const iconoStr = user?.iconoEmpresa || "Building2"
+  const isPrestamista = user?.rol === "Prestamista" || user?.rol === "Cajero";
 
-  // Filtramos las pestañas según rol. (Super admin tiene acceso a empresas, pero la vista de empresas aún no está. Por ahora todos ven config)
-  const navMainFiltrado = data.navMain; // A futuro aquí filtramos Items de Mantenimiento de Super Admin
+  const navMainFiltrado = data.navMain; 
+  const navSecondaryFiltrado = isPrestamista ? [] : data.navSecondary;
+
+  // Renderizar icono dinámicamente
+  const importIcon = (name: string) => {
+    switch (name) {
+      case 'Briefcase': return <Briefcase className="size-4" />;
+      case 'Landmark': return <Landmark className="size-4" />;
+      case 'Gem': return <Gem className="size-4" />;
+      case 'Rocket': return <Rocket className="size-4" />;
+      case 'Star': return <Star className="size-4" />;
+      default: return <Building2 className="size-4" />;
+    }
+  };
 
   return (
     <Sidebar variant="inset" {...props}>
@@ -116,8 +130,11 @@ export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSide
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <a href="#">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#213685] text-sidebar-primary-foreground">
-                  <Building2 className="size-4" />
+                <div 
+                  className="flex aspect-square size-8 items-center justify-center rounded-lg text-white"
+                  style={{ backgroundColor: colorFondo }}
+                >
+                  {importIcon(iconoStr)}
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{nombreEmpresa}</span>
@@ -138,7 +155,8 @@ export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSide
                   <SidebarMenuButton
                     tooltip={item.title}
                     isActive={activeSection === item.key}
-                    className="hover:bg-[#213685]/10 data-[active=true]:bg-[#213685] data-[active=true]:text-white cursor-pointer"
+                    className={`cursor-pointer data-[active=true]:text-white data-[active=true]:opacity-100 hover:opacity-80`}
+                    style={activeSection === item.key ? { backgroundColor: colorFondo } : {}}
                     onClick={() => onSectionChange(item.key)}
                   >
                     <item.icon />
@@ -149,24 +167,27 @@ export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSide
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup className="mt-auto">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {data.navSecondary.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    size="sm"
-                    className="hover:bg-[#213685]/10 cursor-pointer"
-                    onClick={() => onSectionChange(item.key)}
-                  >
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        
+        {navSecondaryFiltrado.length > 0 && (
+          <SidebarGroup className="mt-auto">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navSecondaryFiltrado.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      size="sm"
+                      className="hover:bg-slate-100 cursor-pointer"
+                      onClick={() => onSectionChange(item.key)}
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>

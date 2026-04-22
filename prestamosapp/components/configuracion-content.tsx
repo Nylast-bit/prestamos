@@ -9,13 +9,49 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Moon, Sun, Monitor, Settings, Palette, Bell, Shield, Database } from 'lucide-react'
 import { useTheme } from "next-themes"
+import { useAuthStore } from "@/store/authStore"
+import { api } from "@/lib/api"
+import { Input } from "@/components/ui/input"
 
 export function ConfiguracionContent() {
   const { theme, setTheme } = useTheme()
+  const { user, loginState } = useAuthStore()
   const [mounted, setMounted] = useState(false)
   const [notifications, setNotifications] = useState(true)
   const [autoBackup, setAutoBackup] = useState(true)
   const [soundEnabled, setSoundEnabled] = useState(false)
+  
+  // Theming state
+  const [empresaNombre, setEmpresaNombre] = useState(user?.nombreEmpresa || "")
+  const [empresaColor, setEmpresaColor] = useState(user?.colorFondo || "#213685")
+  const [empresaIcono, setEmpresaIcono] = useState(user?.iconoEmpresa || "Building2")
+  const [isSavingTheming, setIsSavingTheming] = useState(false)
+
+  const handleSaveTheming = async () => {
+    setIsSavingTheming(true)
+    try {
+      await api.put('/empresas', {
+        Nombre: empresaNombre,
+        ColorFondo: empresaColor,
+        Icono: empresaIcono
+      })
+      // Update local store
+      if (user && useAuthStore.getState().token) {
+        loginState(useAuthStore.getState().token as string, {
+          ...user,
+          nombreEmpresa: empresaNombre,
+          colorFondo: empresaColor,
+          iconoEmpresa: empresaIcono
+        })
+      }
+      alert('Configuración visual guardada correctamente. Puede recargar la página si no se aplican todos los cambios.')
+    } catch (e) {
+      console.error(e)
+      alert('Error guardando configuración')
+    } finally {
+      setIsSavingTheming(false)
+    }
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -95,6 +131,50 @@ export function ConfiguracionContent() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Personalización de Empresa */}
+      {(user?.rol === 'AdminEmpresa' || user?.rol === 'admin_empresa' || user?.rol === 'Admin' || user?.rol === 'admin_sistema' || user?.rol === 'SuperAdmin') && (
+        <Card>
+          <CardHeader>
+             <CardTitle className="flex items-center gap-2">
+                <Palette className="h-5 w-5 text-[#213685]" />
+                Identidad Visual
+             </CardTitle>
+             <CardDescription>
+                Personaliza el nombre, color base y logotipo de tu plataforma SaaS
+             </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+             <div className="space-y-4">
+               <div>
+                 <Label>Nombre de la Plataforma</Label>
+                 <Input value={empresaNombre} onChange={(e) => setEmpresaNombre(e.target.value)} className="mt-1" />
+               </div>
+               <div>
+                 <Label>Color de Marca (HEX)</Label>
+                 <div className="flex gap-2 mt-1">
+                    <Input type="color" className="w-16 h-10 p-1" value={empresaColor} onChange={(e) => setEmpresaColor(e.target.value)} />
+                    <Input value={empresaColor} onChange={(e) => setEmpresaColor(e.target.value)} />
+                 </div>
+               </div>
+               <div>
+                  <Label>Icono del Logo</Label>
+                  <select value={empresaIcono} onChange={(e) => setEmpresaIcono(e.target.value)} className="w-full mt-1 p-2 border rounded-md text-sm outline-none">
+                     <option value="Building2">Edificio (Por defecto)</option>
+                     <option value="Briefcase">Maletín Empresarial</option>
+                     <option value="Landmark">Banco / Institución</option>
+                     <option value="Gem">Diamante</option>
+                     <option value="Rocket">Cohete STARTUP</option>
+                     <option value="Star">Estrella</option>
+                  </select>
+               </div>
+               <Button onClick={handleSaveTheming} disabled={isSavingTheming} className="mt-2" style={{ backgroundColor: empresaColor }}>
+                  {isSavingTheming ? "Guardando..." : "Guardar Identidad"}
+               </Button>
+             </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notificaciones */}
       <Card>

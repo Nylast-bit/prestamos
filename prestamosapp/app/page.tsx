@@ -26,8 +26,10 @@ export default function Page() {
     setIsMounted(true)
     if (!isAuthenticated()) {
       router.push("/login")
+    } else if (user?.rol === 'SuperAdmin') {
+      router.push("/superadmin")
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, router, user])
 
   if (!isMounted || !isAuthenticated()) {
     return (

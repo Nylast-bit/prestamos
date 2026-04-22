@@ -36,6 +36,37 @@ export const createUsuario = async (req: any, res: Response): Promise<void> => {
             return;
         }
 
+        // Validar límites de usuarios basados en el Plan y si la suscripción está activa
+        if (req.user.Rol !== 'SuperAdmin') {
+            const { data: suscripcion } = await supabase
+                .from('Suscripcion')
+                .select('Plan:IdPlan (LimiteUsuarios)')
+                .eq('IdEmpresa', targetEmpresa)
+                .eq('Estado', 'Activa')
+                .order('IdSuscripcion', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (!suscripcion || !suscripcion.Plan) {
+                res.status(403).json({ error: 'La empresa no cuenta con una suscripción activa.' });
+                return;
+            }
+
+            const plan = Array.isArray(suscripcion.Plan) ? suscripcion.Plan[0] : suscripcion.Plan;
+
+            const { count, error: countError } = await supabase
+                .from('Usuario')
+                .select('*', { count: 'exact', head: true })
+                .eq('IdEmpresa', targetEmpresa);
+
+            if (countError) throw countError;
+
+            if ((count || 0) >= plan.LimiteUsuarios) {
+                res.status(403).json({ error: 'Se ha alcanzado el límite de usuarios de su plan actual.' });
+                return;
+            }
+        }
+
         // Hashear password
         const salt = await bcrypt.genSalt(10);
         const hashedClave = await bcrypt.hash(clave, salt);
@@ -46,7 +77,8 @@ export const createUsuario = async (req: any, res: Response): Promise<void> => {
                 Nombre: nombre,
                 Email: email,
                 Clave: hashedClave,
-                Rol: rol || 'Cajero', // Rol por defecto si no se pasa
+                Rol: rol || 'Prestamista', // Rol por defecto
+
                 IdEmpresa: targetEmpresa
             }])
             .select('IdUsuario, Nombre, Email, Rol, Estado, IdEmpresa')

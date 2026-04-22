@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import * as prestamoService from "../services/prestamo.service";
 import { any } from "zod";
-
+import { supabase } from "../config/supabaseClient";
 
 interface SimulacionInput {
   monto: number;
@@ -11,7 +11,6 @@ interface SimulacionInput {
   numeroCuotas: number;
   tipoCalculo: string;
 }
-
 
 // Obtener todos los préstamos
 export const getPrestamos = asyncHandler(async (req: any, res: Response) => {
@@ -32,6 +31,37 @@ export const getPrestamoById = asyncHandler(async (req: any, res: Response) => {
 export const createPrestamo = asyncHandler(async (req: any, res: Response) => {
   const data = req.body;
   data.IdEmpresa = req.user.IdEmpresa;
+
+  // Validar límites de suscripción
+  if (req.user.Rol !== 'SuperAdmin') {
+        const { data: suscripcion } = await supabase
+            .from('Suscripcion')
+            .select('Plan:IdPlan (LimitePrestamos)')
+            .eq('IdEmpresa', req.user.IdEmpresa)
+            .eq('Estado', 'Activa')
+            .order('IdSuscripcion', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (!suscripcion || !suscripcion.Plan) {
+            res.status(403).json({ success: false, error: 'La empresa no cuenta con una suscripción activa.' });
+            return;
+        }
+
+        const plan = Array.isArray(suscripcion.Plan) ? suscripcion.Plan[0] : suscripcion.Plan;
+
+        const { count, error } = await supabase
+            .from('Prestamo')
+            .select('*', { count: 'exact', head: true })
+            .eq('IdEmpresa', req.user.IdEmpresa)
+            .eq('Estado', 'Activo');
+
+        if ((count || 0) >= plan.LimitePrestamos) {
+             res.status(403).json({ success: false, error: 'Límite de préstamos activos de su plan excedido.' });
+             return;
+        }
+  }
+
   const nuevoPrestamo = await prestamoService.createPrestamoService(data, req.user.IdEmpresa);
   res.status(201).json({
     success: true,
