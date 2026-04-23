@@ -41,8 +41,9 @@ export const createPagoPersonalizado = asyncHandler(async (req: Request<{}, {}, 
     });
 });
 
-export const getAllPagosPersonalizados = asyncHandler(async (req: Request, res: Response) => {
-    const pagos = await pagoPersonalizadoService.getAllPagosPersonalizadosService();
+export const getAllPagosPersonalizados = asyncHandler(async (req: any, res: Response) => {
+    const idEmpresa = req.user.IdEmpresa;
+    const pagos = await pagoPersonalizadoService.getAllPagosPersonalizadosService(idEmpresa);
     
     res.status(200).json(pagos);
 });

@@ -82,11 +82,14 @@ export const createPagoService = async (data: any, idEmpresa: number) => {
 
   if (errorPago) throw new Error("Error DB Pago: " + errorPago.message);
 
-  // 5. ACTUALIZAR EL PRÉSTAMO (Igual que antes)
+  // 5. ACTUALIZAR EL PRÉSTAMO
+  const nuevoCapitalRestante = Math.max(0, (prestamo.CapitalRestante || prestamo.MontoPrestado) - Number(MontoCapitalAbonado || 0));
+
   const { error: errorUpdate } = await supabase
     .from("Prestamo")
     .update({
       CuotasRestantes: cuotasParaGuardar,
+      CapitalRestante: nuevoCapitalRestante,
       Estado: nuevoEstado,
       FechaUltimoPago: new Date()
     })

@@ -55,10 +55,36 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
   const [observaciones, setObservaciones] = useState("");
   const [isPaying, setIsPaying] = useState(false);
 
+  // Estados para los 3 modos de pago
+  const [payMode, setPayMode] = useState<'cuota' | 'personalizado' | 'liquidar'>('cuota');
+  const [montoPersonalizado, setMontoPersonalizado] = useState("");
+
   // Estados Detalle (Historial)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [historialPagos, setHistorialPagos] = useState<any[]>([]);
   const [isLoadingHistorial, setIsLoadingHistorial] = useState(false);
+
+  // --- CÁLCULOS DERIVADOS ---
+  const capitalRestanteReal = selectedPrestamo 
+    ? (selectedPrestamo.CapitalRestante ?? selectedPrestamo.MontoPrestado)
+    : 0;
+
+  // capital+interes: interés FIJO basado en MontoPrestado original
+  // amortizable: interés VARIABLE basado en CapitalRestante actual
+  const tipoCalculo = (selectedPrestamo?.TipoCalculo || '').toLowerCase();
+  const baseInteres = tipoCalculo.includes('amortiza') ? capitalRestanteReal : (selectedPrestamo?.MontoPrestado || 0);
+  const interesMinimo = selectedPrestamo 
+    ? baseInteres * (selectedPrestamo.InteresPorcentaje / 100)
+    : 0;
+
+  const montoLiquidacion = selectedPrestamo
+    ? capitalRestanteReal + interesMinimo
+    : 0;
+
+  const montoPersonalizadoNum = parseFloat(montoPersonalizado) || 0;
+  const desgloseCapital = Math.max(0, montoPersonalizadoNum - interesMinimo);
+  const desgloseInteres = Math.min(montoPersonalizadoNum, interesMinimo);
+  const esMontoValido = montoPersonalizadoNum >= interesMinimo && montoPersonalizadoNum > 0;
 
   // --- HANDLERS ---
   const handleOpenPay = (e: React.MouseEvent, prestamo: any) => {
@@ -66,7 +92,16 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
     setSelectedPrestamo(prestamo);
     setPaymentType("Efectivo");
     setObservaciones("");
+    setPayMode('cuota');
+    setMontoPersonalizado("");
     setIsPayOpen(true);
+  };
+
+  const getIdConsolidacionActiva = async () => {
+    const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/consolidacioncapital/activa`);
+    if (!res.ok) throw new Error("No se pudo obtener la consolidación activa. Verifica que exista una abierta.");
+    const data = await res.json();
+    return data.IdConsolidacion;
   };
 
   const handleConfirmarPago = async () => {
@@ -78,44 +113,93 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
           throw new Error("Error crítico: No se encuentra el ID del préstamo.");
       }
 
-      let interesAPagar = 0;
-      let capitalAPagar = 0;
-      let numeroCuotaActual = 1;
+      if (payMode === 'cuota') {
+        // === MODO 1: CUOTA ESTÁNDAR ===
+        let interesAPagar = 0;
+        let capitalAPagar = 0;
+        let numeroCuotaActual = 1;
 
-      if (selectedPrestamo.TablaPagos) {
-         try {
-             const tabla = JSON.parse(selectedPrestamo.TablaPagos);
-             const indiceCuota = selectedPrestamo.CantidadCuotas - selectedPrestamo.CuotasRestantes;
-             if (tabla[indiceCuota]) {
-                 interesAPagar = Number(tabla[indiceCuota].interes);
-                 capitalAPagar = Number(tabla[indiceCuota].capital);
-                 numeroCuotaActual = Number(tabla[indiceCuota].numeroCuota);
-             }
-         } catch (e) {
-             console.error("Error al parsear TablaPagos", e);
-         }
+        if (selectedPrestamo.TablaPagos) {
+           try {
+               const tabla = JSON.parse(selectedPrestamo.TablaPagos);
+               const indiceCuota = selectedPrestamo.CantidadCuotas - selectedPrestamo.CuotasRestantes;
+               if (tabla[indiceCuota]) {
+                   interesAPagar = Number(tabla[indiceCuota].interes);
+                   capitalAPagar = Number(tabla[indiceCuota].capital);
+                   numeroCuotaActual = Number(tabla[indiceCuota].numeroCuota);
+               }
+           } catch (e) {
+               console.error("Error al parsear TablaPagos", e);
+           }
+        }
+
+        const payload = {
+          IdPrestamo: Number(selectedPrestamo.IdPrestamo),
+          MontoPagado: Number(selectedPrestamo.MontoCuota),
+          TipoPago: paymentType,
+          Observaciones: observaciones || "Pago de cuota estándar",
+          MontoInteresPagado: interesAPagar,
+          MontoCapitalAbonado: capitalAPagar,
+          NumeroCuota: numeroCuotaActual
+        };
+
+        const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Error al procesar el pago");
+
+      } else if (payMode === 'personalizado') {
+        // === MODO 2: PAGO PERSONALIZADO ===
+        if (!esMontoValido) {
+          throw new Error(`El monto mínimo es ${formatMoney(interesMinimo)} (interés del periodo).`);
+        }
+
+        const idConsolidacion = await getIdConsolidacionActiva();
+
+        const payload = {
+          idPrestamo: Number(selectedPrestamo.IdPrestamo),
+          idConsolidacion,
+          montoPagado: montoPersonalizadoNum,
+          fechaPago: new Date().toISOString(),
+          concepto: observaciones || `Pago personalizado - ${paymentType}`
+        };
+
+        const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagospersonalizados`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Error al procesar el pago personalizado");
+
+      } else if (payMode === 'liquidar') {
+        // === MODO 3: LIQUIDACIÓN TOTAL ===
+        const idConsolidacion = await getIdConsolidacionActiva();
+
+        const payload = {
+          idPrestamo: Number(selectedPrestamo.IdPrestamo),
+          idConsolidacion,
+          montoPagado: montoLiquidacion,
+          fechaPago: new Date().toISOString(),
+          concepto: observaciones || `Liquidación total del préstamo - ${paymentType}`
+        };
+
+        const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagospersonalizados`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Error al liquidar el préstamo");
       }
 
-      const payload = {
-        IdPrestamo: Number(selectedPrestamo.IdPrestamo),
-        MontoPagado: Number(selectedPrestamo.MontoCuota),
-        TipoPago: paymentType,
-        Observaciones: observaciones || "Pago de cuota estándar",
-        MontoInteresPagado: interesAPagar,
-        MontoCapitalAbonado: capitalAPagar,
-        NumeroCuota: numeroCuotaActual
-      };
-
-      const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Error al procesar el pago");
-
-      alert("¡Pago registrado correctamente!");
+      alert(payMode === 'liquidar' ? "¡Préstamo liquidado exitosamente!" : "¡Pago registrado correctamente!");
       setIsPayOpen(false);
       if (onPaymentSuccess) onPaymentSuccess();
       
@@ -126,8 +210,6 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
       setIsPaying(false);
     }
   };
-  
-  const handlePagoPersonalizado = () => { alert("Próximamente"); };
 
   const handleRowClick = async (prestamo: any) => {
     setSelectedPrestamo(prestamo);
@@ -164,6 +246,14 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
             idPago: pagoReal ? pagoReal.IdPago : null
         };
     });
+  };
+
+  // Helper para el label del botón de confirmar
+  const getBotonLabel = () => {
+    if (isPaying) return "Procesando...";
+    if (payMode === 'cuota') return "Cobrar Cuota";
+    if (payMode === 'personalizado') return `Cobrar ${montoPersonalizadoNum > 0 ? formatMoney(montoPersonalizadoNum) : ''}`;
+    return `Liquidar ${formatMoney(montoLiquidacion)}`;
   };
 
   const prestamosVisibles = prestamos.filter((p: any) => p.Estado !== 'Eliminado');
@@ -328,35 +418,141 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
         </div>
       </div>
 
-      {/* --- MODAL DE PAGO --- */}
+      {/* --- MODAL DE PAGO (3 MODOS) --- */}
       <Dialog open={isPayOpen} onOpenChange={setIsPayOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Banknote className="text-green-600" />
-              Registrar Cobro
+              Registrar Cobro — {selectedPrestamo?.clienteNombre}
             </DialogTitle>
-            <DialogDescription>Confirma los detalles para procesar el pago.</DialogDescription>
+            <DialogDescription>Selecciona el tipo de cobro que deseas aplicar.</DialogDescription>
           </DialogHeader>
 
           {selectedPrestamo && (
-            <div className="grid gap-6 py-4">
-              <div className="bg-gray-50 p-4 rounded-lg border space-y-3">
-                <div className="flex justify-between items-center border-b pb-2">
-                  <span className="text-sm text-gray-500">Cliente</span>
-                  <span className="font-semibold">{selectedPrestamo.clienteNombre}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">Monto Cuota</span>
-                  <span className="text-xl font-bold text-green-700">
-                    {formatMoney(selectedPrestamo.MontoCuota)}
-                  </span>
-                </div>
+            <div className="grid gap-5 py-2">
+              
+              {/* === SELECTOR DE MODO === */}
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setPayMode('cuota')}
+                  className={`px-3 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${
+                    payMode === 'cuota' 
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' 
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <CalendarClock className="h-5 w-5 mx-auto mb-1" />
+                  Cuota
+                </button>
+                <button
+                  onClick={() => setPayMode('personalizado')}
+                  className={`px-3 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${
+                    payMode === 'personalizado' 
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' 
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <Banknote className="h-5 w-5 mx-auto mb-1" />
+                  Personalizado
+                </button>
+                <button
+                  onClick={() => setPayMode('liquidar')}
+                  className={`px-3 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${
+                    payMode === 'liquidar' 
+                      ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-sm' 
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <CheckCircle2 className="h-5 w-5 mx-auto mb-1" />
+                  Liquidar
+                </button>
               </div>
 
+              {/* === CONTENIDO SEGÚN MODO === */}
+              
+              {payMode === 'cuota' && (
+                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200 space-y-3">
+                  <div className="flex justify-between items-center border-b border-emerald-200 pb-2">
+                    <span className="text-sm text-emerald-700">Cuota #{(selectedPrestamo.CantidadCuotas - selectedPrestamo.CuotasRestantes) + 1} de {selectedPrestamo.CantidadCuotas}</span>
+                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300">{selectedPrestamo.CuotasRestantes} restantes</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-emerald-700 font-medium">Monto a cobrar</span>
+                    <span className="text-2xl font-bold text-emerald-800">
+                      {formatMoney(selectedPrestamo.MontoCuota)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {payMode === 'personalizado' && (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-blue-700">Interés mínimo del periodo</span>
+                      <span className="font-bold text-blue-800">{formatMoney(interesMinimo)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-blue-700">Capital restante</span>
+                      <span className="font-bold text-blue-800">{formatMoney(capitalRestanteReal)}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="font-semibold">Monto a cobrar</Label>
+                    <Input
+                      type="number"
+                      placeholder={`Mínimo ${formatMoney(interesMinimo)}`}
+                      value={montoPersonalizado}
+                      onChange={(e) => setMontoPersonalizado(e.target.value)}
+                      className={`text-lg font-semibold ${montoPersonalizadoNum > 0 && !esMontoValido ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+                      min={0}
+                      step="0.01"
+                    />
+                    {montoPersonalizadoNum > 0 && !esMontoValido && (
+                      <p className="text-xs text-red-500 font-medium">⚠️ El monto debe cubrir al menos el interés: {formatMoney(interesMinimo)}</p>
+                    )}
+                  </div>
+
+                  {montoPersonalizadoNum > 0 && esMontoValido && (
+                    <div className="bg-slate-50 p-3 rounded-lg border space-y-1 text-sm">
+                      <p className="font-semibold text-slate-700 mb-2">Desglose estimado:</p>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">→ Interés cobrado</span>
+                        <span className="font-mono font-semibold text-orange-600">{formatMoney(desgloseInteres)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">→ Abono a capital</span>
+                        <span className="font-mono font-semibold text-green-600">{formatMoney(desgloseCapital)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {payMode === 'liquidar' && (
+                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 space-y-3">
+                  <p className="text-sm text-orange-700 font-medium">Se liquidará el préstamo completo con un único pago:</p>
+                  <div className="flex justify-between items-center text-sm border-b border-orange-200 pb-2">
+                    <span className="text-orange-700">Capital restante</span>
+                    <span className="font-mono font-semibold">{formatMoney(capitalRestanteReal)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-b border-orange-200 pb-2">
+                    <span className="text-orange-700">+ Interés del periodo</span>
+                    <span className="font-mono font-semibold">{formatMoney(interesMinimo)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-orange-800 font-bold">Total a pagar</span>
+                    <span className="text-2xl font-bold text-orange-800">{formatMoney(montoLiquidacion)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* === CAMPOS COMUNES === */}
               <div className="grid gap-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="metodo" className="text-right">Método</Label>
+                  <Label htmlFor="metodo" className="text-right text-sm">Método</Label>
                   <Select value={paymentType} onValueChange={setPaymentType}>
                     <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -367,17 +563,26 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                   </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="obs" className="text-right">Notas</Label>
+                  <Label htmlFor="obs" className="text-right text-sm">Notas</Label>
                   <Input id="obs" placeholder="Opcional..." className="col-span-3" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
                 </div>
               </div>
             </div>
           )}
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={handlePagoPersonalizado}>Personalizado</Button>
-            <Button className="bg-green-600 hover:bg-green-700" onClick={handleConfirmarPago} disabled={isPaying}>
-              {isPaying ? "Procesando..." : "Cobrar Cuota"}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPayOpen(false)}>Cancelar</Button>
+            <Button 
+              className={`text-white ${
+                payMode === 'cuota' ? 'bg-emerald-600 hover:bg-emerald-700' : 
+                payMode === 'personalizado' ? 'bg-blue-600 hover:bg-blue-700' : 
+                'bg-orange-600 hover:bg-orange-700'
+              }`}
+              onClick={handleConfirmarPago} 
+              disabled={isPaying || (payMode === 'personalizado' && !esMontoValido)}
+            >
+              {isPaying && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {getBotonLabel()}
             </Button>
           </DialogFooter>
         </DialogContent>

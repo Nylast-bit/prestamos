@@ -44,3 +44,30 @@ export const createPlan = async (req: Request, res: Response): Promise<void> => 
         res.status(500).json({ error: err.message });
     }
 };
+
+export const updatePlan = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { nombre, precio, limiteUsuarios, limitePrestamos, activo } = req.body;
+
+        const updateData: any = {};
+        if (nombre !== undefined) updateData.Nombre = nombre;
+        if (precio !== undefined) updateData.Precio = precio;
+        if (limiteUsuarios !== undefined) updateData.LimiteUsuarios = limiteUsuarios;
+        if (limitePrestamos !== undefined) updateData.LimitePrestamos = limitePrestamos;
+        if (activo !== undefined) updateData.Activo = activo;
+
+        const { data, error } = await supabase
+            .from('Plan')
+            .update(updateData)
+            .eq('IdPlan', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        
+        res.status(200).json(data);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+};

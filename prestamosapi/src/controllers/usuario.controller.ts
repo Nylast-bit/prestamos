@@ -9,8 +9,10 @@ export const getUsuariosPorEmpresa = async (req: any, res: Response): Promise<vo
         // Solo permitir que un admin de empresa vea a sus usuarios (o SuperAdmin)
         let query = supabase.from('Usuario').select('IdUsuario, Nombre, Email, Rol, Estado, FechaRegistro');
 
-        if (req.user.Rol !== 'SuperAdmin') {
+        if (req.user.Rol !== 'SuperAdmin' && req.user.Rol !== 'admin_sistema') {
             query = query.eq('IdEmpresa', idEmpresa);
+        } else if (req.query.idEmpresa) {
+            query = query.eq('IdEmpresa', req.query.idEmpresa);
         }
 
         const { data, error } = await query.order('FechaRegistro', { ascending: false });
@@ -57,7 +59,8 @@ export const createUsuario = async (req: any, res: Response): Promise<void> => {
             const { count, error: countError } = await supabase
                 .from('Usuario')
                 .select('*', { count: 'exact', head: true })
-                .eq('IdEmpresa', targetEmpresa);
+                .eq('IdEmpresa', targetEmpresa)
+                .neq('Rol', 'admin_empresa');
 
             if (countError) throw countError;
 

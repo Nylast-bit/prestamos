@@ -26,13 +26,18 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
         throw new Error("Este préstamo ya está saldado.");
     }
 
-    // 2. Calcular la "Barrera del Interés"
-    // En tu lógica, el interés es un % del Monto Prestado original (Ej: 10% de 5000 = 500)
-    const interesGenerado = prestamo.MontoPrestado * (prestamo.InteresPorcentaje / 100);
+    // 2. Calcular la "Barrera del Interés" según el tipo de cálculo
+    // capital+interes: interés FIJO basado en MontoPrestado original
+    // amortizable: interés VARIABLE basado en CapitalRestante actual
+    const tipoCalculo = (prestamo.TipoCalculo || '').toLowerCase();
+    const baseInteres = tipoCalculo.includes('amortiza') 
+        ? (prestamo.CapitalRestante || prestamo.MontoPrestado) 
+        : prestamo.MontoPrestado;
+    const interesGenerado = baseInteres * (prestamo.InteresPorcentaje / 100);
 
     // 3. REGLA 1: No aceptar pagos menores al interés
     if (montoPagado < interesGenerado) {
-        throw new Error(`El pago (RD$${montoPagado}) no cubre el interés mínimo generado (RD$${interesGenerado}). Pago rechazado.`);
+        throw new Error(`El pago (RD$${montoPagado}) no cubre el interés mínimo generado (RD$${interesGenerado.toFixed(2)}). Pago rechazado.`);
     }
 
     // 4. Distribuir el dinero
@@ -168,20 +173,23 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
     }
 };
 
-export const getAllPagosPersonalizadosService = async () => {
+export const getAllPagosPersonalizadosService = async (idEmpresa: number) => {
     // Pagos personalizados se guardan con TipoPago = "Personalizado"
+    // Filtramos por empresa usando Prestamo!inner para filtro directo en DB
     const { data: pagos, error } = await supabase
         .from("Pago")
         .select(`
             *,
-            Prestamo (
+            Prestamo!inner (
                 IdPrestamo,
+                IdEmpresa,
                 Prestatario (
                     Nombre
                 )
             )
         `)
         .eq("TipoPago", "Personalizado")
+        .eq("Prestamo.IdEmpresa", idEmpresa)
         .order("FechaPago", { ascending: false });
 
     if (error) {

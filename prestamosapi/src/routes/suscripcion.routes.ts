@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { getSuscripciones, createSuscripcion } from '../controllers/suscripcion.controller';
+import { getSuscripciones, createSuscripcion, updateSuscripcion, getDashboardStats } from '../controllers/suscripcion.controller';
 import { requireAuth, requireRole } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-// Superadmin o admins podrian ver. Vamos a limitarlo a SuperAdmin por ahora o permitir a Admin ver la suya
-router.get('/', requireAuth, requireRole(['SuperAdmin']), getSuscripciones);
-router.post('/', requireAuth, requireRole(['SuperAdmin']), createSuscripcion);
+router.get('/stats', requireAuth, requireRole(['SuperAdmin', 'admin_sistema']), getDashboardStats);
+router.get('/', requireAuth, requireRole(['SuperAdmin', 'admin_sistema']), getSuscripciones);
+router.post('/', requireAuth, requireRole(['SuperAdmin', 'admin_sistema']), createSuscripcion);
+router.put('/:id', requireAuth, requireRole(['SuperAdmin', 'admin_sistema']), updateSuscripcion);
 
 export default router;

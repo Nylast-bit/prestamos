@@ -12,12 +12,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        // Buscar usuario en DB
+        const cleanEmail = email.trim();
+
+        // Buscar usuario en DB (ilike para insensibilidad a mayúsculas)
         const { data: usuario, error } = await supabase
             .from('Usuario')
             .select('*')
-            .eq('Email', email)
-            .single();
+            .ilike('Email', cleanEmail)
+            .maybeSingle();
 
         if (error || !usuario) {
             res.status(401).json({ error: 'Credenciales inválidas' });

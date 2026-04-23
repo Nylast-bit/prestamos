@@ -37,7 +37,7 @@ const data = {
       icon: Users,
     },
     {
-      title: "Prestatarios",
+      title: "Prestamistas",
       key: "prestatarios",
       icon: UserCheck,
     },

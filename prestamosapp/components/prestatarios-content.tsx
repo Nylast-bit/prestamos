@@ -106,7 +106,7 @@ export function PrestatariosContent() {
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
-          throw new Error(errorData.message || `Error ${response.status}`)
+          throw new Error(errorData.message || errorData.error || `Error ${response.status}`)
         }
         
         await fetchPrestatarios()
@@ -175,7 +175,7 @@ export function PrestatariosContent() {
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin mb-2" />
-        <p>Cargando prestatarios...</p>
+        <p>Cargando prestamistas...</p>
     </div>
   )
   
@@ -187,7 +187,7 @@ export function PrestatariosContent() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-l-4 border-l-[#213685] shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Prestatarios</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Prestamistas</CardTitle>
             <Building className="h-4 w-4 text-[#213685]" />
           </CardHeader>
           <CardContent>
@@ -212,7 +212,7 @@ export function PrestatariosContent() {
         
         <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Promedio / Prestatario</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Promedio / Prestamista</CardTitle>
             <User className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
@@ -248,27 +248,27 @@ export function PrestatariosContent() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <CardTitle>Gestión de Prestatarios</CardTitle>
+              <CardTitle>Gestión de Prestamistas</CardTitle>
               <CardDescription>
-                Administra los prestatarios (prestamistas) que facilitan el dinero
+                Administra los prestamistas que facilitan el dinero
               </CardDescription>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-[#213685] hover:bg-[#213685]/90 w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
-                  Nuevo Prestatario
+                  Nuevo Prestamista
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>
-                    {editingPrestatario ? "Editar Prestatario" : "Nuevo Prestatario"}
+                    {editingPrestatario ? "Editar Prestamista" : "Nuevo Prestamista"}
                   </DialogTitle>
                   <DialogDescription>
                     {editingPrestatario 
-                      ? "Actualiza la información del prestatario." 
-                      : "Completa los datos para registrar un nuevo prestatario."
+                      ? "Actualiza la información del prestamista." 
+                      : "Completa los datos para registrar un nuevo prestamista."
                     }
                   </DialogDescription>
                 </DialogHeader>
@@ -365,7 +365,7 @@ export function PrestatariosContent() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50">
-                  <TableHead className="font-semibold text-gray-700">Prestatario</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Prestamista</TableHead>
                   <TableHead className="font-semibold text-gray-700">Contacto</TableHead>
                   <TableHead className="font-semibold text-gray-700">Estado</TableHead>
                   <TableHead className="text-right font-semibold text-gray-700">Acciones</TableHead>
@@ -375,7 +375,7 @@ export function PrestatariosContent() {
                 {filteredPrestatarios.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      No se encontraron prestatarios
+                      No se encontraron prestamistas
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -454,10 +454,10 @@ export function PrestatariosContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción eliminará al prestatario permanentemente.
+              Esta acción eliminará al prestamista permanentemente.
               <br/>
               <span className="text-red-600 font-semibold text-xs mt-2 block">
-                Nota: Si el prestatario tiene préstamos activos, la eliminación podría fallar o dejar datos huérfanos.
+                Nota: Si el prestamista tiene préstamos activos, la eliminación podría fallar o dejar datos huérfanos.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>

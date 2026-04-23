@@ -15,6 +15,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
   res.status(statusCode).json({
     success: false,
     error: message,
+    message: message,
     method: req.method,
     path: req.originalUrl,
     ...(process.env.NODE_ENV === "development" && err instanceof Error
