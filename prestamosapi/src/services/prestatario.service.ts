@@ -121,20 +121,35 @@ export const updatePrestatarioService = async (id: number, idEmpresa: number, da
 
 // --- ELIMINAR ---
 export const deletePrestatarioService = async (id: number, idEmpresa: number) => {
+  // 1. Obtener el prestatario para saber su Email (y poder borrar el Usuario)
+  const { data: prestatario } = await supabase
+    .from("Prestatario")
+    .select("Email")
+    .eq("IdPrestatario", id)
+    .eq("IdEmpresa", idEmpresa)
+    .maybeSingle();
+
+  if (prestatario && prestatario.Email) {
+    // Intentar borrar el usuario de la tabla Usuario de forma paralela o previa
+    await supabase
+      .from("Usuario")
+      .delete()
+      .eq("Email", prestatario.Email)
+      .eq("IdEmpresa", idEmpresa);
+  }
+
+  // 2. Borrar prestatario
+  // IMPORTANTE: Esto requiere que la FK en la DB tenga ON DELETE CASCADE para borrar préstamos asociados.
   const { error } = await supabase
     .from("Prestatario")
     .delete()
     .eq("IdPrestatario", id)
-    .eq("IdEmpresa", idEmpresa)
-    .single(); // Usamos .single() para verificar que se eliminó uno
+    .eq("IdEmpresa", idEmpresa);
 
   if (error) {
     console.error("Error en deletePrestatarioService:", error.message);
-    throw new Error("Error eliminando prestatario: " + error.message);
+    throw new Error("No se puede eliminar: el prestamista tiene préstamos asociados. Ejecuta el script de SQL proporcionado para permitir eliminar con cascada.");
   }
-
-  // Nota: Si usaste CASCADE en tu base de datos, las tablas relacionadas
-  // se eliminarán automáticamente. La lógica es simple aquí.
 
   return { message: "Prestatario eliminado" };
 };

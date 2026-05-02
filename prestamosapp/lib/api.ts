@@ -20,8 +20,13 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            useAuthStore.getState().logout();
-            window.location.href = '/login';
+            // No redirigir si el error viene del login para permitir mostrar el mensaje de error
+            const isLoginRequest = error.config?.url?.includes('/auth/login');
+            
+            if (!isLoginRequest) {
+                useAuthStore.getState().logout();
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

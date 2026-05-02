@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Moon, Sun, Monitor, Settings, Palette, Bell, Shield, Database } from 'lucide-react'
+import { Moon, Sun, Monitor, Settings, Palette, Bell, Shield, Database, Upload, Loader2 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { useTheme } from "next-themes"
 import { useAuthStore } from "@/store/authStore"
 import { api } from "@/lib/api"
@@ -26,6 +27,8 @@ export function ConfiguracionContent() {
   const [empresaColor, setEmpresaColor] = useState(user?.colorFondo || "#213685")
   const [empresaIcono, setEmpresaIcono] = useState(user?.iconoEmpresa || "Building2")
   const [isSavingTheming, setIsSavingTheming] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   const handleSaveTheming = async () => {
     setIsSavingTheming(true)
@@ -51,6 +54,131 @@ export function ConfiguracionContent() {
     } finally {
       setIsSavingTheming(false)
     }
+  }
+
+  const handleExportExcel = async () => {
+    setIsExporting(true)
+    try {
+      const response = await api.get('/import/export')
+      const data = response.data
+
+      const worksheet = XLSX.utils.json_to_sheet(data)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Prestamos")
+      XLSX.writeFile(workbook, "Export_Prestamos.xlsx")
+    } catch (e) {
+      console.error(e)
+      alert('Error exportando datos')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsImporting(true)
+    const reader = new FileReader()
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result
+        const wb = XLSX.read(bstr, { type: 'binary' })
+        const wsname = wb.SheetNames[0]
+        const ws = wb.Sheets[wsname]
+        const data = XLSX.utils.sheet_to_json(ws) as any[]
+
+        // Mapear columnas según el Excel del usuario
+        const mappedRows = data.map((row: any) => {
+          // Utilidades de limpieza
+          const cleanNumber = (val: any) => {
+            if (typeof val === 'number') return val;
+            if (!val) return 0;
+            // Remover símbolos, espacios, y manejar formato RD $60.000,00
+            let str = String(val).replace(/[RD$\s%]/g, '');
+            // Si el formato es 60.000,00 -> transformar a 60000.00
+            // Si hay puntos y comas, asumimos punto=miles y coma=decimal
+            if (str.includes('.') && str.includes(',')) {
+              str = str.replace(/\./g, '').replace(',', '.');
+            } else if (str.includes(',')) {
+              // Si solo hay coma, podría ser decimal
+              str = str.replace(',', '.');
+            }
+            return Number(str) || 0;
+          };
+
+          const parseExcelDate = (val: any) => {
+            if (!val) return new Date().toISOString();
+            
+            // Si es un número (fecha serial de Excel)
+            if (typeof val === 'number') {
+              const date = new Date(Math.round((val - 25569) * 864e5));
+              return date.toISOString();
+            }
+
+            // Si es un string con formato DD-MM-YYYY o DD/MM/YYYY
+            if (typeof val === 'string') {
+                const parts = val.split(/[-/]/);
+                if (parts.length === 3) {
+                    // Asumimos DD-MM-YYYY
+                    const day = parseInt(parts[0], 10);
+                    const month = parseInt(parts[1], 10) - 1;
+                    const year = parts[2].length === 2 ? 2000 + parseInt(parts[2], 10) : parseInt(parts[2], 10);
+                    return new Date(year, month, day).toISOString();
+                }
+            }
+
+            // Fallback
+            const d = new Date(val);
+            return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+          };
+
+          const pagosStr = String(row["PAGOS"] || "0/0");
+          let completados = 0;
+          let total = 0;
+          
+          if (pagosStr.includes('/')) {
+            const parts = pagosStr.split('/').map(p => cleanNumber(p));
+            completados = parts[0] || 0;
+            total = parts[1] || 0;
+          } else {
+            total = cleanNumber(pagosStr) || 0;
+          }
+
+          return {
+            nombreCliente: row["NOMBRES"],
+            cedula: String(row["CÉDULA"] || ""),
+            telefono: String(row["TELÉFONO"] || ""),
+            direccion: String(row["DIRECCIÓN"] || ""),
+            numeroCuenta: String(row["NUMERO DE CUENTA"] || ""),
+            montoPrestado: cleanNumber(row["CAPITAL"]),
+            interesPorcentaje: cleanNumber(row["PORCIENTO"]),
+            interesMontoTotal: cleanNumber(row["INTERÉS"]),
+            capitalRestante: cleanNumber(row["RESTANTE A PAGAR"]),
+            cantidadCuotas: isNaN(total) ? 0 : total,
+            cuotasRestantes: isNaN(total - completados) ? 0 : Math.max(0, total - completados),
+            montoCuota: cleanNumber(row["CUOTAS"]),
+            modalidadPago: String(row["PERÍODO DE PAGO"] || "mensual").toLowerCase().trim(),
+            fechaInicio: parseExcelDate(row["FECHA DE INICIO"]),
+            fechaFinEstimada: parseExcelDate(row["FECHA FINAL"]),
+            responsableNombre: row["Responsable"] || "Admin"
+          }
+        })
+
+        const response = await api.post('/import', { rows: mappedRows })
+        alert(`Importación completada: ${response.data.success} éxitos, ${response.data.errors.length} errores.`)
+        if (response.data.errors.length > 0) {
+          console.error('Errores de importación:', response.data.errors)
+        }
+      } catch (err) {
+        console.error(err)
+        alert('Error procesando el archivo Excel')
+      } finally {
+        setIsImporting(false)
+        if (e.target) e.target.value = '' // Limpiar input
+      }
+    }
+    reader.readAsBinaryString(file)
   }
 
   useEffect(() => {
@@ -248,10 +376,38 @@ export function ConfiguracionContent() {
           <div className="space-y-4">
             <Label className="text-base font-medium">Acciones del Sistema</Label>
             <div className="grid gap-3 md:grid-cols-2">
-              <Button variant="outline" className="justify-start gap-2 hover:bg-[#213685]/10">
-                <Database className="h-4 w-4" />
-                Exportar Datos
+              <Button 
+                variant="outline" 
+                className="justify-start gap-2 hover:bg-[#213685]/10"
+                onClick={handleExportExcel}
+                disabled={isExporting}
+              >
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+                Exportar Datos (Excel)
               </Button>
+              
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".xlsx, .xls"
+                  className="hidden"
+                  id="excel-upload"
+                  onChange={handleImportExcel}
+                  disabled={isImporting}
+                />
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2 hover:bg-[#213685]/10"
+                  asChild
+                  disabled={isImporting}
+                >
+                  <label htmlFor="excel-upload" className="cursor-pointer flex items-center gap-2">
+                    {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    Importar Datos (Excel)
+                  </label>
+                </Button>
+              </div>
+
               <Button variant="outline" className="justify-start gap-2 hover:bg-[#213685]/10">
                 <Shield className="h-4 w-4" />
                 Limpiar Caché
