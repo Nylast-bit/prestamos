@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 // src/services/gastoFijo.service.ts
 import { supabase } from "../config/supabaseClient";
 
@@ -21,7 +22,7 @@ export const createGastoFijoService = async (data: GastoFijoData) => {
     .single();
 
   if (error) {
-    console.error("Error en createGastoFijoService:", error.message);
+    logger.error("Error en createGastoFijoService:", error.message);
     throw new Error(`Error creando gasto fijo: ${error.message}`);
   }
   return nuevo;
@@ -35,7 +36,7 @@ export const getAllGastosFijosService = async (idEmpresa: number) => {
     .eq('IdEmpresa', idEmpresa);
 
   if (error) {
-    console.error("Error en getAllGastosFijosService:", error.message);
+    logger.error("Error en getAllGastosFijosService:", error.message);
     throw new Error(`Error obteniendo gastos fijos: ${error.message}`);
   }
   return lista;
@@ -72,7 +73,7 @@ export const updateGastoFijoService = async (id: number, idEmpresa: number, data
     .single();
 
   if (error) {
-    console.error("Error en updateGastoFijoService:", error.message);
+    logger.error("Error en updateGastoFijoService:", error.message);
     throw new Error(`Error actualizando gasto fijo: ${error.message}`);
   }
 
@@ -93,7 +94,7 @@ export const deleteGastoFijoService = async (id: number, idEmpresa: number) => {
     .eq("IdEmpresa", idEmpresa);
 
   if (error) {
-    console.error("Error en deleteGastoFijoService:", error.message);
+    logger.error("Error en deleteGastoFijoService:", error.message);
     throw new Error(`Error eliminando gasto fijo: ${error.message}`);
   }
 

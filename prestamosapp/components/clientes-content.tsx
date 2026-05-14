@@ -2,6 +2,7 @@
 
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,8 +11,10 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, Loader2 } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, Loader2, ArrowRight } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { Map, MapControls } from "@/components/ui/map"
 
 // Actualizamos la interfaz para coincidir con el servicio del backend
 interface Cliente {
@@ -22,22 +25,44 @@ interface Cliente {
   Email: string
   Direccion: string
   FechaRegistro: string
-  cantidadPrestamosActivos?: number // <--- Nombre actualizado según tu servicio
+  cantidadPrestamosActivos?: number
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
 export function ClientesContent() {
+  const router = useRouter()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null)
+  
+  // Modal Eliminar normal
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [clienteToDelete, setClienteToDelete] = useState<number | null>(null)
+  
+  // Modal Eliminar con prestamos
+  const [loansModalOpen, setLoansModalOpen] = useState(false)
+  const [clientWithLoans, setClientWithLoans] = useState<Cliente | null>(null)
+  const [clientLoans, setClientLoans] = useState<any[]>([])
+  const [loadingLoans, setLoadingLoans] = useState(false)
+
   const [submitting, setSubmitting] = useState(false)
   
+  // Validaciones
+  const [formErrors, setFormErrors] = useState({ cedula: "", email: "" })
+  
+  // Paginacion
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+  
+  // Mapa
+  const [mapOpen, setMapOpen] = useState(false)
+  const [mapCoords, setMapCoords] = useState<{lng: number, lat: number}>({ lng: -69.9312, lat: 18.4861 }) // SD, RD
+  const [mapLoading, setMapLoading] = useState(false)
+
   const [formData, setFormData] = useState({
     Nombre: "",
     Cedula: "",
@@ -71,13 +96,63 @@ export function ClientesContent() {
     (cliente.Email && cliente.Email.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
+  // Calcular paginacion
+  const totalPages = Math.ceil(filteredClientes.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredClientes.slice(indexOfFirstItem, indexOfLastItem);
+
+  // Al buscar, regresar a pagina 1
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm])
+
+  const validateEmail = (email: string) => {
+    if (!email) return true; // si es opcional
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  }
+
+  const validateCedula = (cedula: string) => {
+    const cleanCedula = cedula.replace(/-/g, '');
+    if (cleanCedula.length !== 11) return false;
+    
+    let suma = 0;
+    const verificador = parseInt(cleanCedula.charAt(10));
+    
+    for (let i = 0; i < 10; i++) {
+      let num = parseInt(cleanCedula.charAt(i));
+      if ((i + 1) % 2 === 0) num *= 2;
+      if (num > 9) num -= 9;
+      suma += num;
+    }
+    
+    const digitoEsperado = (10 - (suma % 10)) % 10;
+    return verificador === digitoEsperado;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setFormErrors({ cedula: "", email: "" })
+    
+    let hasError = false;
+    
+    if (!validateCedula(formData.Cedula)) {
+      setFormErrors(prev => ({...prev, cedula: "Cédula inválida (Módulo 10)"}))
+      hasError = true;
+    }
+    
+    if (formData.Email && !validateEmail(formData.Email)) {
+      setFormErrors(prev => ({...prev, email: "Formato de correo inválido"}))
+      hasError = true;
+    }
+    
+    if (hasError) return;
+
     setSubmitting(true)
     
     try {
       if (editingCliente) {
-        // Actualizar cliente existente
         const response = await fetchWithAuth(`${API_BASE_URL}/api/clientes/${editingCliente.IdCliente}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -91,7 +166,6 @@ export function ClientesContent() {
         
         await fetchClientes()
       } else {
-        // Crear nuevo cliente
         const response = await fetchWithAuth(`${API_BASE_URL}/api/clientes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -122,6 +196,7 @@ export function ClientesContent() {
       Email: "",
       Direccion: ""
     })
+    setFormErrors({ cedula: "", email: "" })
     setEditingCliente(null)
     setIsDialogOpen(false)
   }
@@ -135,12 +210,31 @@ export function ClientesContent() {
       Email: cliente.Email,
       Direccion: cliente.Direccion,
     })
+    setFormErrors({ cedula: "", email: "" })
     setIsDialogOpen(true)
   }
 
-  const confirmDelete = (id: number) => {
-    setClienteToDelete(id)
-    setDeleteDialogOpen(true)
+  const confirmDelete = async (cliente: Cliente) => {
+    const tienePrestamos = (cliente.cantidadPrestamosActivos || 0) > 0;
+    
+    if (tienePrestamos) {
+      setClientWithLoans(cliente);
+      setLoansModalOpen(true);
+      setLoadingLoans(true);
+      try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/api/prestamos`);
+        const data = await res.json();
+        const activeLoans = data.filter((p: any) => p.IdCliente === cliente.IdCliente && p.Estado === 'Activo');
+        setClientLoans(activeLoans);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingLoans(false);
+      }
+    } else {
+      setClienteToDelete(cliente.IdCliente)
+      setDeleteDialogOpen(true)
+    }
   }
 
   const handleDelete = async () => {
@@ -165,7 +259,89 @@ export function ClientesContent() {
     }
   }
 
-  // Cálculos para las tarjetas
+  // ==== FUNCIONES DEL MAPA ====
+  const openMap = async () => {
+    setMapOpen(true);
+    if (formData.Direccion.trim() !== "") {
+      setMapLoading(true);
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.Direccion)}`);
+        const data = await res.json();
+        if (data && data.length > 0) {
+          setMapCoords({ lng: parseFloat(data[0].lon), lat: parseFloat(data[0].lat) });
+        }
+      } catch (e) {
+        console.error("Geocoding error", e);
+      } finally {
+        setMapLoading(false);
+      }
+    }
+  }
+
+  const confirmMapLocation = async () => {
+    setMapLoading(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${mapCoords.lat}&lon=${mapCoords.lng}`);
+      const data = await res.json();
+      if (data && data.display_name) {
+        setFormData(prev => ({...prev, Direccion: data.display_name}));
+      }
+    } catch (e) {
+      console.error("Reverse geocoding error", e);
+    } finally {
+      setMapLoading(false);
+      setMapOpen(false);
+    }
+  }
+  // =============================
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = startPage + maxVisiblePages - 1;
+    
+    if (endPage > totalPages) {
+        endPage = totalPages;
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    if (startPage > 1) {
+        items.push(
+            <PaginationItem key="1">
+                <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">1</PaginationLink>
+            </PaginationItem>
+        );
+        if (startPage > 2) {
+            items.push(<PaginationItem key="ellipsis-start"><PaginationEllipsis /></PaginationItem>);
+        }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        items.push(
+            <PaginationItem key={i}>
+                <PaginationLink isActive={currentPage === i} onClick={() => setCurrentPage(i)} className="cursor-pointer">
+                    {i}
+                </PaginationLink>
+            </PaginationItem>
+        );
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            items.push(<PaginationItem key="ellipsis-end"><PaginationEllipsis /></PaginationItem>);
+        }
+        items.push(
+            <PaginationItem key={totalPages}>
+                <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">{totalPages}</PaginationLink>
+            </PaginationItem>
+        );
+    }
+    
+    return items;
+  };
+
   const totalClientes = clientes.length;
   const clientesActivos = clientes.filter(c => (c.cantidadPrestamosActivos || 0) > 0).length;
   const porcentajeActivos = totalClientes > 0 ? Math.round((clientesActivos / totalClientes) * 100) : 0;
@@ -181,7 +357,6 @@ export function ClientesContent() {
 
   return (
     <div className="space-y-6">
-      {/* Header con estadísticas */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-l-4 border-l-[#213685] shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -240,7 +415,6 @@ export function ClientesContent() {
         </Card>
       </div>
 
-      {/* Barra de búsqueda y botón nuevo */}
       <Card className="shadow-sm">
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -287,10 +461,15 @@ export function ClientesContent() {
                         <Input
                           id="cedula"
                           value={formData.Cedula}
-                          onChange={(e) => setFormData({...formData, Cedula: e.target.value})}
+                          onChange={(e) => {
+                            setFormData({...formData, Cedula: e.target.value})
+                            if (formErrors.cedula) setFormErrors({...formErrors, cedula: ""})
+                          }}
                           placeholder="000-0000000-0"
                           required
+                          className={formErrors.cedula ? "border-red-500 focus-visible:ring-red-500" : ""}
                         />
+                        {formErrors.cedula && <span className="text-xs text-red-500">{formErrors.cedula}</span>}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="telefono">Teléfono</Label>
@@ -309,13 +488,23 @@ export function ClientesContent() {
                         id="email"
                         type="email"
                         value={formData.Email}
-                        onChange={(e) => setFormData({...formData, Email: e.target.value})}
+                        onChange={(e) => {
+                          setFormData({...formData, Email: e.target.value})
+                          if (formErrors.email) setFormErrors({...formErrors, email: ""})
+                        }}
                         placeholder="correo@ejemplo.com"
                         required
+                        className={formErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
                       />
+                      {formErrors.email && <span className="text-xs text-red-500">{formErrors.email}</span>}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="direccion">Dirección</Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="direccion">Dirección</Label>
+                        <Button type="button" variant="ghost" size="sm" onClick={openMap} className="h-6 text-[#213685] p-0 pr-2">
+                          <MapPin className="w-3 h-3 mr-1" /> Buscar en mapa
+                        </Button>
+                      </div>
                       <Textarea
                         id="direccion"
                         value={formData.Direccion}
@@ -350,7 +539,7 @@ export function ClientesContent() {
             />
           </div>
           
-          <div className="rounded-md border">
+          <div className="rounded-md border mb-4">
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50">
@@ -365,14 +554,14 @@ export function ClientesContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClientes.length === 0 ? (
+                {currentItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No se encontraron clientes
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredClientes.map((cliente) => {
+                  currentItems.map((cliente) => {
                     const tienePrestamos = (cliente.cantidadPrestamosActivos || 0) > 0;
                     return (
                         <TableRow key={cliente.IdCliente} className="hover:bg-gray-50/50">
@@ -384,7 +573,7 @@ export function ClientesContent() {
                             <div className="font-medium text-gray-900">{cliente.Nombre}</div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                 <MapPin className="h-3 w-3" />
-                                <span className="truncate max-w-[200px]">{cliente.Direccion}</span>
+                                <span className="truncate max-w-[200px]" title={cliente.Direccion}>{cliente.Direccion}</span>
                             </div>
                             </div>
                         </TableCell>
@@ -432,7 +621,7 @@ export function ClientesContent() {
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => confirmDelete(cliente.IdCliente)}
+                                onClick={() => confirmDelete(cliente)}
                                 className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 hover:bg-red-50"
                             >
                                 <Trash2 className="h-4 w-4" />
@@ -446,20 +635,38 @@ export function ClientesContent() {
               </TableBody>
             </Table>
           </div>
+
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} 
+                  />
+                </PaginationItem>
+                
+                {renderPaginationItems()}
+                
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+
         </CardContent>
       </Card>
 
-      {/* Dialog de confirmación de eliminación */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta acción no se puede deshacer. El cliente será eliminado permanentemente.
-              <br/>
-              <span className="text-red-600 font-semibold text-xs mt-2 block">
-                Si el cliente tiene préstamos asociados, elimínalos primero.
-              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -475,6 +682,99 @@ export function ClientesContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={loansModalOpen} onOpenChange={setLoansModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <Trash2 className="h-5 w-5" />
+              No se puede eliminar a {clientWithLoans?.Nombre}
+            </DialogTitle>
+            <DialogDescription>
+              Este cliente tiene <strong>{clientWithLoans?.cantidadPrestamosActivos} préstamos activos</strong>. 
+              Debes saldarlos o eliminarlos primero.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="my-4">
+            {loadingLoans ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : clientLoans.length > 0 ? (
+              <div className="space-y-3">
+                {clientLoans.map(prestamo => (
+                  <div key={prestamo.IdPrestamo} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                    <div>
+                      <p className="font-medium text-sm">Préstamo #{prestamo.IdPrestamo}</p>
+                      <p className="text-xs text-muted-foreground">Monto: ${prestamo.MontoPrestado} | Balance: ${prestamo.BalancePendiente}</p>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="border-[#213685] text-[#213685] hover:bg-[#213685]/10"
+                      onClick={() => {
+                         router.push(`/client/prestamos`);
+                      }}
+                    >
+                      Ir a Préstamos <ArrowRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center">No se encontraron los detalles de los préstamos.</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLoansModalOpen(false)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={mapOpen} onOpenChange={setMapOpen}>
+        <DialogContent className="sm:max-w-[600px] h-[500px] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Seleccionar Ubicación</DialogTitle>
+            <DialogDescription>
+              Mueve el mapa para seleccionar la dirección exacta.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 rounded-md overflow-hidden relative border border-input mt-2">
+            {mapLoading && (
+                <div className="absolute inset-0 z-20 bg-background/50 flex items-center justify-center backdrop-blur-sm">
+                    <Loader2 className="h-6 w-6 animate-spin text-[#213685]" />
+                </div>
+            )}
+            <Map
+              viewport={{
+                center: [mapCoords.lng, mapCoords.lat],
+                zoom: 14,
+                bearing: 0,
+                pitch: 0
+              }}
+              onViewportChange={(v) => {
+                 setMapCoords({ lng: v.center[0], lat: v.center[1] })
+              }}
+            >
+              <MapControls position="bottom-right" showZoom showCompass showLocate />
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-full pointer-events-none z-10">
+                 <MapPin className="h-8 w-8 text-red-500 drop-shadow-md" fill="white" />
+              </div>
+            </Map>
+          </div>
+          
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setMapOpen(false)}>Cancelar</Button>
+            <Button onClick={confirmMapLocation} className="bg-[#213685] hover:bg-[#213685]/90">
+              Confirmar Ubicación
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }

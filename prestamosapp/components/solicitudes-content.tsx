@@ -85,8 +85,8 @@ export function SolicitudesContent() {
       if (resSolicitudes.ok) setSolicitudes(await resSolicitudes.json());
       if (resClientes.ok) setClientes(await resClientes.json());
 
-    } catch (error) {
-      console.error("Error cargando datos:", error)
+    } catch (error: any) {
+      // TODO: Improve error handling
     } finally {
       setLoading(false)
     }
@@ -165,7 +165,6 @@ export function SolicitudesContent() {
       alert(`Solicitud ${editingSolicitud ? 'actualizada' : 'creada'} exitosamente`)
 
     } catch (error: any) {
-      console.error('Error guardando solicitud:', error)
       alert(`Error: ${error.message}`)
     } finally {
       setIsSubmitting(false)
@@ -189,7 +188,6 @@ export function SolicitudesContent() {
   }
 
   const handleQuickCreatePrestamo = (solicitud: Solicitud) => {
-    console.log("Convertir a Préstamo la solicitud:", solicitud);
     alert(`¡Próximo paso! Abriremos el modal de préstamo precargado con: \nCliente: ${solicitud.Cliente?.Nombre}\nMonto: ${formatMoney(solicitud.MontoSolicitado)}`);
   }
 

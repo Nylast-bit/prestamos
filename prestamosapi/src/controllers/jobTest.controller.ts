@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 // src/controllers/jobTest.controller.ts
 import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
@@ -13,7 +14,7 @@ export const runFixedExpenseProcessor = asyncHandler(async (req: any, res: Respo
         return res.status(400).json({ error: "Debe proporcionar un ID de Consolidación válido." });
     }
 
-    console.log(`\n\n=== 🧪 Ejecutando prueba manual de gastos fijos para ID: ${idConsolidacion} ===`);
+    logger.info(`\n\n=== 🧪 Ejecutando prueba manual de gastos fijos para ID: ${idConsolidacion} ===`);
 
     // 1. Ejecutar la lógica de negocio (el job)
     const resultado = await gastoFijoJobService.processFixedExpenses(idConsolidacion, idEmpresa);
@@ -28,7 +29,7 @@ export const runFixedExpenseProcessor = asyncHandler(async (req: any, res: Respo
 // --- EJECUTAR CIERRE DE CONSOLIDACIÓN (Manual) ---
 // (Opcional, si quieres probar la lógica de transferencia de capital en cualquier momento)
 export const runCheckAndCreateConsolidation = asyncHandler(async (req: any, res: Response) => {
-    console.log('\n\n=== 🧪 Ejecutando prueba manual de Cierre/Apertura de Consolidación ===');
+    logger.info('\n\n=== 🧪 Ejecutando prueba manual de Cierre/Apertura de Consolidación ===');
 
     const idEmpresa = req.user?.IdEmpresa || 1;
     // Esta función encapsula la lógica de verificación de día (8 o 23) y creación.

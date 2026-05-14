@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 // src/controllers/prestamo.controller.ts
 import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
@@ -166,7 +167,7 @@ export const simularPrestamo = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error(error);
+    logger.error(error);
 
     // 4. Atrapamos el error que 'lanzó' el servicio
     if (error.message === "Tipo de cálculo no soportado") {
@@ -205,7 +206,7 @@ export const opcionesSimularPrestamoCapitalInteres = async (
     });
 
   } catch (error: any) {
-    console.error(error);
+    logger.error(error);
 
     // 4. Atrapamos el error de lógica de negocio (el que añadimos)
     if (error.message.includes("El número de cuotas debe ser mayor a 2")) {
@@ -241,7 +242,7 @@ export const calcularTasaPorCuota = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error(error);
+    logger.error(error);
 
     // 4. Atrapamos los errores de lógica de negocio
     if (error.message.includes("No se pudo encontrar una tasa válida")) {
@@ -285,7 +286,7 @@ export const obtenerRangoCuotas = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error(error);
+    logger.error(error);
 
     // 4. Atrapamos el error de lógica de negocio (división por cero)
     if (error.message.includes("El número de cuotas debe ser un valor positivo")) {

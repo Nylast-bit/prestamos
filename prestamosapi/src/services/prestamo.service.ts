@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { supabase } from "../config/supabaseClient";
 import * as capitalJobService from './capitaljob.service';
 
@@ -44,17 +45,17 @@ export const createPrestamoService = async (data: CreatePrestamoData, idEmpresa:
 
   // 🚨 PLAN DE EMERGENCIA: SI NO HAY CAJA, LA CREAMOS AHORA MISMO
   if (!consolidacion) {
-    console.log("⚠️ Caja cerrada detectada al crear préstamo. Ejecutando apertura de emergencia...");
+    logger.info("⚠️ Caja cerrada detectada al crear préstamo. Ejecutando apertura de emergencia...");
     try {
       // Llamamos al servicio que creamos antes
       const nuevaCaja = await capitalJobService.checkAndCreateConsolidation(idEmpresa);
 
       if (nuevaCaja && nuevaCaja.IdConsolidacion) {
         consolidacion = { IdConsolidacion: nuevaCaja.IdConsolidacion };
-        console.log("✅ Caja de emergencia creada y asignada.");
+        logger.info("✅ Caja de emergencia creada y asignada.");
       }
     } catch (e) {
-      console.error("❌ Falló la apertura de emergencia:", e);
+      logger.error("❌ Falló la apertura de emergencia:", e);
     }
   }
 

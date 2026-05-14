@@ -1,3 +1,4 @@
+import { logger } from './utils/logger';
 // src/index.ts
 import cors from "cors";
 import { errorHandler } from "./middlewares/errorHandler";
@@ -49,7 +50,7 @@ app.get("/api/health", (req: Request, res: Response) => {
   res.send("Api is running");
 });
 app.listen(PORT, () => {
-  console.log(`🚀 Server corriendo en http://localhost:${PORT}`);
+  logger.info(`🚀 Server corriendo en http://localhost:${PORT}`);
   startCapitalJob();
-  console.log("✅ Cron Job scheduler iniciado.");
+  logger.info("✅ Cron Job scheduler iniciado.");
 });

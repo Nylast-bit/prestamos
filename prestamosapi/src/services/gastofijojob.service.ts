@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 // src/services/gastoFijoJob.service.ts
 import { supabase } from "../config/supabaseClient";
 import * as registroConsolidacionService from './registroconsolidacion.service';
@@ -71,7 +72,7 @@ const getActiveFixedExpenses = async (idConsolidacion: number, idEmpresa: number
         return !registroEnConsolidacion;
     });
 
-    console.log(`DEBUG: ${gastosPendientes.length} gastos fijos pendientes de registro.`);
+    logger.info(`DEBUG: ${gastosPendientes.length} gastos fijos pendientes de registro.`);
 
     return gastosPendientes as any; // Dejamos 'as any' para evitar el error de tipado.
 };
@@ -157,11 +158,11 @@ export const processFixedExpenses = async (idConsolidacion: number, idEmpresa: n
                 registrosExitosos++;
 
             } catch (error: any) {
-                console.error(`Error procesando gasto ID ${gasto.IdGasto}: ${error.message}`);
+                logger.error(`Error procesando gasto ID ${gasto.IdGasto}: ${error.message}`);
             }
         }
     }
 
-    console.log(`✨ ${registrosExitosos} gastos fijos programados para el período.`);
+    logger.info(`✨ ${registrosExitosos} gastos fijos programados para el período.`);
     return { success: true, count: registrosExitosos };
 };

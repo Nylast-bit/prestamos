@@ -7,12 +7,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { FileText, Edit3, CalendarDays, DollarSign, User } from 'lucide-react'
 
+interface SolicitudFormData {
+  IdCliente: string;
+  MontoSolicitado: string;
+  FechaDeseada: string;
+  Estado: string;
+  Notas: string;
+}
+
+interface ClienteData {
+  IdCliente: number;
+  Nombre: string;
+  Cedula?: string | null;
+}
+
 interface SolicitudFormDialogProps {
   isOpen: boolean
   onClose: () => void
-  formData: any
-  setFormData: (data: any) => void
-  clientes: any[]
+  formData: SolicitudFormData
+  setFormData: React.Dispatch<React.SetStateAction<SolicitudFormData>>
+  clientes: ClienteData[]
   isEditing: boolean
   onSubmit: (e?: React.FormEvent) => void
   isSubmitting: boolean
@@ -30,8 +44,8 @@ export function SolicitudFormDialog({
 }: SolicitudFormDialogProps) {
 
   // Helper para actualizar el estado del formulario fácilmente
-  const updateField = (field: string, value: string) => {
-    setFormData((prev: any) => ({ ...prev, [field]: value }))
+  const updateField = (field: keyof SolicitudFormData, value: string) => {
+    setFormData((prev: SolicitudFormData) => ({ ...prev, [field]: value }))
   }
 
   const handleSubmitWrapper = (e: React.FormEvent) => {
@@ -72,7 +86,7 @@ export function SolicitudFormDialog({
                   <SelectValue placeholder="Seleccionar cliente..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {clientes.map((cliente: any) => (
+                  {clientes.map((cliente: ClienteData) => (
                     <SelectItem key={cliente.IdCliente} value={cliente.IdCliente.toString()}>
                       {cliente.Nombre} {cliente.Cedula ? `(${cliente.Cedula})` : ''}
                     </SelectItem>

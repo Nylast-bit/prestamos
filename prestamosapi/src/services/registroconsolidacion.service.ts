@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 // src/services/registroConsolidacion.service.ts
 import { supabase } from "../config/supabaseClient";
 import { getConsolidacionActivaId } from "./consolidacioncapital.service";
@@ -99,7 +100,7 @@ export const createRegistroConsolidacionService = async (data: RegistroConsolida
         .single();
 
     if (error) {
-        console.error("Error en createRegistroConsolidacionService:", error.message);
+        logger.error("Error en createRegistroConsolidacionService:", error.message);
         throw new Error(`Error creando registro: ${error.message}`);
     }
     return nuevoRegistro;
@@ -117,7 +118,7 @@ export const getAllRegistrosConsolidacionService = async (idEmpresa: number) => 
         .eq("ConsolidacionCapital.IdEmpresa", idEmpresa);
 
     if (error) {
-        console.error("Error en getAllRegistrosConsolidacionService:", error.message);
+        logger.error("Error en getAllRegistrosConsolidacionService:", error.message);
         throw new Error(`Error obteniendo registros: ${error.message}`);
     }
     return lista;

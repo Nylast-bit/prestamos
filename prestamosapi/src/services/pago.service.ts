@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { supabase } from "../config/supabaseClient";
 
 
@@ -16,7 +17,7 @@ export const createPagoService = async (data: any, idEmpresa: number) => {
     NumeroCuota
   } = data;
 
-  console.log("--- INICIANDO SERVICIO DE PAGO ---");
+  logger.info("--- INICIANDO SERVICIO DE PAGO ---");
 
   // 1. OBTENER INFO DEL PRÉSTAMO Y VALIDAR EMPRESA
   const { data: prestamo, error: errorPrestamo } = await supabase
@@ -42,7 +43,7 @@ export const createPagoService = async (data: any, idEmpresa: number) => {
       .single();
 
     if (errorCliente) {
-      console.error("⚠️ Error buscando cliente:", errorCliente.message);
+      logger.error("⚠️ Error buscando cliente:", errorCliente.message);
     }
 
     if (clienteData) {
@@ -51,7 +52,7 @@ export const createPagoService = async (data: any, idEmpresa: number) => {
     }
   }
 
-  console.log(`👤 Cliente identificado: ${nombreCliente}`);
+  logger.info(`👤 Cliente identificado: ${nombreCliente}`);
 
   // 3. CÁLCULOS LÓGICOS (Igual que antes)
   const cuotasPrevias = prestamo.CuotasRestantes;
@@ -107,9 +108,9 @@ export const createPagoService = async (data: any, idEmpresa: number) => {
       Descripcion: `Pago #${numeroCuotaReal} de ${nombreCliente}`,
       FechaRegistro: new Date()
     }, idEmpresa);
-    console.log("✅ Registro de consolidación creado exitosamente.");
+    logger.info("✅ Registro de consolidación creado exitosamente.");
   } catch (errorConsolidacion: any) {
-    console.error("⚠️ Alerta consolidación:", errorConsolidacion.message);
+    logger.error("⚠️ Alerta consolidación:", errorConsolidacion.message);
   }
 
   return { pago: pagoRegistrado, nuevoEstado };
@@ -134,7 +135,7 @@ export const getAllPagosService = async (idEmpresa: number) => {
     .order('FechaPago', { ascending: false }); // Ordenamos del más reciente al más viejo
 
   if (error) {
-    console.error("Error Supabase getAllPagos:", error);
+    logger.error("Error Supabase getAllPagos:", error);
     throw new Error(error.message);
   }
 
@@ -181,7 +182,7 @@ export const getProximaCuotaService = async (idPrestamo: number, idEmpresa: numb
 
 // 4. Eliminar Pago (Cuidado: esto debería revertir saldo, por ahora solo borra)
 export const deletePagoService = async (idPago: number, idEmpresa: number) => {
-  console.log(`--- INICIANDO REVERSIÓN DEL PAGO #${idPago} ---`);
+  logger.info(`--- INICIANDO REVERSIÓN DEL PAGO #${idPago} ---`);
 
   // Validar seguridad obteniéndolo primero
   await getPagoByIdService(idPago, idEmpresa);
@@ -214,7 +215,7 @@ export const deletePagoService = async (idPago: number, idEmpresa: number) => {
   // Si estaba "Pagado", lo revivimos a "Activo"
   const nuevoEstado = prestamo.Estado === 'Pagado' ? 'Activo' : prestamo.Estado;
 
-  console.log(`Revertiendo Préstamo #${pago.IdPrestamo}: Cuotas subirán a ${nuevasCuotas}, Estado será ${nuevoEstado}`);
+  logger.info(`Revertiendo Préstamo #${pago.IdPrestamo}: Cuotas subirán a ${nuevasCuotas}, Estado será ${nuevoEstado}`);
 
   // 4. ACTUALIZAR EL PRÉSTAMO
   const { error: errorUpdate } = await supabase
@@ -241,7 +242,7 @@ export const deletePagoService = async (idPago: number, idEmpresa: number) => {
     throw new Error("Error al eliminar el registro del pago: " + errorDelete.message);
   }
 
-  console.log("--- REVERSIÓN COMPLETADA CON ÉXITO ---");
+  logger.info("--- REVERSIÓN COMPLETADA CON ÉXITO ---");
   return true;
 };
 

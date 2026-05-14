@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../config/supabaseClient';
@@ -48,7 +49,7 @@ export const createEmpresa = async (req: Request, res: Response): Promise<void> 
                 Estado: 'Activo'
             }]);
         } catch (adminError) {
-            console.error("⚠️ No se pudo auto-crear el administrador:", adminError);
+            logger.error("⚠️ No se pudo auto-crear el administrador:", adminError);
         }
 
         res.status(201).json(data);

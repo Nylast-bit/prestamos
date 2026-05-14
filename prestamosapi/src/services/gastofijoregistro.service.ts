@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 // src/services/gastoFijoRegistro.service.ts
 import { supabase } from "../config/supabaseClient";
 
@@ -29,10 +30,10 @@ export const createGastoFijoRegistroService = async (data: GastoFijoRegistroInpu
     .single();
 
   if (error) {
-    console.error("Error en createGastoFijoRegistroService:", error.message);
+    logger.error("Error en createGastoFijoRegistroService:", error.message);
     throw new Error(`Error registrando gasto fijo: ${error.message}`);
   }
 
-  console.log(`✅ Registro de Gasto Fijo ID ${data.IdGastoFijo} completado.`);
+  logger.info(`✅ Registro de Gasto Fijo ID ${data.IdGastoFijo} completado.`);
   return nuevoRegistro;
 };

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { jwtDecode } from 'jwt-decode';
+import { jwtDecode, JwtPayload } from 'jwt-decode';
 
 interface UserData {
     id: number;
@@ -40,8 +40,8 @@ export const useAuthStore = create<AuthState>()(
                 const { token } = get();
                 if (!token) return false;
                 try {
-                    const decoded: any = jwtDecode(token);
-                    if (decoded.exp * 1000 < Date.now()) {
+                    const decoded = jwtDecode<JwtPayload>(token);
+                    if (decoded.exp && decoded.exp * 1000 < Date.now()) {
                         get().logout();
                         return false;
                     }

@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
+import Link from "next/link"
 import { BarChart3, Building2, Calculator, CreditCard, TrendingDown, DollarSign, FileText, HandCoins, Home, PiggyBank, Receipt, Settings, TrendingUp, Users, UserCheck, Calendar, Shield, LogOut, Briefcase, Landmark, Gem, Rocket, Star } from 'lucide-react'
 import { useAuthStore } from "@/store/authStore"
 
@@ -19,10 +20,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  activeSection: string
-  onSectionChange: (section: string) => void
-}
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {}
 
 const data = {
   navMain: [
@@ -87,12 +85,13 @@ const data = {
   ],
 }
 
-export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSidebarProps) {
+export function AppSidebar({ ...props }: AppSidebarProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { user, logout } = useAuthStore()
 
   const handleConfigClick = () => {
-    onSectionChange("configuracion")
+    router.push("/client/configuracion")
   }
 
   const handleLogout = () => {
@@ -153,14 +152,16 @@ export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSide
               {navMainFiltrado.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
+                    asChild
                     tooltip={item.title}
-                    isActive={activeSection === item.key}
+                    isActive={pathname === `/client/${item.key}`}
                     className={`cursor-pointer data-[active=true]:text-white data-[active=true]:opacity-100 hover:opacity-80`}
-                    style={activeSection === item.key ? { backgroundColor: colorFondo } : {}}
-                    onClick={() => onSectionChange(item.key)}
+                    style={pathname === `/client/${item.key}` ? { backgroundColor: colorFondo } : {}}
                   >
-                    <item.icon />
-                    <span>{item.title}</span>
+                    <Link href={`/client/${item.key}`}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -175,12 +176,15 @@ export function AppSidebar({ activeSection, onSectionChange, ...props }: AppSide
                 {navSecondaryFiltrado.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
+                      asChild
                       size="sm"
                       className="hover:bg-slate-100 cursor-pointer"
-                      onClick={() => onSectionChange(item.key)}
+                      isActive={pathname === `/client/${item.key}`}
                     >
-                      <item.icon />
-                      <span>{item.title}</span>
+                      <Link href={`/client/${item.key}`}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}

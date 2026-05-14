@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 // src/services/consolidacionCapital.service.ts
 import { supabase } from "../config/supabaseClient";
 
@@ -137,7 +138,7 @@ export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa:
   }
 
   // B. NO EXISTE -> CREARLA + ARRASTRAR SALDO
-  console.log("⚠️ No hay consolidación activa. Creando nueva y arrastrando saldo...");
+  logger.info("⚠️ No hay consolidación activa. Creando nueva y arrastrando saldo...");
 
   const fechaObj = new Date(fechaRegistro);
   const { inicioISO, finISO } = getRangoConsolidacion(fechaObj);
@@ -156,7 +157,7 @@ export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa:
   if (consolidacionAnterior) {
     // Cálculo simple: Lo que entró menos lo que salió
     balanceAnterior = Number(consolidacionAnterior.CapitalEntrante) - Number(consolidacionAnterior.CapitalSaliente);
-    console.log(`💰 Balance anterior encontrado: ${balanceAnterior}`);
+    logger.info(`💰 Balance anterior encontrado: ${balanceAnterior}`);
   }
 
   // 2. Insertamos la Nueva Consolidación (Padre)
@@ -196,10 +197,10 @@ export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa:
       });
 
     if (errorBalance) {
-      console.error("Error crítico insertando balance inicial:", errorBalance);
+      logger.error("Error crítico insertando balance inicial:", errorBalance);
       // No detenemos el proceso, pero queda el log
     } else {
-      console.log("✅ Registro de balance inicial creado correctamente.");
+      logger.info("✅ Registro de balance inicial creado correctamente.");
     }
   }
 
@@ -207,7 +208,7 @@ export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa:
     // Le pasamos el ID nuevo y las fechas del rango calculado
     await procesarGastosFijos(nuevoId, inicioISO, finISO, idEmpresa);
   } catch (e) {
-    console.error("Error no bloqueante procesando gastos fijos:", e);
+    logger.error("Error no bloqueante procesando gastos fijos:", e);
   }
 
   return nuevoId;
@@ -233,7 +234,7 @@ export const createConsolidacionCapitalService = async (data: ConsolidacionCapit
     .single();
 
   if (error) {
-    console.error("Error en createConsolidacionCapitalService:", error.message);
+    logger.error("Error en createConsolidacionCapitalService:", error.message);
     throw new Error(`Error creando consolidación: ${error.message}`);
   }
   return nuevo;
@@ -243,7 +244,7 @@ export const crearConsolidacionAutomatica = async (fechaRegistro: string, idEmpr
   const fechaObj = new Date(fechaRegistro);
   const { inicioISO, finISO } = getRangoConsolidacion(fechaObj);
 
-  console.log(`⏳ Creando consolidación automática: ${inicioISO} al ${finISO}`);
+  logger.info(`⏳ Creando consolidación automática: ${inicioISO} al ${finISO}`);
 
   // A. BUSCAR EL SALDO DE LA CONSOLIDACIÓN ANTERIOR
   // Buscamos la consolidación cuya FechaFin sea inmediatamente anterior a nuestra nueva FechaInicio
@@ -260,9 +261,9 @@ export const crearConsolidacionAutomatica = async (fechaRegistro: string, idEmpr
 
   if (consolidacionAnterior) {
     montoInicial = consolidacionAnterior.SaldoFinalCalculado || 0;
-    console.log(`💰 Saldo arrastrado de la anterior: ${montoInicial}`);
+    logger.info(`💰 Saldo arrastrado de la anterior: ${montoInicial}`);
   } else {
-    console.log("⚠️ No hay consolidación anterior. Iniciando con Saldo 0.");
+    logger.info("⚠️ No hay consolidación anterior. Iniciando con Saldo 0.");
   }
 
   // B. CREAR LA NUEVA CONSOLIDACIÓN
@@ -298,7 +299,7 @@ export const getAllConsolidacionesCapitalService = async (idEmpresa: number) => 
     .eq("IdEmpresa", idEmpresa);
 
   if (error) {
-    console.error("Error en getAllConsolidacionesCapitalService:", error.message);
+    logger.error("Error en getAllConsolidacionesCapitalService:", error.message);
     throw new Error(`Error obteniendo consolidaciones: ${error.message}`);
   }
   return lista;
@@ -319,7 +320,7 @@ export const getConsolidacionCapitalByIdService = async (id: number, idEmpresa: 
 
   if (error) {
     if (error.code !== 'PGRST116') {
-      console.error("Error buscando consolidación:", error.message);
+      logger.error("Error buscando consolidación:", error.message);
       throw new Error(`Error buscando consolidación: ${error.message}`);
     }
   }
@@ -352,7 +353,7 @@ export const updateConsolidacionCapitalService = async (id: number, idEmpresa: n
     .single();
 
   if (error) {
-    console.error("Error en updateConsolidacionCapitalService:", error.message);
+    logger.error("Error en updateConsolidacionCapitalService:", error.message);
     throw new Error(`Error actualizando consolidación: ${error.message}`);
   }
 
@@ -376,7 +377,7 @@ export const deleteConsolidacionCapitalService = async (id: number, idEmpresa: n
     .eq("IdConsolidacion", id);
 
   if (errorRegistro) {
-    console.error(`Error eliminando registros de consolidación para ${id}:`, errorRegistro.message);
+    logger.error(`Error eliminando registros de consolidación para ${id}:`, errorRegistro.message);
     throw new Error(`Error eliminando registros dependientes: ${errorRegistro.message}`);
   }
 
@@ -387,7 +388,7 @@ export const deleteConsolidacionCapitalService = async (id: number, idEmpresa: n
     .eq("IdConsolidacion", id);
 
   if (errorGastoFijo) {
-    console.error(`Error eliminando GastoFijoRegistro para ${id}:`, errorGastoFijo.message);
+    logger.error(`Error eliminando GastoFijoRegistro para ${id}:`, errorGastoFijo.message);
     throw new Error(`Error eliminando registros de gastos fijos dependientes: ${errorGastoFijo.message}`);
   }
 
@@ -401,7 +402,7 @@ export const deleteConsolidacionCapitalService = async (id: number, idEmpresa: n
     .maybeSingle();
 
   if (errorConsolidacion) {
-    console.error("Error en deleteConsolidacionCapitalService:", errorConsolidacion.message);
+    logger.error("Error en deleteConsolidacionCapitalService:", errorConsolidacion.message);
     throw new Error(`Error eliminando consolidación: ${errorConsolidacion.message}`);
   }
 

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { supabase } from "../config/supabaseClient";
 
 interface PagoPersonalizadoData {
@@ -53,7 +54,7 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
     try {
         cuotasActualizadas = JSON.parse(prestamo.TablaPagos || "[]");
     } catch (e) {
-        console.error("Error parseando TablaPagos", e);
+        logger.error("Error parseando TablaPagos", e);
     }
 
     if (nuevoCapitalRestante > 0 && cuotasActualizadas.length > 0) {
@@ -161,7 +162,7 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
         };
 
     } catch (error: any) {
-        console.error("FALLO DETECTADO. Revirtiendo cambios en el Préstamo...", error.message);
+        logger.error("FALLO DETECTADO. Revirtiendo cambios en el Préstamo...", error.message);
 
         await supabase
             .from("Prestamo")

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 // src/services/prestatario.service.ts
 import { supabase } from "../config/supabaseClient";
 
@@ -19,7 +20,7 @@ export const createPrestatarioService = async (data: PrestatarioData) => {
     .single();
 
   if (error) {
-    console.error("Error en createPrestatarioService:", error.message);
+    logger.error("Error en createPrestatarioService:", error.message);
     throw new Error("Error creando prestatario: " + error.message);
   }
   return nuevo;
@@ -40,7 +41,7 @@ export const getAllPrestatariosService = async (idEmpresa: number) => {
     .order('IdPrestatario', { ascending: true }); // Ordenar para que la tabla no brinque
 
   if (error) {
-    console.error("Error en getAllPrestatariosService:", error.message);
+    logger.error("Error en getAllPrestatariosService:", error.message);
     throw new Error("Error obteniendo prestatarios: " + error.message);
   }
 
@@ -79,7 +80,7 @@ export const getPrestatarioByIdService = async (id: number, idEmpresa: number) =
 
   if (error) {
     if (error.code !== 'PGRST116') {
-      console.error("Error buscando prestatario:", error.message);
+      logger.error("Error buscando prestatario:", error.message);
       throw new Error("Error buscando prestatario: " + error.message);
     }
   }
@@ -107,7 +108,7 @@ export const updatePrestatarioService = async (id: number, idEmpresa: number, da
     .single();
 
   if (error) {
-    console.error("Error en updatePrestatarioService:", error.message);
+    logger.error("Error en updatePrestatarioService:", error.message);
     throw new Error("Error actualizando prestatario: " + error.message);
   }
 
@@ -147,7 +148,7 @@ export const deletePrestatarioService = async (id: number, idEmpresa: number) =>
     .eq("IdEmpresa", idEmpresa);
 
   if (error) {
-    console.error("Error en deletePrestatarioService:", error.message);
+    logger.error("Error en deletePrestatarioService:", error.message);
     throw new Error("No se puede eliminar: el prestamista tiene préstamos asociados. Ejecuta el script de SQL proporcionado para permitir eliminar con cascada.");
   }
 

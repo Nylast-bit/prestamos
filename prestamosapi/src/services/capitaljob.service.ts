@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { supabase } from "../config/supabaseClient";
 import * as registroConsolidacionService from './registroconsolidacion.service';
 import * as gastoFijoJobService from './gastofijojob.service';
@@ -40,7 +41,7 @@ export const checkAndCreateConsolidation = async (idEmpresa: number) => {
     // 1. OBTENER LAS FECHAS CORRECTAS DEL PERIODO (GRANULARIDAD 1)
     const { inicioISO, finISO } = calcularRangoFechas(hoy);
 
-    console.log(`🔍 Verificando consolidación para el periodo: ${inicioISO} al ${finISO}`);
+    logger.info(`🔍 Verificando consolidación para el periodo: ${inicioISO} al ${finISO}`);
 
     // 2. VERIFICAR SI YA EXISTE UNA CONSOLIDACIÓN EN ESTE RANGO
     const { data: existente } = await supabase
@@ -51,11 +52,11 @@ export const checkAndCreateConsolidation = async (idEmpresa: number) => {
         .maybeSingle();
 
     if (existente) {
-        console.log(`✅ Consolidación ya existe (ID: ${existente.IdConsolidacion}).`);
+        logger.info(`✅ Consolidación ya existe (ID: ${existente.IdConsolidacion}).`);
         return existente;
     }
 
-    console.log("⚠️ Creando nueva consolidación para el periodo detectado...");
+    logger.info("⚠️ Creando nueva consolidación para el periodo detectado...");
 
     // 3. OBTENER LA ÚLTIMA PARA ARRASTRAR EL BALANCE (GRANULARIDAD 2)
     // Buscamos la que cerró antes de que empiece la nueva
@@ -102,7 +103,7 @@ export const checkAndCreateConsolidation = async (idEmpresa: number) => {
         .single();
 
     if (createError) {
-        console.error("❌ Error creando consolidación:", createError.message);
+        logger.error("❌ Error creando consolidación:", createError.message);
         throw new Error(`Error crítico creando consolidación: ${createError.message}`);
     }
 
@@ -139,9 +140,9 @@ export const checkAndCreateConsolidation = async (idEmpresa: number) => {
     try {
         await gastoFijoJobService.processFixedExpenses(nueva.IdConsolidacion, idEmpresa);
     } catch (e) {
-        console.error("⚠️ Error procesando gastos fijos:", e);
+        logger.error("⚠️ Error procesando gastos fijos:", e);
     }
 
-    console.log(`✅ Nueva Consolidación creada: ID ${nueva.IdConsolidacion} | Balance Inicial: ${balanceAnterior}`);
+    logger.info(`✅ Nueva Consolidación creada: ID ${nueva.IdConsolidacion} | Balance Inicial: ${balanceAnterior}`);
     return nueva;
 };

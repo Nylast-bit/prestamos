@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger";
 import { supabase } from "../config/supabaseClient";
 import bcrypt from "bcryptjs";
 import { createPrestatarioService } from "./prestatario.service";
@@ -152,7 +153,7 @@ export const importBatchService = async (rows: ImportRow[], idEmpresa: number, i
       if (isActivo) loanCount++;
       results.success++;
     } catch (error: any) {
-      console.error(`Error importando fila ${i + 1}:`, error.message);
+      logger.error(`Error importando fila ${i + 1}:`, error.message);
       results.errors.push({ row: i + 1, error: error.message });
     }
   }

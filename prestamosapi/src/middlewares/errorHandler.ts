@@ -1,7 +1,8 @@
+import { logger } from '../utils/logger';
 import { Request, Response, NextFunction } from "express";
 
 export function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {
-  console.error("Error detectado:", err);
+  logger.error("Error detectado:", err);
 
   let statusCode = res.statusCode !== 200 ? res.statusCode : 500;
   let message = "Error interno del servidor";

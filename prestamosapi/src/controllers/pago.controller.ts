@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { Request, Response } from "express";
 // Importamos TODOS los servicios
 import {
@@ -47,7 +48,7 @@ export const createPago = async (req: any, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error("Error en createPago:", error.message);
+    logger.error("Error en createPago:", error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -131,7 +132,7 @@ export const getHistorialPagos = async (req: any, res: Response) => {
     return res.status(200).json(historial);
 
   } catch (error: any) {
-    console.error("Error en getHistorialPagosController:", error);
+    logger.error("Error en getHistorialPagosController:", error);
     return res.status(500).json({ error: error.message || "Error interno del servidor" });
   }
 };

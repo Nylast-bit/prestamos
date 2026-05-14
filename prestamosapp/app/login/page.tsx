@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Building2, Loader2, Lock, Mail } from "lucide-react";
+import { Building2, Loader2, Lock, Mail, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 export default function LoginPage() {
     const router = useRouter();
-    const { loginState, isAuthenticated } = useAuthStore();
+    const { loginState, isAuthenticated, user } = useAuthStore();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -22,9 +23,13 @@ export default function LoginPage() {
     useEffect(() => {
         // Si ya está logueado, redirigir al dashboard
         if (isAuthenticated()) {
-            router.push("/");
+            if (user?.rol === 'SuperAdmin') {
+                router.push("/superadmin");
+            } else {
+                router.push("/client/dashboard");
+            }
         }
-    }, [isAuthenticated, router]);
+    }, [isAuthenticated, router, user]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,7 +41,11 @@ export default function LoginPage() {
 
             if (response.data?.token) {
                 loginState(response.data.token, response.data.user);
-                router.push("/");
+                if (response.data.user?.rol === 'SuperAdmin') {
+                    router.push("/superadmin");
+                } else {
+                    router.push("/client/dashboard");
+                }
             } else {
                 setError("Respuesta inesperada del servidor.");
             }
@@ -52,8 +61,16 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4">
-            <div className="absolute top-8 text-center w-full">
+        <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4 relative">
+            <div className="absolute top-8 left-4 md:left-8 z-20">
+                <Button variant="ghost" asChild className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
+                    <Link href="/">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Volver al inicio
+                    </Link>
+                </Button>
+            </div>
+            <div className="absolute top-8 text-center w-full pointer-events-none z-10">
                 <h1 className="text-3xl font-bold flex justify-center items-center gap-2 text-zinc-800 dark:text-zinc-100">
                     <Building2 className="w-8 h-8 text-blue-600" />
                     CreditWay Préstamos
