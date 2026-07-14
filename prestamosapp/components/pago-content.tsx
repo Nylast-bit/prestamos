@@ -2,7 +2,8 @@
 
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useRef } from "react"
-import { useReactToPrint } from "react-to-print" // <--- Importante
+import { useReactToPrint } from "react-to-print"
+import { toast } from "sonner" // <--- Importante
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -136,14 +137,14 @@ export function PagosContent() {
       })
       
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || 'Error al revertir pago')
       }
       
       await fetchPagos()
-      alert('Pago revertido exitosamente.') 
+      toast.success('Pago revertido exitosamente.') 
     } catch (error: any) {
-      alert(`Error: ${error.message}`)
+      toast.error(`Error: ${error.message}`)
     } finally {
       setIsDeleting(false)
       setDeleteDialogOpen(false)

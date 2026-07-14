@@ -2,6 +2,7 @@
 
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect } from "react"
+import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -162,19 +163,15 @@ export function PrestamosContent() {
 
   // --- HANDLERS (Simulación, Submit, Delete, Edit) ---
   const handleSimular = async () => {
-    console.log("🚀 1. INICIANDO handleSimular EN EL PADRE");
-    console.log("📋 2. Datos del formulario:", formData);
-
     if (!formData.MontoPrestado || !formData.InteresPorcentaje || !formData.CantidadCuotas) {
       console.error("❌ 3. VALIDACIÓN FALLÓ: Faltan campos numéricos");
-      alert('Por favor completa: Monto, Tasa de Interés y Cantidad de Cuotas.');
+      toast.warning('Por favor completa: Monto, Tasa de Interés y Cantidad de Cuotas.');
       return;
     }
 
     setSimulando(true);
     
     try {
-      console.log("📡 4. Enviando petición al Backend...");
       const url = `${API_BASE_URL}/api/prestamos/simular`;
       
       const payload = {
@@ -195,25 +192,21 @@ export function PrestamosContent() {
       }
 
       const data = await response.json();
-      console.log("📥 5. Datos recibidos del Backend:", data);
       
       if (data.success) {
-        console.log("✅ 6. Éxito. Guardando datos en estado...");
         setSimulacionResumen({ ...data, ModalidadPago: formData.ModalidadPago });
         setSimulacionCuotas(data.tablaAmortizacion);
         
-        console.log("🔓 7. INTENTANDO ABRIR EL DIALOG (setIsSimOpen -> true)");
         setIsSimOpen(true);
       } else {
         console.error("❌ Error lógico del backend:", data.error);
-        alert(data.error || 'Error en la simulación');
+        toast.error(data.error || 'Error en la simulación');
       }
 
     } catch (error: any) {
       console.error("💥 8. EXCEPCIÓN (CATCH):", error);
-      alert(`Error técnico: ${error.message}`);
+      toast.error(`Error técnico: ${error.message}`);
     } finally {
-      console.log("🏁 9. Finalizando proceso (setSimulando -> false)");
       setSimulando(false);
     }
   }
@@ -222,7 +215,7 @@ export function PrestamosContent() {
     if (e) e.preventDefault()
     
     if (!editingPrestamo && (!simulacionResumen || simulacionCuotas.length === 0)) {
-        alert("Por favor, realiza y confirma la simulación del préstamo antes de crearlo.");
+        toast.warning("Por favor, realiza y confirma la simulación del préstamo antes de crearlo.");
         return;
     }
 
@@ -272,7 +265,7 @@ export function PrestamosContent() {
       }
       
       await fetchData()
-      alert(`Préstamo ${editingPrestamo ? 'actualizado' : 'creado'} exitosamente`)
+      toast.success(`Préstamo ${editingPrestamo ? 'actualizado' : 'creado'} exitosamente`)
       
       setIsFormOpen(false)
       setIsSimOpen(false)
@@ -283,7 +276,7 @@ export function PrestamosContent() {
 
     } catch (error: any) {
       console.error('Error en handleSubmit:', error)
-      alert(`Error: ${error.message}`)
+      toast.error(`Error: ${error.message}`)
     } finally {
       setSubmitting(false)
     }
@@ -295,9 +288,9 @@ export function PrestamosContent() {
       const response = await fetchWithAuth(`${API_BASE_URL}/api/prestamos/${prestamoToDelete}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('Error al eliminar')
       await fetchData()
-      alert('Préstamo eliminado exitosamente')
+      toast.success('Préstamo eliminado exitosamente')
     } catch (error) {
-      alert('Error al eliminar préstamo')
+      toast.error('Error al eliminar préstamo')
     } finally {
       setDeleteDialogOpen(false)
       setPrestamoToDelete(null)

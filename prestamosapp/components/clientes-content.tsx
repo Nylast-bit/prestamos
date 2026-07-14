@@ -3,6 +3,7 @@
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -165,6 +166,7 @@ export function ClientesContent() {
         }
         
         await fetchClientes()
+        toast.success('Cliente actualizado exitosamente')
       } else {
         const response = await fetchWithAuth(`${API_BASE_URL}/api/clientes`, {
           method: 'POST',
@@ -178,11 +180,12 @@ export function ClientesContent() {
         }
         
         await fetchClientes()
+        toast.success('Cliente registrado exitosamente')
       }
       
       resetForm()
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error en la operación')
+      toast.error(error instanceof Error ? error.message : 'Error en la operación')
     } finally {
       setSubmitting(false)
     }
@@ -251,8 +254,9 @@ export function ClientesContent() {
       }
       
       await fetchClientes()
+      toast.success('Cliente eliminado exitosamente')
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error al eliminar cliente')
+      toast.error(error instanceof Error ? error.message : 'Error al eliminar cliente')
     } finally {
       setDeleteDialogOpen(false)
       setClienteToDelete(null)

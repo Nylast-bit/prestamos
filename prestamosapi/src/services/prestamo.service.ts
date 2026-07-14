@@ -29,7 +29,34 @@ interface CreatePrestamoData {
 // 1. CRUD BÁSICO (Ya lo tenías, lo mantengo)
 // ==========================================
 
-export const createPrestamoService = async (data: CreatePrestamoData, idEmpresa: number) => {
+export const createPrestamoService = async (data: CreatePrestamoData, idEmpresa: number, isSuperAdmin: boolean = false) => {
+  if (!isSuperAdmin) {
+    const { data: suscripcion } = await supabase
+      .from('Suscripcion')
+      .select('Plan:IdPlan (LimitePrestamos)')
+      .eq('IdEmpresa', idEmpresa)
+      .eq('Estado', 'Activa')
+      .order('IdSuscripcion', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!suscripcion || !suscripcion.Plan) {
+      throw new Error('La empresa no cuenta con una suscripción activa.');
+    }
+
+    const plan: any = Array.isArray(suscripcion.Plan) ? suscripcion.Plan[0] : suscripcion.Plan;
+
+    const { count } = await supabase
+      .from('Prestamo')
+      .select('*', { count: 'exact', head: true })
+      .eq('IdEmpresa', idEmpresa)
+      .eq('Estado', 'Activo');
+
+    if ((count || 0) >= plan.LimitePrestamos) {
+      throw new Error('Límite de préstamos activos de su plan excedido.');
+    }
+  }
+
   const hoy = new Date().toISOString();
 
   // 1. INTENTAR OBTENER CAJA ABIERTA

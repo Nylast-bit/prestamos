@@ -3,6 +3,7 @@
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect, useRef } from "react"
 import { useReactToPrint } from "react-to-print" 
+import { toast } from "sonner" 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -145,9 +146,9 @@ export function PagosPersonalizadosContent() {
       }
       
       await fetchPagos()
-      alert('Pago personalizado revertido exitosamente.') 
+      toast.success('Pago personalizado revertido exitosamente.') 
     } catch (error: any) {
-      alert(`Error: ${error.message}`)
+      toast.error(`Error: ${error.message}`)
     } finally {
       setIsDeleting(false)
       setDeleteDialogOpen(false)

@@ -2,6 +2,7 @@
 
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState, useEffect } from "react"
+import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -162,10 +163,10 @@ export function SolicitudesContent() {
 
       await fetchData() 
       setIsFormOpen(false)
-      alert(`Solicitud ${editingSolicitud ? 'actualizada' : 'creada'} exitosamente`)
+      toast.success(`Solicitud ${editingSolicitud ? 'actualizada' : 'creada'} exitosamente`)
 
     } catch (error: any) {
-      alert(`Error: ${error.message}`)
+      toast.error(`Error: ${error.message}`)
     } finally {
       setIsSubmitting(false)
     }
@@ -178,9 +179,9 @@ export function SolicitudesContent() {
       const response = await fetchWithAuth(`${API_BASE_URL}/api/solicitudesprestamo/${solicitudToDelete}`, { method: 'DELETE' })
       if (!response.ok) throw new Error('Error al eliminar')
       await fetchData()
-      alert('Solicitud eliminada exitosamente')
+      toast.success('Solicitud eliminada exitosamente')
     } catch (error) {
-      alert('Error al eliminar solicitud')
+      toast.error('Error al eliminar solicitud')
     } finally {
       setDeleteDialogOpen(false)
       setSolicitudToDelete(null)
@@ -188,7 +189,7 @@ export function SolicitudesContent() {
   }
 
   const handleQuickCreatePrestamo = (solicitud: Solicitud) => {
-    alert(`¡Próximo paso! Abriremos el modal de préstamo precargado con: \nCliente: ${solicitud.Cliente?.Nombre}\nMonto: ${formatMoney(solicitud.MontoSolicitado)}`);
+    toast.info(`¡Próximo paso! Abriremos el modal de préstamo precargado con:\nCliente: ${solicitud.Cliente?.Nombre}\nMonto: ${formatMoney(solicitud.MontoSolicitado)}`);
   }
 
   if (loading) return <div className="flex items-center justify-center h-64">Cargando solicitudes...</div>

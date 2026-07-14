@@ -1,6 +1,8 @@
 import { logger } from './utils/logger';
 // src/index.ts
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { errorHandler } from "./middlewares/errorHandler";
 import express, { Request, Response } from 'express';
 import prestamoRoutes from "./routes/prestamo.routes";
@@ -24,8 +26,18 @@ import { startCapitalJob } from "./jobs/capitalJob";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: "Demasiadas peticiones desde esta dirección IP. Inténtelo más tarde." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use("/api/auth/login", authLimiter);
 
 app.use("/api/prestamos", prestamoRoutes);
 app.use("/api/prestatarios", prestatarioRoutes);

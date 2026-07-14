@@ -148,7 +148,7 @@ export const importBatchService = async (rows: ImportRow[], idEmpresa: number, i
         TipoCalculo: "capital+interes",
         Estado: isActivo ? "Activo" : "Pagado",
         IdEmpresa: idEmpresa,
-      }, idEmpresa);
+      }, idEmpresa, true);
 
       if (isActivo) loanCount++;
       results.success++;

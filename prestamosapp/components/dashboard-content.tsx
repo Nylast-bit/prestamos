@@ -67,7 +67,6 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
         // 👇 DEBUG: Vamos a ver si esto da OK y trae tu array
         if (resSolicitudes.ok) {
           const dataSolicitudes = await resSolicitudes.json();
-          console.log("📥 Solicitudes en Dashboard:", dataSolicitudes);
           setSolicitudes(dataSolicitudes);
         } else {
           console.error("❌ Falló el fetch de solicitudes. Status:", resSolicitudes.status);

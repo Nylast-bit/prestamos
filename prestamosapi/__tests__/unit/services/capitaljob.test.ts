@@ -1,55 +1,54 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { checkAndCreateConsolidation } from '../services/capitaljob.service';
-import { supabase } from '../config/supabaseClient';
-import * as registroConsolidacionService from '../services/registroconsolidacion.service';
-import * as gastoFijoJobService from '../services/gastofijojob.service';
+import { checkAndCreateConsolidation } from '../../../src/services/capitaljob.service';
+import { supabase } from '../../../src/config/supabaseClient';
+import * as registroConsolidacionService from '../../../src/services/registroconsolidacion.service';
+import * as gastoFijoJobService from '../../../src/services/gastofijojob.service';
 
-vi.mock('../config/supabaseClient', () => ({
+jest.mock('../../../src/config/supabaseClient', () => ({
   supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      insert: vi.fn().mockReturnThis(),
-      update: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      lt: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn(),
-      single: vi.fn(),
+    from: jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      insert: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      lt: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(),
+      single: jest.fn(),
     })),
   },
 }));
 
-vi.mock('../utils/logger', () => ({
+jest.mock('../../../src/utils/logger', () => ({
   logger: {
-    info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn()
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn()
   }
 }));
 
-vi.mock('../services/registroconsolidacion.service', () => ({
-    createRegistroConsolidacionService: vi.fn().mockResolvedValue({})
+jest.mock('../../../src/services/registroconsolidacion.service', () => ({
+    createRegistroConsolidacionService: jest.fn().mockResolvedValue({})
 }));
 
-vi.mock('../services/gastofijojob.service', () => ({
-    processFixedExpenses: vi.fn().mockResolvedValue({})
+jest.mock('../../../src/services/gastofijojob.service', () => ({
+    processFixedExpenses: jest.fn().mockResolvedValue({})
 }));
 
 describe('capitaljob.service', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('checkAndCreateConsolidation', () => {
     it('deberia devolver la consolidacion si ya existe', async () => {
       const mockConsolidacion = { IdConsolidacion: 123, IdEmpresa: 1 };
       
-      const maybeSingleMock = vi.fn().mockResolvedValue({ data: mockConsolidacion });
+      const maybeSingleMock = jest.fn().mockResolvedValue({ data: mockConsolidacion });
       
-      vi.mocked(supabase.from).mockImplementation((): any => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
+      (supabase.from as jest.Mock).mockImplementation((): any => ({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
         maybeSingle: maybeSingleMock,
       }));
 
@@ -60,20 +59,20 @@ describe('capitaljob.service', () => {
     });
 
     it('deberia crear nueva consolidacion si no existe y registrar balance anterior', async () => {
-        const maybeSingleMock = vi.fn()
+        const maybeSingleMock = jest.fn()
           .mockResolvedValueOnce({ data: null }) // no existe actual
           .mockResolvedValueOnce({ data: { CapitalEntrante: 2000, CapitalSaliente: 1000 } }); // existe anterior
 
-        const singleMock = vi.fn().mockResolvedValue({ data: { IdConsolidacion: 456 } });
-        const insertMock = vi.fn().mockReturnThis();
+        const singleMock = jest.fn().mockResolvedValue({ data: { IdConsolidacion: 456 } });
+        const insertMock = jest.fn().mockReturnThis();
 
-        vi.mocked(supabase.from).mockImplementation((table: string): any => {
+        (supabase.from as jest.Mock).mockImplementation((table: string): any => {
             return {
-              select: vi.fn().mockReturnThis(),
-              eq: vi.fn().mockReturnThis(),
-              lt: vi.fn().mockReturnThis(),
-              order: vi.fn().mockReturnThis(),
-              limit: vi.fn().mockReturnThis(),
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
+              order: jest.fn().mockReturnThis(),
+              limit: jest.fn().mockReturnThis(),
               maybeSingle: maybeSingleMock,
               insert: insertMock,
               single: singleMock,
@@ -96,20 +95,20 @@ describe('capitaljob.service', () => {
     });
 
     it('deberia manejar balance deficitario anterior', async () => {
-        const maybeSingleMock = vi.fn()
+        const maybeSingleMock = jest.fn()
           .mockResolvedValueOnce({ data: null }) // no existe actual
           .mockResolvedValueOnce({ data: { CapitalEntrante: 1000, CapitalSaliente: 2000 } }); // existe anterior con deficit
 
-        const singleMock = vi.fn().mockResolvedValue({ data: { IdConsolidacion: 456 } });
-        const insertMock = vi.fn().mockReturnThis();
+        const singleMock = jest.fn().mockResolvedValue({ data: { IdConsolidacion: 456 } });
+        const insertMock = jest.fn().mockReturnThis();
 
-        vi.mocked(supabase.from).mockImplementation((table: string): any => {
+        (supabase.from as jest.Mock).mockImplementation((table: string): any => {
             return {
-              select: vi.fn().mockReturnThis(),
-              eq: vi.fn().mockReturnThis(),
-              lt: vi.fn().mockReturnThis(),
-              order: vi.fn().mockReturnThis(),
-              limit: vi.fn().mockReturnThis(),
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
+              order: jest.fn().mockReturnThis(),
+              limit: jest.fn().mockReturnThis(),
               maybeSingle: maybeSingleMock,
               insert: insertMock,
               single: singleMock,

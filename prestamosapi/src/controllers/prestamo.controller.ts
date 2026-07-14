@@ -32,42 +32,23 @@ export const getPrestamoById = asyncHandler(async (req: any, res: Response) => {
 export const createPrestamo = asyncHandler(async (req: any, res: Response) => {
   const data = req.body;
   data.IdEmpresa = req.user.IdEmpresa;
+  const isSuperAdmin = req.user.Rol === 'SuperAdmin';
 
-  // Validar límites de suscripción
-  if (req.user.Rol !== 'SuperAdmin') {
-        const { data: suscripcion } = await supabase
-            .from('Suscripcion')
-            .select('Plan:IdPlan (LimitePrestamos)')
-            .eq('IdEmpresa', req.user.IdEmpresa)
-            .eq('Estado', 'Activa')
-            .order('IdSuscripcion', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-        if (!suscripcion || !suscripcion.Plan) {
-            res.status(403).json({ success: false, error: 'La empresa no cuenta con una suscripción activa.' });
-            return;
-        }
-
-        const plan = Array.isArray(suscripcion.Plan) ? suscripcion.Plan[0] : suscripcion.Plan;
-
-        const { count, error } = await supabase
-            .from('Prestamo')
-            .select('*', { count: 'exact', head: true })
-            .eq('IdEmpresa', req.user.IdEmpresa)
-            .eq('Estado', 'Activo');
-
-        if ((count || 0) >= plan.LimitePrestamos) {
-             res.status(403).json({ success: false, error: 'Límite de préstamos activos de su plan excedido.' });
-             return;
-        }
+  try {
+    const nuevoPrestamo = await prestamoService.createPrestamoService(data, req.user.IdEmpresa, isSuperAdmin);
+    res.status(201).json({
+      success: true,
+      prestamo: nuevoPrestamo,
+    });
+  } catch (error: any) {
+    if (
+      error.message.includes("suscripción activa") ||
+      error.message.includes("Límite de préstamos")
+    ) {
+      return res.status(403).json({ success: false, error: error.message });
+    }
+    throw error;
   }
-
-  const nuevoPrestamo = await prestamoService.createPrestamoService(data, req.user.IdEmpresa);
-  res.status(201).json({
-    success: true,
-    prestamo: nuevoPrestamo,
-  });
 });
 
 // Actualizar préstamo

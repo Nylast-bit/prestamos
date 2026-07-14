@@ -1,0 +1,112 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteSolicitudService = exports.updateSolicitudService = exports.getSolicitudByIdService = exports.getAllSolicitudesService = exports.createSolicitudService = void 0;
+const supabaseClient_1 = require("../config/supabaseClient");
+// Crear solicitud
+const createSolicitudService = async (data, idEmpresa) => {
+    // 1. Validar que el cliente exista
+    const { data: clienteExistente, error: errorCliente } = await supabaseClient_1.supabase
+        .from("Cliente")
+        .select("IdCliente")
+        .eq("IdCliente", data.IdCliente)
+        .eq("IdEmpresa", idEmpresa)
+        .single();
+    if (errorCliente || !clienteExistente) {
+        throw new Error("Cliente no encontrado");
+    }
+    // 2. Crear la solicitud
+    const { data: nuevaSolicitud, error: errorCreacion } = await supabaseClient_1.supabase
+        .from("SolicitudPrestamo")
+        .insert([{
+            IdCliente: data.IdCliente,
+            MontoSolicitado: data.MontoSolicitado,
+            FechaDeseada: new Date(data.FechaDeseada).toISOString(),
+            Estado: data.Estado,
+            Notas: data.Notas || null,
+            FechaCreacion: new Date(data.FechaCreacion).toISOString(),
+            IdEmpresa: idEmpresa
+        }])
+        .select()
+        .single();
+    if (errorCreacion)
+        throw new Error(errorCreacion.message);
+    return nuevaSolicitud;
+};
+exports.createSolicitudService = createSolicitudService;
+// Obtener todas
+const getAllSolicitudesService = async (idEmpresa) => {
+    const { data, error } = await supabaseClient_1.supabase
+        .from("SolicitudPrestamo")
+        .select(`
+      *,
+      Cliente (*)
+    `)
+        .eq("IdEmpresa", idEmpresa)
+        .order("FechaCreacion", { ascending: false });
+    if (error)
+        throw new Error(error.message);
+    return data;
+};
+exports.getAllSolicitudesService = getAllSolicitudesService;
+// Obtener por ID
+const getSolicitudByIdService = async (id, idEmpresa) => {
+    const { data: solicitud, error } = await supabaseClient_1.supabase
+        .from("SolicitudPrestamo")
+        .select(`
+      *,
+      Cliente (*)
+    `)
+        .eq("IdSolicitud", id)
+        .eq("IdEmpresa", idEmpresa)
+        .single();
+    if (error || !solicitud) {
+        throw new Error("Solicitud no encontrada");
+    }
+    return solicitud;
+};
+exports.getSolicitudByIdService = getSolicitudByIdService;
+// Actualizar solicitud
+const updateSolicitudService = async (id, idEmpresa, data) => {
+    // 1. Validar que el cliente exista
+    const { data: clienteExistente, error: errorCliente } = await supabaseClient_1.supabase
+        .from("Cliente")
+        .select("IdCliente")
+        .eq("IdCliente", data.IdCliente)
+        .eq("IdEmpresa", idEmpresa)
+        .single();
+    if (errorCliente || !clienteExistente) {
+        throw new Error("Cliente no encontrado");
+    }
+    // 2. Actualizar la solicitud
+    const { data: actualizado, error: errorActualizacion } = await supabaseClient_1.supabase
+        .from("SolicitudPrestamo")
+        .update({
+        IdCliente: data.IdCliente,
+        MontoSolicitado: data.MontoSolicitado,
+        FechaDeseada: new Date(data.FechaDeseada).toISOString(),
+        Estado: data.Estado,
+        Notas: data.Notas || null,
+        // Usualmente la FechaCreacion no se actualiza, pero lo dejo por tu código original
+        FechaCreacion: new Date(data.FechaCreacion).toISOString(),
+    })
+        .eq("IdSolicitud", id)
+        .eq("IdEmpresa", idEmpresa)
+        .select()
+        .single();
+    if (errorActualizacion)
+        throw new Error(errorActualizacion.message);
+    return actualizado;
+};
+exports.updateSolicitudService = updateSolicitudService;
+// Eliminar solicitud
+const deleteSolicitudService = async (id, idEmpresa) => {
+    const { error } = await supabaseClient_1.supabase
+        .from("SolicitudPrestamo")
+        .delete()
+        .eq("IdSolicitud", id)
+        .eq("IdEmpresa", idEmpresa);
+    if (error)
+        throw new Error(error.message);
+    return true;
+};
+exports.deleteSolicitudService = deleteSolicitudService;

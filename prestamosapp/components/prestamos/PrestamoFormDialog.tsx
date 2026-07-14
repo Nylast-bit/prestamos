@@ -46,7 +46,7 @@ export function PrestamoFormDialog({
   // ------------------------------------------------------------------
   useEffect(() => {
     if (!isEditing && formData.FechaInicio && formData.CantidadCuotas && formData.ModalidadPago) {
-      
+
       const cuotas = parseInt(formData.CantidadCuotas);
       if (isNaN(cuotas) || cuotas <= 0) return;
 
@@ -65,8 +65,8 @@ export function PrestamoFormDialog({
         diasAAgregar = cuotas * 7;
         fechaBase.setDate(fechaBase.getDate() + diasAAgregar);
       } else if (modalidad === 'diario') {
-         diasAAgregar = cuotas;
-         fechaBase.setDate(fechaBase.getDate() + diasAAgregar);
+        diasAAgregar = cuotas;
+        fechaBase.setDate(fechaBase.getDate() + diasAAgregar);
       }
 
       const nuevaFechaFin = fechaBase.toISOString().split('T')[0];
@@ -87,8 +87,8 @@ export function PrestamoFormDialog({
             {isEditing ? "Editar Préstamo" : "Nuevo Préstamo"}
           </DialogTitle>
           <DialogDescription>
-            {isEditing 
-              ? "Modifica los parámetros del préstamo." 
+            {isEditing
+              ? "Modifica los parámetros del préstamo."
               : "Configura los términos financieros. La fecha final se calculará automáticamente."
             }
           </DialogDescription>
@@ -96,13 +96,13 @@ export function PrestamoFormDialog({
 
         {/* --- INICIO DEL FORMULARIO --- */}
         <div className="grid gap-6 py-6">
-          
+
           {/* SECCIÓN 1: PERSONAS */}
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label className="text-xs font-semibold uppercase text-gray-500">Cliente</Label>
-              <Select 
-                value={formData.IdCliente} 
+              <Select
+                value={formData.IdCliente}
                 onValueChange={(val) => updateField("IdCliente", val)}
               >
                 <SelectTrigger className="bg-gray-50/50">
@@ -119,8 +119,8 @@ export function PrestamoFormDialog({
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-semibold uppercase text-gray-500">Prestatario (Inversionista)</Label>
-              <Select 
-                value={formData.IdPrestatario} 
+              <Select
+                value={formData.IdPrestatario}
                 onValueChange={(val) => updateField("IdPrestatario", val)}
               >
                 <SelectTrigger className="bg-gray-50/50">
@@ -136,7 +136,7 @@ export function PrestamoFormDialog({
               </Select>
             </div>
           </div>
-          
+
           <div className="border-t border-gray-100 my-1"></div>
 
           {/* SECCIÓN 2: TÉRMINOS FINANCIEROS */}
@@ -186,8 +186,8 @@ export function PrestamoFormDialog({
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label>Modalidad de Pago</Label>
-              <Select 
-                value={formData.ModalidadPago} 
+              <Select
+                value={formData.ModalidadPago}
                 onValueChange={(val) => updateField("ModalidadPago", val)}
               >
                 <SelectTrigger>
@@ -203,8 +203,8 @@ export function PrestamoFormDialog({
             </div>
             <div className="space-y-2">
               <Label>Tipo de Cálculo</Label>
-              <Select 
-                value={formData.TipoCalculo} 
+              <Select
+                value={formData.TipoCalculo}
                 onValueChange={(val) => updateField("TipoCalculo", val)}
               >
                 <SelectTrigger>
@@ -224,7 +224,7 @@ export function PrestamoFormDialog({
           <div className="grid grid-cols-2 gap-6 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
             <div className="space-y-2">
               <Label htmlFor="FechaInicio" className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-blue-600"/> Inicio del Préstamo
+                <CalendarDays className="h-4 w-4 text-blue-600" /> Inicio del Préstamo
               </Label>
               <Input
                 id="FechaInicio"
@@ -237,7 +237,7 @@ export function PrestamoFormDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="FechaFinEstimada" className="flex items-center gap-2">
-                <Wand2 className="h-4 w-4 text-purple-600"/> Fecha Final (Estimada)
+                <Wand2 className="h-4 w-4 text-purple-600" /> Fecha Final (Estimada)
               </Label>
               <Input
                 id="FechaFinEstimada"
@@ -266,15 +266,12 @@ export function PrestamoFormDialog({
             />
           </div>
 
-          {/* BOTÓN DE SIMULACIÓN 
-              Aquí hemos agregado el console.log para verificar que el clic funciona 
-          */}
+          {/* BOTÓN DE SIMULACIÓN */}
           {!isEditing && (
-            <Button 
-              type="button" 
-              variant="secondary" 
+            <Button
+              type="button"
+              variant="secondary"
               onClick={() => {
-                console.log("🔘 DEBUG: Botón 'Simular' presionado en el formulario.");
                 onSimular(); // Llama a la función del padre
               }}
               disabled={isSimulating || !formData.MontoPrestado || !formData.InteresPorcentaje || !formData.CantidadCuotas}
@@ -284,8 +281,8 @@ export function PrestamoFormDialog({
                 "Calculando..."
               ) : (
                 <span className="flex items-center">
-                   <Calculator className="h-4 w-4 mr-2" />
-                   Generar Tabla de Pagos y Simular
+                  <Calculator className="h-4 w-4 mr-2" />
+                  Generar Tabla de Pagos y Simular
                 </span>
               )}
             </Button>
@@ -297,9 +294,9 @@ export function PrestamoFormDialog({
           <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button 
-            onClick={() => onSubmit()} 
-            className="bg-[#213685] hover:bg-[#213685]/90 min-w-[150px]" 
+          <Button
+            onClick={() => onSubmit()}
+            className="bg-[#213685] hover:bg-[#213685]/90 min-w-[150px]"
             disabled={isSubmitting}
           >
             {isSubmitting ? "Procesando..." : (isEditing ? "Guardar Cambios" : "Crear Préstamo")}

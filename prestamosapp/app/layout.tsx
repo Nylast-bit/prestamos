@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "sonner"
 import "@/lib/patchFetch"
 
 export const metadata: Metadata = {
@@ -35,6 +36,7 @@ html {
           disableTransitionOnChange
         >
           {children}
+          <Toaster richColors closeButton position="top-right" />
         </ThemeProvider>
       </body>
     </html>

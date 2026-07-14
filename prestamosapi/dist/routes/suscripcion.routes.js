@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const suscripcion_controller_1 = require("../controllers/suscripcion.controller");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const router = (0, express_1.Router)();
+router.get('/stats', auth_middleware_1.requireAuth, (0, auth_middleware_1.requireRole)(['SuperAdmin', 'admin_sistema']), suscripcion_controller_1.getDashboardStats);
+router.get('/', auth_middleware_1.requireAuth, (0, auth_middleware_1.requireRole)(['SuperAdmin', 'admin_sistema']), suscripcion_controller_1.getSuscripciones);
+router.post('/', auth_middleware_1.requireAuth, (0, auth_middleware_1.requireRole)(['SuperAdmin', 'admin_sistema']), suscripcion_controller_1.createSuscripcion);
+router.put('/:id', auth_middleware_1.requireAuth, (0, auth_middleware_1.requireRole)(['SuperAdmin', 'admin_sistema']), suscripcion_controller_1.updateSuscripcion);
+exports.default = router;
