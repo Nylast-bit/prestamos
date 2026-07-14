@@ -26,6 +26,10 @@ import { startCapitalJob } from "./jobs/capitalJob";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// 1. Confianza en proxies (Debe ir antes de inicializar los limiters)
+app.set('trust proxy', 1);
+
+// 2. Definición de Rate Limiters
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -34,20 +38,32 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.set('trust proxy', 1);
-
-// 2. Luego inicializas tu rate limiter
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 100 // límite de peticiones
 });
 
+// 3. Middlewares de Seguridad HTTP y CORS
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true 
+}));
+
+// 4. Middlewares de Parseo de Body (Lectura de datos)
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// 5. Aplicación de Rate Limiters Globales y Específicos
 app.use(limiter);
 app.use("/api/auth/login", authLimiter);
 
+// 6. Rutas Base y Health Check (Deben ir ANTES del manejador de errores)
+app.get("/api/health", (req: Request, res: Response) => {
+  res.send("Api is running");
+});
+
+// 7. Rutas del Negocio
 app.use("/api/prestamos", prestamoRoutes);
 app.use("/api/prestatarios", prestatarioRoutes);
 app.use("/api/clientes", clienteRoutes);
@@ -64,16 +80,12 @@ app.use("/api/planes", planRoutes);
 app.use("/api/suscripciones", suscripcionRoutes);
 app.use("/api/import", importRoutes);
 
+// 8. Manejo Global de Errores (Debe ser SIEMPRE el último middleware)
 app.use(errorHandler);
 
-//health check
-app.get("/api/health", (req: Request, res: Response) => {
-  res.send("Api is running");
-});
+// 9. Inicialización del Servidor
 app.listen(PORT, () => {
   logger.info(`🚀 Server corriendo en http://localhost:${PORT}`);
   startCapitalJob();
   logger.info("✅ Cron Job scheduler iniciado.");
 });
-
-
