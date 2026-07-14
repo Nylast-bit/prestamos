@@ -34,9 +34,18 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+app.set('trust proxy', 1);
+
+// 2. Luego inicializas tu rate limiter
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100 // límite de peticiones
+});
+
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(limiter);
 app.use("/api/auth/login", authLimiter);
 
 app.use("/api/prestamos", prestamoRoutes);
@@ -66,3 +75,5 @@ app.listen(PORT, () => {
   startCapitalJob();
   logger.info("✅ Cron Job scheduler iniciado.");
 });
+
+
