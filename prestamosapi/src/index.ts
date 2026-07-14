@@ -46,7 +46,7 @@ const limiter = rateLimit({
 // 3. Middlewares de Seguridad HTTP y CORS
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: true, // Esto le dice a CORS que acepte dinámicamente cualquier origen que haga la petición
   credentials: true 
 }));
 
