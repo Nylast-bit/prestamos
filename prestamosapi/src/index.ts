@@ -43,6 +43,7 @@ const limiter = rateLimit({
   max: 100 // límite de peticiones
 });
 const allowedOrigins = [
+  'https://prestamos.easywagps.com',
   'https://prestamos-nu.vercel.app',
   'http://localhost:3000'
 ];
