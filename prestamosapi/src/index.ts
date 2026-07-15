@@ -46,7 +46,10 @@ const limiter = rateLimit({
 // 3. Middlewares de Seguridad HTTP y CORS
 app.use(helmet());
 app.use(cors({
-  origin: true, // Esto le dice a CORS que acepte dinámicamente cualquier origen que haga la petición
+  origin: [
+    'https://prestamos-nu.vercel.app', 
+    'http://localhost:3000'
+  ],
   credentials: true 
 }));
 
