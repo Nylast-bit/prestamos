@@ -42,15 +42,29 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 100 // límite de peticiones
 });
+const allowedOrigins = [
+  'https://prestamos-nu.vercel.app',
+  'http://localhost:3000'
+];
 
 // 3. Middlewares de Seguridad HTTP y CORS
 app.use(helmet());
+
 app.use(cors({
-  origin: [
-    'https://prestamos-nu.vercel.app', 
-    'http://localhost:3000'
-  ],
-  credentials: true 
+  origin: function (origin, callback) {
+    // Si no hay origen (como Postman), permitimos la petición
+    if (!origin) return callback(null, true);
+    
+    // Removemos cualquier barra diagonal al final del string del origen para evitar conflictos
+    const cleanedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+
+    if (allowedOrigins.includes(cleanedOrigin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Bloqueado por políticas de CORS'));
+    }
+  },
+  credentials: true
 }));
 
 // 4. Middlewares de Parseo de Body (Lectura de datos)
