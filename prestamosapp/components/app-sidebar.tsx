@@ -49,11 +49,7 @@ const data = {
       key: "pagos",
       icon: CreditCard,
     },
-    {
-      title: "Acuerdos",
-      key: "acuerdos",
-      icon: HandCoins,
-    },
+    
     {
       title: "Pagos Personalizados",
       key: "pagospersonalizados",

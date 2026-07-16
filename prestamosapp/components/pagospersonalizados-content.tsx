@@ -15,23 +15,27 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { VolantePago } from "@/components/VolantePagoPDF"
 
 interface PagoPersonalizado {
-  IdPago: number
-  IdPrestamo: number
-  FechaPago: string
-  TipoPago: string
-  MontoPagado: number
-  MontoInteresPagado: number
-  MontoCapitalAbonado: number
-  CuotasRestantes: number
-  Observaciones: string
-  NumeroCuota: number
+  IdPago: number;
+  IdPrestamo: number;
+  FechaPago: string;
+  TipoPago: string;
+  MontoPagado: number;
+  MontoInteresPagado: number;
+  MontoCapitalAbonado: number;
+  CuotasRestantes: number;
+  Observaciones: string;
+  NumeroCuota: number;
   // Estructura anidada
   Prestamo?: {
-    IdPrestamo: number
-    Prestatario?: {
-      Nombre: string
-    }
-  }
+    IdPrestamo: number;
+    FechaInicio: string;        // Necesario para la impresión
+    FechaFinEstimada: string;   // Necesario para la impresión
+    CapitalRestante: number;    // Necesario para la impresión
+    CantidadCuotas: number;     // Necesario para la impresión
+    Prestatario?: {             // Aquí cambia a Prestatario
+      Nombre: string;
+    };
+  };
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
@@ -61,28 +65,43 @@ export function PagosPersonalizadosContent() {
   })
 
   const prepararImpresion = (pago: PagoPersonalizado) => {
-    const nombrePrestatario = pago.Prestamo?.Prestatario 
-        ? pago.Prestamo.Prestatario.Nombre
-        : "Cliente"
+    
+    // Como es un pago personalizado, evaluamos si el capital va como extra o regular
+    const esAbonoExtraordinario = pago.TipoPago === "Personalizado";
+    const capitalRegular = esAbonoExtraordinario ? 0 : Number(pago.MontoCapitalAbonado);
+    const capitalExtra = esAbonoExtraordinario ? Number(pago.MontoCapitalAbonado) : 0;
 
-    // 1. Preparamos los datos planos para el componente VolantePago
+    // 1. Mapeamos los datos usando la interfaz que espera el VolantePago
     const datosVolante = {
         IdPago: pago.IdPago,
-        FechaPago: pago.FechaPago,
-        MontoPagado: pago.MontoPagado,
-        Cliente: nombrePrestatario,
+        FechaPago: pago.FechaPago, // Efectividad
+        MontoPagado: Number(pago.MontoPagado),
+        // Aquí hacemos el cambio clave: Buscamos en Prestatario en lugar de Cliente
+        Cliente: pago.Prestamo?.Prestatario?.Nombre || "Cliente Desconocido",
         IdPrestamo: pago.IdPrestamo,
         NumeroCuota: pago.NumeroCuota,
-        Observaciones: pago.Observaciones,
-        TipoPago: pago.TipoPago
+        Observaciones: pago.Observaciones || "",
+        TipoPago: pago.TipoPago,
+        
+        // Desglose
+        PagoCapital: capitalRegular,
+        PagoInteres: Number(pago.MontoInteresPagado),
+        PagoAbono: capitalExtra,
+        PagoMora: 0, // Como aún no manejamos mora, lo pasamos en 0
+        
+        // Datos del Préstamo 
+        InicioPrestamo: pago.Prestamo?.FechaInicio || "",
+        TerminoPrestamo: pago.Prestamo?.FechaFinEstimada || "",
+        MontoPendiente: pago.Prestamo?.CapitalRestante || 0,
+        CuotasTotales: pago.Prestamo?.CantidadCuotas || pago.CuotasRestantes
     }
 
     setPagoParaImprimir(datosVolante)
 
-    // 2. Esperamos un momento a que React renderice los datos en el div oculto antes de imprimir
+    // 2. Esperamos a que React asigne el estado y renderice el div oculto
     setTimeout(() => {
         handlePrint()
-    }, 100)
+    }, 150)
   }
   // ---------------------------
 

@@ -29,10 +29,14 @@ interface Pago {
   NumeroCuota: number
   // Estructura anidada
   Prestamo?: {
-    IdPrestamo: number
+    IdPrestamo: number;
+    FechaInicio: string;        // Nuevo campo agregado
+    FechaFinEstimada: string;   // Nuevo campo agregado
+    CapitalRestante: number;    // Nuevo campo agregado
+    CantidadCuotas: number;     // Nuevo campo agregado
     Cliente?: {
-      Nombre: string
-    }
+      Nombre: string;
+    };
   }
 }
 
@@ -63,24 +67,46 @@ export function PagosContent() {
   })
 
   const prepararImpresion = (pago: Pago) => {
-    // 1. Preparamos los datos planos para el componente VolantePago
+    
+    // Si el tipo de pago es "Personalizado" y el capital abonado es mayor que la cuota regular,
+    // calculamos la diferencia como "Abono Extraordinario". Si no, es 0.
+    // (Ajusta esta lógica según prefieras manejarlo visualmente)
+    const esAbonoExtraordinario = pago.TipoPago === "Personalizado";
+    const capitalRegular = esAbonoExtraordinario ? 0 : Number(pago.MontoCapitalAbonado);
+    const capitalExtra = esAbonoExtraordinario ? Number(pago.MontoCapitalAbonado) : 0;
+
+    // 1. Mapeamos los datos usando la nueva interfaz PagoData
     const datosVolante = {
         IdPago: pago.IdPago,
-        FechaPago: pago.FechaPago,
-        MontoPagado: pago.MontoPagado,
-        Cliente: pago.Prestamo?.Cliente?.Nombre || "Cliente",
+        FechaPago: pago.FechaPago, // Efectividad
+        MontoPagado: Number(pago.MontoPagado),
+        Cliente: pago.Prestamo?.Cliente?.Nombre || "Cliente Desconocido",
         IdPrestamo: pago.IdPrestamo,
         NumeroCuota: pago.NumeroCuota,
-        Observaciones: pago.Observaciones,
-        TipoPago: pago.TipoPago
+        Observaciones: pago.Observaciones || "",
+        TipoPago: pago.TipoPago,
+        
+        // Desglose
+        PagoCapital: capitalRegular,
+        PagoInteres: Number(pago.MontoInteresPagado),
+        PagoAbono: capitalExtra,
+        PagoMora: 0, // Como aún no manejamos mora, lo pasamos en 0
+        
+        // Datos del Préstamo (Asumiendo que el backend nos los envía en pago.Prestamo)
+        // Nota: Si el backend no envía estas fechas o el CapitalRestante, 
+        // tendremos que agregar esos campos al SELECT de Supabase en el pago.service.ts
+        InicioPrestamo: pago.Prestamo?.FechaInicio || "",
+        TerminoPrestamo: pago.Prestamo?.FechaFinEstimada || "",
+        MontoPendiente: pago.Prestamo?.CapitalRestante || 0,
+        CuotasTotales: pago.Prestamo?.CantidadCuotas || pago.CuotasRestantes
     }
 
     setPagoParaImprimir(datosVolante)
 
-    // 2. Esperamos un momento a que React renderice los datos en el div oculto antes de imprimir
+    // 2. Esperamos a que React asigne el estado y renderice el div oculto
     setTimeout(() => {
         handlePrint()
-    }, 100)
+    }, 150)
   }
   // ---------------------------
 
