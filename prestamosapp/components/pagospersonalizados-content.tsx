@@ -32,6 +32,7 @@ interface PagoPersonalizado {
     FechaFinEstimada: string;   // Necesario para la impresión
     CapitalRestante: number;    // Necesario para la impresión
     CantidadCuotas: number;     // Necesario para la impresión
+    MontoCuota?: number;        // Necesario para el cálculo de monto pendiente
     Prestatario?: {             // Aquí cambia a Prestatario
       Nombre: string;
     };
@@ -71,6 +72,20 @@ export function PagosPersonalizadosContent() {
     const capitalRegular = esAbonoExtraordinario ? 0 : Number(pago.MontoCapitalAbonado);
     const capitalExtra = esAbonoExtraordinario ? Number(pago.MontoCapitalAbonado) : 0;
 
+    const montoCuota = (pago.Prestamo?.MontoCuota && Number(pago.Prestamo.MontoCuota) > 0)
+      ? Number(pago.Prestamo.MontoCuota)
+      : Number(pago.MontoPagado || 0);
+
+    const cuotasTotales = Number(pago.Prestamo?.CantidadCuotas || 0);
+    const cuotasRestantes = (pago.CuotasRestantes !== undefined && pago.CuotasRestantes !== null)
+      ? Number(pago.CuotasRestantes)
+      : Math.max(0, cuotasTotales - Number(pago.NumeroCuota));
+
+    let montoPendienteCalculado = montoCuota * cuotasRestantes;
+    if (montoPendienteCalculado === 0 && pago.Prestamo?.CapitalRestante && Number(pago.Prestamo.CapitalRestante) > 0) {
+      montoPendienteCalculado = Number(pago.Prestamo.CapitalRestante);
+    }
+
     // 1. Mapeamos los datos usando la interfaz que espera el VolantePago
     const datosVolante = {
         IdPago: pago.IdPago,
@@ -92,8 +107,10 @@ export function PagosPersonalizadosContent() {
         // Datos del Préstamo 
         InicioPrestamo: pago.Prestamo?.FechaInicio || "",
         TerminoPrestamo: pago.Prestamo?.FechaFinEstimada || "",
-        MontoPendiente: pago.Prestamo?.CapitalRestante || 0,
-        CuotasTotales: pago.Prestamo?.CantidadCuotas || pago.CuotasRestantes
+        MontoPendiente: montoPendienteCalculado,
+        CuotasTotales: cuotasTotales,
+        CuotasRestantes: cuotasRestantes,
+        MontoCuota: montoCuota
     }
 
     setPagoParaImprimir(datosVolante)

@@ -22,6 +22,8 @@ export interface PagoData {
   TerminoPrestamo: string; // Termino
   MontoPendiente: number; // Monto pend
   CuotasTotales: number; // Cuota(s) Total
+  CuotasRestantes?: number;
+  MontoCuota?: number;
 }
 
 export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>((props, ref) => {
@@ -136,7 +138,7 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
               margin: 0,
               letterSpacing: '-0.5px'
             }}>
-              CREDIT WAY S.R.L
+              CREDIT WAY
             </h1>
             <div style={{ marginTop: '12px', fontSize: '13px', color: '#64748b', lineHeight: '1.8' }}>
               <p style={{ margin: 0 }}>Santo Domingo Oeste, República Dominicana</p>
@@ -193,12 +195,28 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
                 <p style={{ fontWeight: 600, color: '#1e293b', margin: 0 }}>{formatoFecha(data.TerminoPrestamo)}</p>
               </div>
               <div>
-                <p style={{ color: '#64748b', margin: '0 0 2px 0' }}>Cuota(s) Total:</p>
-                <p style={{ fontWeight: 600, color: '#1e293b', margin: 0 }}>{data.CuotasTotales}</p>
+                <p style={{ color: '#64748b', margin: '0 0 2px 0' }}>Cuota(s) Restantes:</p>
+                <p style={{ fontWeight: 600, color: '#1e293b', margin: 0 }}>
+                  {data.CuotasRestantes !== undefined && data.CuotasRestantes !== null
+                    ? data.CuotasRestantes
+                    : Math.max(0, data.CuotasTotales - data.NumeroCuota)}
+                </p>
               </div>
               <div>
                 <p style={{ color: '#64748b', margin: '0 0 2px 0' }}>Monto Pendiente:</p>
-                <p style={{ fontWeight: 600, color: '#b91c1c', margin: 0 }}>{formatoMoneda(data.MontoPendiente)}</p>
+                <p style={{ fontWeight: 600, color: '#b91c1c', margin: 0 }}>
+                  {formatoMoneda(
+                    data.MontoPendiente && data.MontoPendiente > 0
+                      ? data.MontoPendiente
+                      : (data.MontoCuota && data.MontoCuota > 0
+                          ? data.MontoCuota * (data.CuotasRestantes !== undefined && data.CuotasRestantes !== null ? data.CuotasRestantes : Math.max(0, data.CuotasTotales - data.NumeroCuota))
+                          : (data.MontoPagado && data.MontoPagado > 0
+                              ? data.MontoPagado * (data.CuotasRestantes !== undefined && data.CuotasRestantes !== null ? data.CuotasRestantes : Math.max(0, data.CuotasTotales - data.NumeroCuota))
+                              : 0
+                            )
+                        )
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -238,7 +256,7 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
           </table>
 
           {/* Letras y Observaciones */}
-          <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ marginTop: '0px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <p style={{ fontSize: '12px', color: '#475569', fontStyle: 'italic', fontWeight: 600, margin: 0 }}>
               SON: {montoEnLetras} PESOS DOMINICANOS 00/100
             </p>
@@ -251,7 +269,7 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
         </div>
 
         {/* Firmas y Footer (Mantenidos igual de hermosos) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '40px', marginBottom: '48px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '40px', marginBottom: '0px' }}>
           <div style={{ flex: 1 }}>
             <div style={{
               borderTop: '2px solid #1e293b',
@@ -273,7 +291,7 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
                 margin: '4px 0 0 0',
                 textAlign: 'center'
               }}>
-                Credit Way S.R.L
+                Credit Way 
               </p>
             </div>
           </div>
@@ -285,10 +303,10 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
           </div>
         </div>
 
-        <div style={{ borderTop: '2px dashed #cbd5e1', paddingTop: '24px' }}>
+        <div style={{ borderTop: '2px dashed #cbd5e1', paddingTop: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8' }}>
             <div>
-              <p style={{ margin: '0 0 4px 0' }}><strong>Emitido por:</strong> Sistema Web</p>
+              <p style={{ margin: '2px 0 2px 0' }}><strong>Emitido por:</strong> Sistema Web</p>
               <p style={{ margin: 0 }}><strong>Impreso:</strong> {new Date().toLocaleString('es-DO', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
             </div>
             <div style={{ textAlign: 'right' }}>

@@ -129,6 +129,7 @@ export const getAllPagosService = async (idEmpresa: number) => {
         FechaFinEstimada,
         CapitalRestante,
         CantidadCuotas,
+        MontoCuota,
         Cliente (
           Nombre
         )

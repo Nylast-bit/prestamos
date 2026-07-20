@@ -33,6 +33,7 @@ interface Pago {
     FechaInicio: string;        // Nuevo campo agregado
     FechaFinEstimada: string;   // Nuevo campo agregado
     CapitalRestante: number;    // Nuevo campo agregado
+    MontoCuota: number;         // Nuevo campo agregado 
     CantidadCuotas: number;     // Nuevo campo agregado
     Cliente?: {
       Nombre: string;
@@ -75,6 +76,20 @@ export function PagosContent() {
     const capitalRegular = esAbonoExtraordinario ? 0 : Number(pago.MontoCapitalAbonado);
     const capitalExtra = esAbonoExtraordinario ? Number(pago.MontoCapitalAbonado) : 0;
 
+    const montoCuota = (pago.Prestamo?.MontoCuota && Number(pago.Prestamo.MontoCuota) > 0)
+      ? Number(pago.Prestamo.MontoCuota)
+      : Number(pago.MontoPagado || 0);
+
+    const cuotasTotales = Number(pago.Prestamo?.CantidadCuotas || 0);
+    const cuotasRestantes = (pago.CuotasRestantes !== undefined && pago.CuotasRestantes !== null)
+      ? Number(pago.CuotasRestantes)
+      : Math.max(0, cuotasTotales - Number(pago.NumeroCuota));
+
+    let montoPendienteCalculado = montoCuota * cuotasRestantes;
+    if (montoPendienteCalculado === 0 && pago.Prestamo?.CapitalRestante && Number(pago.Prestamo.CapitalRestante) > 0) {
+      montoPendienteCalculado = Number(pago.Prestamo.CapitalRestante);
+    }
+
     // 1. Mapeamos los datos usando la nueva interfaz PagoData
     const datosVolante = {
         IdPago: pago.IdPago,
@@ -92,13 +107,13 @@ export function PagosContent() {
         PagoAbono: capitalExtra,
         PagoMora: 0, // Como aún no manejamos mora, lo pasamos en 0
         
-        // Datos del Préstamo (Asumiendo que el backend nos los envía en pago.Prestamo)
-        // Nota: Si el backend no envía estas fechas o el CapitalRestante, 
-        // tendremos que agregar esos campos al SELECT de Supabase en el pago.service.ts
+        // Datos del Préstamo
         InicioPrestamo: pago.Prestamo?.FechaInicio || "",
         TerminoPrestamo: pago.Prestamo?.FechaFinEstimada || "",
-        MontoPendiente: pago.Prestamo?.CapitalRestante || 0,
-        CuotasTotales: pago.Prestamo?.CantidadCuotas || pago.CuotasRestantes
+        MontoPendiente: montoPendienteCalculado,
+        CuotasTotales: cuotasTotales,
+        CuotasRestantes: cuotasRestantes,
+        MontoCuota: montoCuota
     }
 
     setPagoParaImprimir(datosVolante)

@@ -184,6 +184,11 @@ export const getAllPagosPersonalizadosService = async (idEmpresa: number) => {
             Prestamo!inner (
                 IdPrestamo,
                 IdEmpresa,
+                FechaInicio,
+                FechaFinEstimada,
+                CapitalRestante,
+                CantidadCuotas,
+                MontoCuota,
                 Prestatario (
                     Nombre
                 )

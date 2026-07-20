@@ -161,6 +161,11 @@ const getAllPagosPersonalizadosService = async (idEmpresa) => {
             Prestamo!inner (
                 IdPrestamo,
                 IdEmpresa,
+                FechaInicio,
+                FechaFinEstimada,
+                CapitalRestante,
+                CantidadCuotas,
+                MontoCuota,
                 Prestatario (
                     Nombre
                 )
