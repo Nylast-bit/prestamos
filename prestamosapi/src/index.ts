@@ -49,7 +49,9 @@ const allowedOrigins = [
 ];
 
 // 3. Middlewares de Seguridad HTTP y CORS
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -65,7 +67,10 @@ app.use(cors({
       callback(new Error('Bloqueado por políticas de CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  // Le decimos al navegador exactamente qué métodos y cabeceras aceptamos en la petición "preflight"
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept']
 }));
 
 // 4. Middlewares de Parseo de Body (Lectura de datos)
