@@ -123,40 +123,43 @@ export function PrestamoSimulationDialog({
 
             {/* TABLA */}
             <div className="border rounded-md overflow-hidden bg-white shadow-sm">
-                <div className="bg-gray-50 px-4 py-2 border-b">
-                    <h3 className="font-semibold text-sm text-gray-700">Tabla de Amortización</h3>
-                </div>
-                <div className="max-h-[300px] overflow-y-auto">
-                    <Table>
-                        <TableHeader className="bg-white sticky top-0 z-10 shadow-sm">
-                            <TableRow>
-                                <TableHead className="w-[60px] text-center font-bold">#</TableHead>
-                                <TableHead className="text-right font-bold">Capital</TableHead>
-                                <TableHead className="text-right font-bold">Interés</TableHead>
-                                <TableHead className="text-right font-bold text-green-700">Cuota</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {cuotas.map((c: any) => (
-                                <TableRow key={c.numeroCuota} className="hover:bg-gray-50">
-                                    <TableCell className="text-center font-medium text-muted-foreground">
-                                        {c.numeroCuota}
-                                    </TableCell>
-                                    <TableCell className="text-right tabular-nums">
-                                        {formatMoney(c.capital)}
-                                    </TableCell>
-                                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                                        {formatMoney(c.interes)}
-                                    </TableCell>
-                                    <TableCell className="text-right tabular-nums font-bold text-green-700 bg-green-50/20">
-                                        {formatMoney(c.cuota)}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
+            <div className="bg-gray-50 px-4 py-2 border-b">
+                <h3 className="font-semibold text-sm text-gray-700">Tabla de Amortización</h3>
             </div>
+            
+           
+            <div className="max-h-[300px] overflow-y-auto relative [&>div]:overflow-visible">
+                <Table>
+                    {/* Aseguramos que el fondo sea sólido (bg-white) y tenga un z-index alto */}
+                    <TableHeader className="sticky top-0 z-20 bg-white shadow-sm ring-1 ring-black/5">
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className="w-[60px] text-center font-bold text-gray-900">#</TableHead>
+                            <TableHead className="text-right font-bold text-gray-900">Capital</TableHead>
+                            <TableHead className="text-right font-bold text-gray-900">Interés</TableHead>
+                            <TableHead className="text-right font-bold text-green-700">Cuota</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {cuotas.map((c: any) => (
+                            <TableRow key={c.numeroCuota} className="hover:bg-gray-50">
+                                <TableCell className="text-center font-medium text-muted-foreground">
+                                    {c.numeroCuota}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {formatMoney(c.capital)}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums text-muted-foreground">
+                                    {formatMoney(c.interes)}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums font-bold text-green-700 bg-green-50/20">
+                                    {formatMoney(c.cuota)}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        </div>
         </div>
 
         <DialogFooter className="p-4 border-t bg-white z-20">
