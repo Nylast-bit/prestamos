@@ -112,7 +112,7 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
               margin: 0,
               letterSpacing: '-0.5px'
             }}>
-              CREDIT WAY S.R.L
+              CREDIT WAY
             </h1>
             <div style={{ 
               marginTop: '12px', 
@@ -411,7 +411,7 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
                 margin: '4px 0 0 0',
                 textAlign: 'center'
               }}>
-                Credit Way S.R.L
+                Credit Way
               </p>
             </div>
           </div>
