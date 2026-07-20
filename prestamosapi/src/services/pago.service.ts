@@ -117,26 +117,29 @@ export const createPagoService = async (data: any, idEmpresa: number) => {
 };
 
 // 1. Obtener todos los pagos
-export const getAllPagosService = async (idEmpresa: number) => {
-  // Pedimos el Pago, con INNER JOIN obligado de Prestamo para filtrar solo los de esta Empresa
+export const getAllPagosService = async () => {
+  // Aquí es exactamente donde va el .select() actualizado
+  // Le pedimos a Supabase todos los campos del Pago (*) y campos específicos del Préstamo
   const { data, error } = await supabase
     .from("Pago")
     .select(`
       *,
-      Prestamo!inner(
+      Prestamo (
         IdPrestamo,
-        IdEmpresa,
+        FechaInicio,
+        FechaFinEstimada,
+        CapitalRestante,
+        CantidadCuotas,
         Cliente (
           Nombre
         )
       )
     `)
-    .eq('Prestamo.IdEmpresa', idEmpresa)
-    .order('FechaPago', { ascending: false }); // Ordenamos del más reciente al más viejo
+    .order("FechaPago", { ascending: false });
 
+  // Si hay un error en la consulta, lo lanzamos para que el controlador lo maneje
   if (error) {
-    logger.error("Error Supabase getAllPagos:", error);
-    throw new Error(error.message);
+    throw new Error(`Error al obtener el historial de pagos: ${error.message}`);
   }
 
   return data;
