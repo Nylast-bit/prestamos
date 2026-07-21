@@ -601,7 +601,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                   Detalle de movimientos y tabla de amortización
                 </DialogDescription>
               </div>
-              <Badge variant="outline" className="text-lg px-4 py-1.5 bg-white shadow-sm font-semibold">
+              <Badge variant="outline" className="text-md px-4 mr-4 py-1.5 bg-white shadow-sm font-semibold">
                 {selectedPrestamo?.Estado}
               </Badge>
             </div>
