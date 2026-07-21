@@ -1,4 +1,5 @@
 import React, { useEffect } from "react"
+import { useAuthStore } from "@/store/authStore";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -117,13 +118,21 @@ export function PrestamoFormDialog({
     };
   };
 
+  const { user } = useAuthStore();
+
+  useEffect(() => {
+    if (isOpen && !isEditing && user?.idPrestatario && !formData.IdPrestatario) {
+      updateField("IdPrestatario", user.idPrestatario.toString());
+    }
+  }, [isOpen, isEditing, user?.idPrestatario]);
+
   // ------------------------------------------------------------------
   // 🔮 CÁLCULO AUTOMÁTICO DE FECHA DE VENCIMIENTO
   // ------------------------------------------------------------------
   useEffect(() => {
     if (!isEditing && formData.FechaInicio && formData.ModalidadPago) {
       const esSoloInteres = formData.TipoCalculo === "solo_interes";
-      const cuotas = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 8 : 0);
+      const cuotas = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0);
       if (cuotas <= 0) return;
 
       const plan = calcularPlanPagos(formData.FechaInicio, cuotas, formData.ModalidadPago);
@@ -137,7 +146,7 @@ export function PrestamoFormDialog({
   const esSoloInteres = formData.TipoCalculo === "solo_interes";
   const planActual = calcularPlanPagos(
     formData.FechaInicio,
-    parseInt(formData.CantidadCuotas) || (esSoloInteres ? 8 : 0),
+    parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0),
     formData.ModalidadPago
   );
 
@@ -238,7 +247,7 @@ export function PrestamoFormDialog({
                 <Label htmlFor="CantidadCuotas" className="text-xs font-semibold">Cantidad Cuotas</Label>
                 {formData.TipoCalculo === "solo_interes" && !formData.CantidadCuotas && (
                   <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                    Plazo Libre (8 proy.)
+                    Plazo Libre (2 proy.)
                   </span>
                 )}
               </div>
@@ -248,7 +257,7 @@ export function PrestamoFormDialog({
                 className="h-9.5 text-sm"
                 value={formData.CantidadCuotas}
                 onChange={(e) => updateField("CantidadCuotas", e.target.value)}
-                placeholder={formData.TipoCalculo === "solo_interes" ? "Opcional (Ej. 8)" : "Ej. 12"}
+                placeholder={formData.TipoCalculo === "solo_interes" ? "Opcional (Ej. 2)" : "Ej. 12"}
               />
             </div>
           </div>

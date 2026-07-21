@@ -95,6 +95,37 @@ export const createUsuario = async (req: any, res: Response): Promise<void> => {
             throw error;
         }
 
+        // Si el usuario NO es SuperAdmin, auto-creamos o enlazamos su perfil de Prestatario (Prestamista)
+        if (data && data.Rol !== 'SuperAdmin' && data.Rol !== 'admin_sistema') {
+            try {
+                // Verificar si ya existía un prestatario con ese email
+                const { data: prestatarioExistente } = await supabase
+                    .from('Prestatario')
+                    .select('IdPrestatario')
+                    .eq('IdEmpresa', targetEmpresa)
+                    .ilike('Email', email)
+                    .maybeSingle();
+
+                if (prestatarioExistente) {
+                    await supabase
+                        .from('Prestatario')
+                        .update({ IdUsuario: data.IdUsuario })
+                        .eq('IdPrestatario', prestatarioExistente.IdPrestatario);
+                } else {
+                    await supabase
+                        .from('Prestatario')
+                        .insert([{
+                            Nombre: data.Nombre,
+                            Email: data.Email,
+                            IdEmpresa: targetEmpresa,
+                            IdUsuario: data.IdUsuario
+                        }]);
+                }
+            } catch (e) {
+                console.error("Error auto-creando perfil de prestatario para el usuario:", e);
+            }
+        }
+
         res.status(201).json(data);
     } catch (err: any) {
         res.status(500).json({ error: err.message });

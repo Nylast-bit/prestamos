@@ -1,14 +1,13 @@
 import { logger } from '../utils/logger';
-// src/services/prestatario.service.ts
 import { supabase } from "../config/supabaseClient";
 
-// Definición de tipos simplificados para inputs
 interface PrestatarioData {
   Nombre?: string;
   Telefono?: string;
   Email?: string;
   Clave?: string;
   IdEmpresa?: number;
+  IdUsuario?: number;
 }
 
 // --- CREAR ---
@@ -28,7 +27,6 @@ export const createPrestatarioService = async (data: PrestatarioData) => {
 
 // --- OBTENER TODOS ---
 export const getAllPrestatariosService = async (idEmpresa: number) => {
-  // 1. Hacemos el select incluyendo la relación Prestamo
   const { data, error } = await supabase
     .from("Prestatario")
     .select(`
@@ -38,26 +36,19 @@ export const getAllPrestatariosService = async (idEmpresa: number) => {
       )
     `)
     .eq('IdEmpresa', idEmpresa)
-    .order('IdPrestatario', { ascending: true }); // Ordenar para que la tabla no brinque
+    .order('IdPrestatario', { ascending: true });
 
   if (error) {
     logger.error("Error en getAllPrestatariosService:", error.message);
     throw new Error("Error obteniendo prestatarios: " + error.message);
   }
 
-  // 2. Transformamos la data para agregar el campo "cantidadActivos"
-  // Supabase nos devuelve: { Nombre: "Juan", Prestamo: [{Estado: "Activo"}, {Estado: "Pagado"}] }
-  // Nosotros queremos: { Nombre: "Juan", cantidadActivos: 1 }
-
   const listaFormateada = data.map((prestatario: any) => {
-    // Filtramos solo los que están "Activo" (o el estado que uses)
     const prestamosActivos = prestatario.Prestamo?.filter((p: any) => p.Estado === 'Activo') || [];
 
     return {
       ...prestatario,
-      cantidadActivos: prestamosActivos.length, // Aquí está el número mágico
-      // Opcional: Si no quieres ensuciar el objeto con el array de préstamos, puedes borrarlo:
-      // Prestamo: undefined 
+      cantidadActivos: prestamosActivos.length
     };
   });
 
@@ -89,7 +80,6 @@ export const getPrestatarioByIdService = async (id: number, idEmpresa: number) =
     throw new Error("Prestatario no encontrado");
   }
 
-  // Hacemos el mismo cálculo para el detalle individual
   const prestamosActivos = prestatario.Prestamo?.filter((p: any) => p.Estado === 'Activo') || [];
 
   return {
@@ -97,6 +87,7 @@ export const getPrestatarioByIdService = async (id: number, idEmpresa: number) =
     cantidadActivos: prestamosActivos.length
   };
 };
+
 // --- ACTUALIZAR ---
 export const updatePrestatarioService = async (id: number, idEmpresa: number, data: PrestatarioData) => {
   const { data: updated, error } = await supabase
@@ -112,7 +103,6 @@ export const updatePrestatarioService = async (id: number, idEmpresa: number, da
     throw new Error("Error actualizando prestatario: " + error.message);
   }
 
-  // Si no se encontró el prestatario para actualizar
   if (!updated) {
     throw new Error("Prestatario no encontrado");
   }
@@ -122,7 +112,6 @@ export const updatePrestatarioService = async (id: number, idEmpresa: number, da
 
 // --- ELIMINAR ---
 export const deletePrestatarioService = async (id: number, idEmpresa: number) => {
-  // 1. Obtener el prestatario para saber su Email (y poder borrar el Usuario)
   const { data: prestatario } = await supabase
     .from("Prestatario")
     .select("Email")
@@ -131,7 +120,6 @@ export const deletePrestatarioService = async (id: number, idEmpresa: number) =>
     .maybeSingle();
 
   if (prestatario && prestatario.Email) {
-    // Intentar borrar el usuario de la tabla Usuario de forma paralela o previa
     await supabase
       .from("Usuario")
       .delete()
@@ -139,8 +127,6 @@ export const deletePrestatarioService = async (id: number, idEmpresa: number) =>
       .eq("IdEmpresa", idEmpresa);
   }
 
-  // 2. Borrar prestatario
-  // IMPORTANTE: Esto requiere que la FK en la DB tenga ON DELETE CASCADE para borrar préstamos asociados.
   const { error } = await supabase
     .from("Prestatario")
     .delete()
@@ -149,7 +135,7 @@ export const deletePrestatarioService = async (id: number, idEmpresa: number) =>
 
   if (error) {
     logger.error("Error en deletePrestatarioService:", error.message);
-    throw new Error("No se puede eliminar: el prestamista tiene préstamos asociados. Ejecuta el script de SQL proporcionado para permitir eliminar con cascada.");
+    throw new Error("No se puede eliminar: el prestamista tiene préstamos asociados.");
   }
 
   return { message: "Prestatario eliminado" };

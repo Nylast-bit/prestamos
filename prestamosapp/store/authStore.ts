@@ -8,6 +8,7 @@ interface UserData {
     email: string;
     rol: string;
     idEmpresa: number;
+    idPrestatario?: number | null;
     nombreEmpresa: string;
     colorFondo?: string;
     iconoEmpresa?: string;

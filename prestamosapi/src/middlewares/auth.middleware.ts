@@ -7,6 +7,7 @@ export interface AuthRequest extends Request {
         IdUsuario: string;
         IdEmpresa: number;
         Rol: string;
+        IdPrestatario?: number;
     };
 }
 

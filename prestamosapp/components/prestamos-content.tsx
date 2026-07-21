@@ -10,7 +10,7 @@ import { Plus, Search, FilterX } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
-// 🚨 IMPORTANTE: Asegúrate de que las rutas coincidan con donde creaste tus archivos
+import { useAuthStore } from "@/store/authStore";
 import { PrestamoStats } from "@/components/prestamos/PrestamoStats"
 import { PrestamoTable } from "@/components/prestamos/PrestamoTable"
 import { PrestamoFormDialog } from "@/components/prestamos/PrestamoFormDialog"
@@ -61,6 +61,7 @@ interface SimulacionResumen {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
 export function PrestamosContent() {
+  const { user } = useAuthStore();
   // --- ESTADOS ---
   const [prestamos, setPrestamos] = useState<Prestamo[]>([])
   const [clientes, setClientes] = useState<any[]>([])
@@ -132,7 +133,8 @@ export function PrestamosContent() {
     // 1. Búsqueda por texto (Cliente o Responsable)
     const matchesSearch = 
       p.clienteNombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.prestatarioNombre?.toLowerCase().includes(searchTerm.toLowerCase());
+      p.prestatarioNombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.IdPrestamo?.toString().includes(searchTerm);
 
     // 2. Filtro por Prestatario
     const matchesPrestatario = filtroPrestatario === "todos" || p.IdPrestatario.toString() === filtroPrestatario;
@@ -164,7 +166,7 @@ export function PrestamosContent() {
   // --- HANDLERS (Simulación, Submit, Delete, Edit) ---
   const handleSimular = async () => {
     const esSoloInteres = formData.TipoCalculo === "solo_interes";
-    const cuotasVal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 8 : 0);
+    const cuotasVal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0);
 
     if (!formData.MontoPrestado || !formData.InteresPorcentaje || (!formData.CantidadCuotas && !esSoloInteres)) {
       console.error("❌ 3. VALIDACIÓN FALLÓ: Faltan campos numéricos");
@@ -220,7 +222,7 @@ export function PrestamosContent() {
   const handleRecalcularCuota = async (nuevaCuota: number) => {
     if (!formData.MontoPrestado) return;
     const esSoloInteres = formData.TipoCalculo === "solo_interes";
-    const cuotasVal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 8 : 0);
+    const cuotasVal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0);
 
     try {
       const url = `${API_BASE_URL}/api/prestamos/calcular-tasa`;
@@ -278,7 +280,7 @@ export function PrestamosContent() {
     setSubmitting(true)
     try {
       const esSoloInteres = formData.TipoCalculo === "solo_interes";
-      const cuotasTotal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 8 : 0);
+      const cuotasTotal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0);
 
       let prestamoData: any = {
         IdCliente: parseInt(formData.IdCliente),
@@ -375,7 +377,10 @@ export function PrestamosContent() {
 
   const openNewForm = () => {
       setEditingPrestamo(null)
-      setFormData(initialFormState)
+      setFormData({
+        ...initialFormState,
+        IdPrestatario: user?.idPrestatario ? user.idPrestatario.toString() : initialFormState.IdPrestatario
+      })
       setIsFormOpen(true)
   }
 
@@ -400,9 +405,11 @@ export function PrestamosContent() {
               <CardTitle>Gestión de Préstamos</CardTitle>
               <CardDescription>Administra todos los préstamos de la plataforma</CardDescription>
             </div>
-            <Button onClick={openNewForm} className="bg-[#213685] hover:bg-[#213685]/90">
-              <Plus className="h-4 w-4 mr-2" /> Nuevo Préstamo
-            </Button>
+            {user?.rol !== 'Cajero' && (
+              <Button onClick={openNewForm} className="bg-[#213685] hover:bg-[#213685]/90">
+                <Plus className="h-4 w-4 mr-2" /> Nuevo Préstamo
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>

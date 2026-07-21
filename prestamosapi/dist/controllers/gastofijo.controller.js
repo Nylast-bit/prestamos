@@ -36,8 +36,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteGastoFijo = exports.updateGastoFijo = exports.getGastoFijoById = exports.getAllGastosFijos = exports.createGastoFijo = void 0;
 const asyncHandler_1 = require("../middlewares/asyncHandler"); // Asumo que lo tienes
 const gastoFijoService = __importStar(require("../services/gastofijo.service")); // Importamos el nuevo servicio
+const checkAdminRole = (req, res) => {
+    if (req.user?.Rol === 'Prestamista' || req.user?.Rol === 'Cajero') {
+        res.status(403).json({ error: 'Acceso denegado. Solo administradores de empresa tienen acceso a Gastos Fijos.' });
+        return false;
+    }
+    return true;
+};
 // Crear gasto fijo
 exports.createGastoFijo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
     const data = req.body;
     data.IdEmpresa = req.user.IdEmpresa;
     const nuevo = await gastoFijoService.createGastoFijoService(data);
@@ -45,12 +54,16 @@ exports.createGastoFijo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
 });
 // Obtener todos los gastos fijos
 exports.getAllGastosFijos = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
     const idEmpresa = req.user.IdEmpresa;
     const lista = await gastoFijoService.getAllGastosFijosService(idEmpresa);
     res.json(lista);
 });
 // Obtener gasto fijo por id
 exports.getGastoFijoById = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
     const id = Number(req.params.id);
     const idEmpresa = req.user.IdEmpresa;
     const gasto = await gastoFijoService.getGastoFijoByIdService(id, idEmpresa);
@@ -58,6 +71,8 @@ exports.getGastoFijoById = (0, asyncHandler_1.asyncHandler)(async (req, res) => 
 });
 // Actualizar gasto fijo
 exports.updateGastoFijo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
     const id = Number(req.params.id);
     const idEmpresa = req.user.IdEmpresa;
     const data = req.body;
@@ -68,6 +83,8 @@ exports.updateGastoFijo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
 });
 // Eliminar gasto fijo
 exports.deleteGastoFijo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
     const id = Number(req.params.id);
     const idEmpresa = req.user.IdEmpresa;
     const resultado = await gastoFijoService.deleteGastoFijoService(id, idEmpresa);

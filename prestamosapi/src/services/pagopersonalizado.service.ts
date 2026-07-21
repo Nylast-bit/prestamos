@@ -7,10 +7,11 @@ interface PagoPersonalizadoData {
     montoPagado: number;
     fechaPago: string;
     concepto: string;
+    esLiquidacion?: boolean;
 }
 
 export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData) => {
-    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto } = data;
+    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion } = data;
 
     // 1. Buscar el préstamo actual
     const { data: prestamo, error: errorPrestamo } = await supabase
@@ -28,26 +29,33 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
     }
 
     // 2. Calcular la "Barrera del Interés" según el tipo de cálculo
-    // capital+interes: interés FIJO basado en MontoPrestado original
-    // amortizable: interés VARIABLE basado en CapitalRestante actual
     const tipoCalculo = (prestamo.TipoCalculo || '').toLowerCase();
     const baseInteres = (tipoCalculo.includes('amortiza') || tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) 
         ? (prestamo.CapitalRestante || prestamo.MontoPrestado) 
         : prestamo.MontoPrestado;
     const interesGenerado = baseInteres * (prestamo.InteresPorcentaje / 100);
 
-    // 3. REGLA 1: No aceptar pagos menores al interés
-    if (montoPagado < interesGenerado) {
-        throw new Error(`El pago (RD$${montoPagado}) no cubre el interés mínimo generado (RD$${interesGenerado.toFixed(2)}). Pago rechazado.`);
+    const capitalRestanteActual = prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? prestamo.CapitalRestante : prestamo.MontoPrestado;
+    const minimoLiquidacion = interesGenerado + (capitalRestanteActual * 0.5);
+
+    // 3. Validación de montos según la modalidad (Pago regular vs Liquidación)
+    if (esLiquidacion) {
+        if (montoPagado < minimoLiquidacion) {
+            throw new Error(`Para liquidar el préstamo se requiere el interés (RD$${interesGenerado.toFixed(2)}) más al menos el 50% del capital restante (Mínimo requerido: RD$${minimoLiquidacion.toFixed(2)}).`);
+        }
+    } else {
+        if (montoPagado < interesGenerado) {
+            throw new Error(`El pago (RD$${montoPagado}) no cubre el interés mínimo generado (RD$${interesGenerado.toFixed(2)}). Pago rechazado.`);
+        }
     }
 
     // 4. Distribuir el dinero
     const abonoInteres = interesGenerado;
     const abonoCapital = montoPagado - interesGenerado;
 
-    // Usamos CapitalRestante (como está en tu DB)
-    const nuevoCapitalRestante = Math.max(0, prestamo.CapitalRestante - abonoCapital);
-    const estadoPrestamo = nuevoCapitalRestante === 0 ? "Pagado" : prestamo.Estado;
+    // Si es liquidación, el capital restante pasa a 0 y el préstamo queda Saldado/Pagado
+    const nuevoCapitalRestante = esLiquidacion ? 0 : Math.max(0, capitalRestanteActual - abonoCapital);
+    const estadoPrestamo = (esLiquidacion || nuevoCapitalRestante === 0) ? "Pagado" : prestamo.Estado;
 
     // 5. La magia del JSON (TablaPagos)
     let cuotasActualizadas: any[] = [];
@@ -65,15 +73,16 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
         capital: abonoCapital,
         saldo: nuevoCapitalRestante,
         pagado: true,
-        tipo: 'personalizado'
+        tipo: esLiquidacion ? 'liquidar' : 'personalizado'
     };
 
-    // Insertar al frente del arreglo (este pago queda como la cuota más reciente pagada)
+    // Insertar al frente del arreglo
     cuotasActualizadas.unshift(entradaPagoRealizado);
 
-    // Para préstamos de solo_interes: recalcular el interés de las cuotas pendientes
-    // basado en el nuevo CapitalRestante
-    if (tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) {
+    if (esLiquidacion || nuevoCapitalRestante === 0) {
+        // Al liquidar o saldar, eliminamos todas las cuotas pendientes futuras
+        cuotasActualizadas = cuotasActualizadas.filter((c: any) => c.pagado);
+    } else if (tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) {
         for (let i = 1; i < cuotasActualizadas.length; i++) {
             if (cuotasActualizadas[i].pagado) continue; // saltar cuotas ya pagadas
             const interesNuevo = nuevoCapitalRestante * (prestamo.InteresPorcentaje / 100);
@@ -104,21 +113,14 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
             }
         }
 
-        // Filtramos las cuotas pendientes que quedaron en 0 (pagadas por adelantado)
         cuotasActualizadas = cuotasActualizadas.filter((c: any) => c.pagado || c.cuota > 0);
 
-        // Recalculamos los saldos de las pendientes
         let saldoAcumulado = nuevoCapitalRestante;
         for (let i = 0; i < cuotasActualizadas.length; i++) {
             if (cuotasActualizadas[i].pagado) continue;
             saldoAcumulado -= cuotasActualizadas[i].capital;
             cuotasActualizadas[i].saldo = Math.max(0, saldoAcumulado);
         }
-    }
-
-    if (nuevoCapitalRestante === 0) {
-        // Si saldó, solo dejamos las entradas de pagos realizados
-        cuotasActualizadas = cuotasActualizadas.filter((c: any) => c.pagado);
     }
 
     // Renumerar todas las cuotas secuencialmente

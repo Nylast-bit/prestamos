@@ -97,10 +97,23 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
   const nombreEmpresa = user?.nombreEmpresa || "Cargando Empresa..."
   const colorFondo = user?.colorFondo || "#213685"
   const iconoStr = user?.iconoEmpresa || "Building2"
-  const isPrestamista = user?.rol === "Prestamista" || user?.rol === "Cajero";
+  const isPrestamista = user?.rol === "Prestamista";
+  const isCajero = user?.rol === "Cajero";
+  const isRestrictedRole = isPrestamista || isCajero;
 
-  const navMainFiltrado = data.navMain; 
-  const navSecondaryFiltrado = isPrestamista ? [] : data.navSecondary;
+  const navMainFiltrado = data.navMain.filter(item => {
+    if (isRestrictedRole) {
+      if (item.key === "consolidacion" || item.key === "gastosfijos" || item.key === "prestatarios") {
+        return false;
+      }
+      if (isCajero && item.key === "solicitudes") {
+        return false;
+      }
+    }
+    return true;
+  }); 
+
+  const navSecondaryFiltrado = isRestrictedRole ? [] : data.navSecondary;
 
   // Renderizar icono dinámicamente
   const importIcon = (name: string) => {

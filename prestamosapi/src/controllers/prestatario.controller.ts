@@ -54,18 +54,22 @@ export const createPrestatario = asyncHandler(async (req: any, res: Response) =>
             data.Email = autogenEmail; // Guardar para el retorno e insersión al prestatario
         }
 
-        const { error: userError } = await supabase.from('Usuario').insert([{
+        const { data: usuarioCreado, error: userError } = await supabase.from('Usuario').insert([{
             IdEmpresa: targetEmpresa,
             Nombre: data.Nombre,
             Email: autogenEmail,
             Clave: hashedClave,
-            Rol: 'Prestamista',
+            Rol: data.Rol || 'Prestamista',
             Estado: 'Activo'
-        }]);
+        }]).select('IdUsuario').single();
         
         if (userError) {
              res.status(400).json({ error: 'El email ya existe o hubo error creando cuenta de acceso: ' + userError.message });
              return;
+        }
+
+        if (usuarioCreado) {
+            data.IdUsuario = usuarioCreado.IdUsuario;
         }
     }
 

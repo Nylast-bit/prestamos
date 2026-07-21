@@ -2,16 +2,19 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import * as pagoPersonalizadoService from "../services/pagopersonalizado.service";
 
-interface CrearPagoPersonalizadoBody {
+import { supabase } from "../config/supabaseClient";
+
+export interface CrearPagoPersonalizadoBody {
     idPrestamo: number;
     idConsolidacion: number; // Para registrar el ingreso en la caja
     montoPagado: number;
     fechaPago: string;
     concepto: string;
+    esLiquidacion?: boolean;
 }
 
-export const createPagoPersonalizado = asyncHandler(async (req: Request<{}, {}, CrearPagoPersonalizadoBody>, res: Response) => {
-    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto } = req.body;
+export const createPagoPersonalizado = asyncHandler(async (req: any, res: Response) => {
+    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion } = req.body;
 
     // 1. Validación básica
     if (!idPrestamo || !idConsolidacion || !montoPagado) {
@@ -24,13 +27,28 @@ export const createPagoPersonalizado = asyncHandler(async (req: Request<{}, {}, 
         throw new Error("El monto pagado debe ser mayor a 0.");
     }
 
+    if (req.user?.Rol === 'Prestamista') {
+        const { data: prestamo } = await supabase
+            .from('Prestamo')
+            .select('IdPrestatario')
+            .eq('IdPrestamo', Number(idPrestamo))
+            .eq('IdEmpresa', req.user.IdEmpresa)
+            .maybeSingle();
+
+        if (prestamo && req.user.IdPrestatario && prestamo.IdPrestatario !== req.user.IdPrestatario) {
+            res.status(403).json({ error: "Acceso denegado. Solo puedes registrar pagos personalizados en préstamos asignados a tu perfil." });
+            return;
+        }
+    }
+
     // 2. Llamada al servicio que hace la matemática y guarda en DB
     const resultado = await pagoPersonalizadoService.createPagoPersonalizadoService({
         idPrestamo,
         idConsolidacion,
         montoPagado,
         fechaPago: fechaPago || new Date().toISOString(),
-        concepto: concepto || "Pago Personalizado"
+        concepto: concepto || (esLiquidacion ? "Liquidación de Préstamo" : "Pago Personalizado"),
+        esLiquidacion: !!esLiquidacion
     });
 
     // 3. Respuesta exitosa

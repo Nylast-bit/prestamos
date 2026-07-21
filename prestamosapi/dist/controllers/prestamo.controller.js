@@ -37,6 +37,7 @@ exports.getPrestamosActivosCount = exports.obtenerRangoCuotas = exports.calcular
 const logger_1 = require("../utils/logger");
 const asyncHandler_1 = require("../middlewares/asyncHandler");
 const prestamoService = __importStar(require("../services/prestamo.service"));
+const supabaseClient_1 = require("../config/supabaseClient");
 // Obtener todos los préstamos
 exports.getPrestamos = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const idEmpresa = req.user.IdEmpresa;
@@ -52,6 +53,10 @@ exports.getPrestamoById = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
 });
 // Crear préstamo
 exports.createPrestamo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (req.user?.Rol === 'Cajero') {
+        res.status(403).json({ success: false, error: 'Acceso denegado. Los cajeros no están autorizados para crear préstamos.' });
+        return;
+    }
     const data = req.body;
     data.IdEmpresa = req.user.IdEmpresa;
     const isSuperAdmin = req.user.Rol === 'SuperAdmin';
@@ -72,8 +77,24 @@ exports.createPrestamo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
 });
 // Actualizar préstamo
 exports.updatePrestamo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (req.user?.Rol === 'Cajero') {
+        res.status(403).json({ error: 'Acceso denegado. Los cajeros no tienen permiso para editar préstamos.' });
+        return;
+    }
     const { id } = req.params;
     const idEmpresa = req.user.IdEmpresa;
+    if (req.user?.Rol === 'Prestamista') {
+        const { data: prestamoActual } = await supabaseClient_1.supabase
+            .from('Prestamo')
+            .select('IdPrestatario')
+            .eq('IdPrestamo', Number(id))
+            .eq('IdEmpresa', idEmpresa)
+            .maybeSingle();
+        if (prestamoActual && req.user.IdPrestatario && prestamoActual.IdPrestatario !== req.user.IdPrestatario) {
+            res.status(403).json({ error: 'Acceso denegado. Solo el prestamista asignado puede modificar este préstamo.' });
+            return;
+        }
+    }
     const data = req.body;
     if (data.IdEmpresa)
         delete data.IdEmpresa;
@@ -82,9 +103,25 @@ exports.updatePrestamo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
 });
 // Eliminar préstamo
 exports.deletePrestamo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (req.user?.Rol === 'Cajero') {
+        res.status(403).json({ error: 'Acceso denegado. Los cajeros no tienen permiso para eliminar préstamos.' });
+        return;
+    }
     const { id } = req.params;
     const idPrestamo = Number(id);
     const idEmpresa = req.user.IdEmpresa;
+    if (req.user?.Rol === 'Prestamista') {
+        const { data: prestamoActual } = await supabaseClient_1.supabase
+            .from('Prestamo')
+            .select('IdPrestatario')
+            .eq('IdPrestamo', idPrestamo)
+            .eq('IdEmpresa', idEmpresa)
+            .maybeSingle();
+        if (prestamoActual && req.user.IdPrestatario && prestamoActual.IdPrestatario !== req.user.IdPrestatario) {
+            res.status(403).json({ error: 'Acceso denegado. Solo el prestamista asignado puede eliminar este préstamo.' });
+            return;
+        }
+    }
     const resultado = await prestamoService.deletePrestamoService(idPrestamo, idEmpresa);
     res.json({
         success: true,

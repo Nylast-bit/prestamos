@@ -36,8 +36,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAllPagosPersonalizados = exports.createPagoPersonalizado = void 0;
 const asyncHandler_1 = require("../middlewares/asyncHandler");
 const pagoPersonalizadoService = __importStar(require("../services/pagopersonalizado.service"));
+const supabaseClient_1 = require("../config/supabaseClient");
 exports.createPagoPersonalizado = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
-    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto } = req.body;
+    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion } = req.body;
     // 1. Validación básica
     if (!idPrestamo || !idConsolidacion || !montoPagado) {
         res.status(400);
@@ -47,13 +48,26 @@ exports.createPagoPersonalizado = (0, asyncHandler_1.asyncHandler)(async (req, r
         res.status(400);
         throw new Error("El monto pagado debe ser mayor a 0.");
     }
+    if (req.user?.Rol === 'Prestamista') {
+        const { data: prestamo } = await supabaseClient_1.supabase
+            .from('Prestamo')
+            .select('IdPrestatario')
+            .eq('IdPrestamo', Number(idPrestamo))
+            .eq('IdEmpresa', req.user.IdEmpresa)
+            .maybeSingle();
+        if (prestamo && req.user.IdPrestatario && prestamo.IdPrestatario !== req.user.IdPrestatario) {
+            res.status(403).json({ error: "Acceso denegado. Solo puedes registrar pagos personalizados en préstamos asignados a tu perfil." });
+            return;
+        }
+    }
     // 2. Llamada al servicio que hace la matemática y guarda en DB
     const resultado = await pagoPersonalizadoService.createPagoPersonalizadoService({
         idPrestamo,
         idConsolidacion,
         montoPagado,
         fechaPago: fechaPago || new Date().toISOString(),
-        concepto: concepto || "Pago Personalizado"
+        concepto: concepto || (esLiquidacion ? "Liquidación de Préstamo" : "Pago Personalizado"),
+        esLiquidacion: !!esLiquidacion
     });
     // 3. Respuesta exitosa
     res.status(201).json({

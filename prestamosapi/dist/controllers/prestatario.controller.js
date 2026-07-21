@@ -81,17 +81,20 @@ exports.createPrestatario = (0, asyncHandler_1.asyncHandler)(async (req, res) =>
             autogenEmail = `${data.Nombre.replace(/\s+/g, '').toLowerCase()}${randomNums}@empresa.local`;
             data.Email = autogenEmail; // Guardar para el retorno e insersión al prestatario
         }
-        const { error: userError } = await supabaseClient_1.supabase.from('Usuario').insert([{
+        const { data: usuarioCreado, error: userError } = await supabaseClient_1.supabase.from('Usuario').insert([{
                 IdEmpresa: targetEmpresa,
                 Nombre: data.Nombre,
                 Email: autogenEmail,
                 Clave: hashedClave,
-                Rol: 'Prestamista',
+                Rol: data.Rol || 'Prestamista',
                 Estado: 'Activo'
-            }]);
+            }]).select('IdUsuario').single();
         if (userError) {
             res.status(400).json({ error: 'El email ya existe o hubo error creando cuenta de acceso: ' + userError.message });
             return;
+        }
+        if (usuarioCreado) {
+            data.IdUsuario = usuarioCreado.IdUsuario;
         }
     }
     const nuevo = await prestatarioService.createPrestatarioService(data);

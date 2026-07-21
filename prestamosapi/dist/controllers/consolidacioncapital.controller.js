@@ -36,35 +36,48 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getResumenConsolidacionActiva = exports.deleteConsolidacionCapital = exports.updateConsolidacionCapital = exports.getConsolidacionCapitalById = exports.getAllConsolidacionesCapital = exports.createConsolidacionCapital = void 0;
 const asyncHandler_1 = require("../middlewares/asyncHandler");
 const consolidacionService = __importStar(require("../services/consolidacioncapital.service")); // Asumo que importarás el servicio
+const checkAdminRole = (req, res) => {
+    if (req.user?.Rol === 'Prestamista' || req.user?.Rol === 'Cajero') {
+        res.status(403).json({ error: 'Acceso denegado. Solo administradores de empresa tienen acceso a Consolidación de Capital.' });
+        return false;
+    }
+    return true;
+};
 // Crear consolidación de capital
 exports.createConsolidacionCapital = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
-    // La lógica de transformación de fechas fue movida al servicio
+    if (!checkAdminRole(req, res))
+        return;
     const nuevo = await consolidacionService.createConsolidacionCapitalService(req.body, req.user.IdEmpresa);
     res.status(201).json(nuevo);
 });
 // Obtener todas las consolidaciones
 exports.getAllConsolidacionesCapital = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
     const lista = await consolidacionService.getAllConsolidacionesCapitalService(req.user.IdEmpresa);
     res.json(lista);
 });
 // Obtener una consolidación por ID
 exports.getConsolidacionCapitalById = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
     const id = Number(req.params.id);
-    // El manejo de errores 404 fue movido al servicio (el servicio lanzará el error)
     const consolidacion = await consolidacionService.getConsolidacionCapitalByIdService(id, req.user.IdEmpresa);
     res.json(consolidacion);
 });
 // Actualizar consolidación
 exports.updateConsolidacionCapital = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
     const id = Number(req.params.id);
-    // La lógica de transformación de fechas fue movida al servicio
     const actualizado = await consolidacionService.updateConsolidacionCapitalService(id, req.user.IdEmpresa, req.body);
     res.json(actualizado);
 });
 // Eliminar consolidación
 exports.deleteConsolidacionCapital = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
     const id = Number(req.params.id);
-    // El manejo de errores fue movido al servicio
     const resultado = await consolidacionService.deleteConsolidacionCapitalService(id, req.user.IdEmpresa);
     res.json(resultado);
 });

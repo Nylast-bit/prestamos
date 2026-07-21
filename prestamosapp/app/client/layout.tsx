@@ -19,8 +19,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       router.push("/login")
     } else if (user?.rol === 'SuperAdmin') {
       router.push("/superadmin")
+    } else if (user?.rol === 'Prestamista' || user?.rol === 'Cajero') {
+      const restrictedRoutes = ['/client/gastosfijos', '/client/consolidacion', '/client/prestatarios', '/client/configuracion'];
+      if (restrictedRoutes.some(r => pathname.startsWith(r))) {
+        router.push("/client/dashboard")
+      }
     }
-  }, [isAuthenticated, router, user])
+  }, [isAuthenticated, router, user, pathname])
 
   if (!isMounted || !isAuthenticated()) {
     return (

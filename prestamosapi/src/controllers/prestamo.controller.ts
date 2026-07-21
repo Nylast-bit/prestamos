@@ -30,6 +30,11 @@ export const getPrestamoById = asyncHandler(async (req: any, res: Response) => {
 
 // Crear préstamo
 export const createPrestamo = asyncHandler(async (req: any, res: Response) => {
+  if (req.user?.Rol === 'Cajero') {
+    res.status(403).json({ success: false, error: 'Acceso denegado. Los cajeros no están autorizados para crear préstamos.' });
+    return;
+  }
+
   const data = req.body;
   data.IdEmpresa = req.user.IdEmpresa;
   const isSuperAdmin = req.user.Rol === 'SuperAdmin';
@@ -53,8 +58,28 @@ export const createPrestamo = asyncHandler(async (req: any, res: Response) => {
 
 // Actualizar préstamo
 export const updatePrestamo = asyncHandler(async (req: any, res: Response) => {
+  if (req.user?.Rol === 'Cajero') {
+    res.status(403).json({ error: 'Acceso denegado. Los cajeros no tienen permiso para editar préstamos.' });
+    return;
+  }
+
   const { id } = req.params;
   const idEmpresa = req.user.IdEmpresa;
+
+  if (req.user?.Rol === 'Prestamista') {
+    const { data: prestamoActual } = await supabase
+      .from('Prestamo')
+      .select('IdPrestatario')
+      .eq('IdPrestamo', Number(id))
+      .eq('IdEmpresa', idEmpresa)
+      .maybeSingle();
+
+    if (prestamoActual && req.user.IdPrestatario && prestamoActual.IdPrestatario !== req.user.IdPrestatario) {
+      res.status(403).json({ error: 'Acceso denegado. Solo el prestamista asignado puede modificar este préstamo.' });
+      return;
+    }
+  }
+
   const data = req.body;
   if (data.IdEmpresa) delete data.IdEmpresa;
   const prestamo = await prestamoService.updatePrestamoService(Number(id), idEmpresa, data);
@@ -63,9 +88,29 @@ export const updatePrestamo = asyncHandler(async (req: any, res: Response) => {
 
 // Eliminar préstamo
 export const deletePrestamo = asyncHandler(async (req: any, res: Response) => {
+  if (req.user?.Rol === 'Cajero') {
+    res.status(403).json({ error: 'Acceso denegado. Los cajeros no tienen permiso para eliminar préstamos.' });
+    return;
+  }
+
   const { id } = req.params;
   const idPrestamo = Number(id);
   const idEmpresa = req.user.IdEmpresa;
+
+  if (req.user?.Rol === 'Prestamista') {
+    const { data: prestamoActual } = await supabase
+      .from('Prestamo')
+      .select('IdPrestatario')
+      .eq('IdPrestamo', idPrestamo)
+      .eq('IdEmpresa', idEmpresa)
+      .maybeSingle();
+
+    if (prestamoActual && req.user.IdPrestatario && prestamoActual.IdPrestatario !== req.user.IdPrestatario) {
+      res.status(403).json({ error: 'Acceso denegado. Solo el prestamista asignado puede eliminar este préstamo.' });
+      return;
+    }
+  }
+
   const resultado = await prestamoService.deletePrestamoService(idPrestamo, idEmpresa);
 
   res.json({

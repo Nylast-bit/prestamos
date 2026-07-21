@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, Search, Edit, Trash2, Phone, Mail, User, Building, Lock, Loader2 } from 'lucide-react'
+import { toast } from "sonner"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, Search, Edit, Trash2, Phone, Mail, User, Building, Lock, Loader2, KeyRound, ShieldCheck, CheckCircle2, Sparkles, Shield } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
 // Interfaz actualizada para coincidir con el servicio
@@ -40,8 +42,82 @@ export function PrestatariosContent() {
     Nombre: "",
     Telefono: "",
     Email: "",
-    Clave: ""
+    Clave: "",
+    Rol: "Prestamista"
   })
+
+  // Estados de Verificación OTP
+  const [isOtpSending, setIsOtpSending] = useState(false)
+  const [isOtpVerifying, setIsOtpVerifying] = useState(false)
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false)
+  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""])
+  const [otpVerified, setOtpVerified] = useState(false)
+  const [otpPreviewCode, setOtpPreviewCode] = useState("")
+
+  const handleSendOtp = async () => {
+    if (!formData.Email) {
+      toast.warning("Por favor ingresa un correo electrónico primero.");
+      return;
+    }
+    setIsOtpSending(true);
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.Email })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error enviando código OTP");
+
+      setOtpPreviewCode(data.previewCode || "");
+      setOtpDigits(["", "", "", "", "", ""]);
+      setIsOtpModalOpen(true);
+      toast.success(`Código de verificación enviado a ${formData.Email}`);
+    } catch (err: any) {
+      toast.error(err.message || "Error al enviar código de verificación");
+    } finally {
+      setIsOtpSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const code = otpDigits.join("");
+    if (code.length < 6) {
+      toast.warning("Ingresa los 6 dígitos del código de verificación.");
+      return;
+    }
+
+    setIsOtpVerifying(true);
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.Email, code })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Código incorrecto");
+
+      setOtpVerified(true);
+      setIsOtpModalOpen(false);
+      toast.success("¡Correo verificado con éxito con el código OTP!");
+    } catch (err: any) {
+      toast.error(err.message || "Error al verificar código");
+    } finally {
+      setIsOtpVerifying(false);
+    }
+  };
+
+  const handleDigitChange = (index: number, val: string) => {
+    if (!/^\d*$/.test(val)) return;
+    const newDigits = [...otpDigits];
+    newDigits[index] = val.slice(-1);
+    setOtpDigits(newDigits);
+
+    if (val && index < 5) {
+      const nextInput = document.getElementById(`otp-input-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
+  };
 
   useEffect(() => {
     fetchPrestatarios()
@@ -76,7 +152,8 @@ export function PrestatariosContent() {
     try {
       const dataToSend: any = {
         Nombre: formData.Nombre,
-        Clave: formData.Clave
+        Clave: formData.Clave,
+        Rol: formData.Rol
       }
       
       if (formData.Telefono) dataToSend.Telefono = formData.Telefono
@@ -127,10 +204,13 @@ export function PrestatariosContent() {
       Nombre: "",
       Telefono: "",
       Email: "",
-      Clave: ""
+      Clave: "",
+      Rol: "Prestamista"
     })
     setEditingPrestatario(null)
     setShowPassword(false)
+    setOtpVerified(false)
+    setOtpPreviewCode("")
     setIsDialogOpen(false)
   }
 
@@ -140,8 +220,10 @@ export function PrestatariosContent() {
       Nombre: prestatario.Nombre,
       Telefono: prestatario.Telefono || "",
       Email: prestatario.Email || "",
-      Clave: prestatario.Clave // Asegúrate de que el backend devuelve la clave si quieres editarla, sino déjala vacía
+      Clave: prestatario.Clave || "",
+      Rol: "Prestamista"
     })
+    setOtpVerified(true)
     setIsDialogOpen(true)
   }
 
@@ -274,26 +356,45 @@ export function PrestatariosContent() {
                 </DialogHeader>
                 
                 <div className="grid gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="nombre">Nombre Completo *</Label>
-                    <Input
-                      id="nombre"
-                      value={formData.Nombre}
-                      onChange={(e) => setFormData({...formData, Nombre: e.target.value})}
-                      placeholder="Ej: Juan Pérez Prestamista"
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="nombre">Nombre Completo *</Label>
+                      <Input
+                        id="nombre"
+                        value={formData.Nombre}
+                        onChange={(e) => setFormData({...formData, Nombre: e.target.value})}
+                        placeholder="Ej: Juan Pérez Prestamista"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="rol">Rol de Usuario en Sistema *</Label>
+                      <Select 
+                        value={formData.Rol} 
+                        onValueChange={(val) => setFormData({...formData, Rol: val})}
+                      >
+                        <SelectTrigger id="rol" className="h-9.5 text-xs">
+                          <SelectValue placeholder="Seleccionar rol" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Prestamista">🛡️ Prestamista / Cobrador</SelectItem>
+                          <SelectItem value="admin_empresa">🏢 Admin de Empresa</SelectItem>
+                          <SelectItem value="Cajero">💼 Cajero Operativo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="clave">Clave/Contraseña *</Label>
+                    <Label htmlFor="clave">Clave/Contraseña de Acceso *</Label>
                     <div className="relative">
                       <Input
                         id="clave"
                         type={showPassword ? "text" : "password"}
                         value={formData.Clave}
                         onChange={(e) => setFormData({...formData, Clave: e.target.value})}
-                        placeholder="Contraseña de acceso"
+                        placeholder="Contraseña de acceso al sistema"
                         required
                       />
                       <Button
@@ -320,14 +421,38 @@ export function PrestatariosContent() {
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={formData.Email}
-                          onChange={(e) => setFormData({...formData, Email: e.target.value})}
-                          placeholder="correo@ejemplo.com"
-                        />
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="email">Email</Label>
+                          {otpVerified && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Verificado OTP
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Input
+                            id="email"
+                            type="email"
+                            value={formData.Email}
+                            onChange={(e) => {
+                              setFormData({...formData, Email: e.target.value});
+                              setOtpVerified(false);
+                            }}
+                            placeholder="correo@ejemplo.com"
+                          />
+                          {formData.Email && !otpVerified && !editingPrestatario && (
+                            <Button 
+                              type="button"
+                              size="sm"
+                              onClick={handleSendOtp}
+                              disabled={isOtpSending}
+                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 whitespace-nowrap shrink-0"
+                            >
+                              {isOtpSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5 mr-1" />}
+                              Validar OTP
+                            </Button>
+                          )}
+                        </div>
                       </div>
                   </div>
                   <p className="text-xs text-muted-foreground text-right">* Campos requeridos</p>
@@ -343,7 +468,7 @@ export function PrestatariosContent() {
                     disabled={submitting || !formData.Nombre || !formData.Clave}
                   >
                     {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    {editingPrestatario ? "Actualizar" : "Crear"}
+                    {editingPrestatario ? "Actualizar" : "Crear Usuario Prestamista"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -474,6 +599,67 @@ export function PrestatariosContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* --- MODAL ELEGANTE DE VERIFICACIÓN OTP --- */}
+      <Dialog open={isOtpModalOpen} onOpenChange={setIsOtpModalOpen}>
+        <DialogContent className="sm:max-w-[420px] text-center space-y-4">
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 rounded-full bg-blue-50 text-[#213685] flex items-center justify-center mb-1 border border-blue-100 shadow-inner">
+              <KeyRound className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-slate-800">
+              Verificación de Correo (OTP)
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Hemos enviado un código de 6 dígitos para validar el correo:
+              <br />
+              <strong className="text-slate-800">{formData.Email}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          {otpPreviewCode && (
+            <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-lg text-xs text-amber-800 font-medium flex items-center justify-between">
+              <span>Código OTP de prueba:</span>
+              <span className="font-mono font-bold text-base tracking-wider bg-amber-200/80 px-2.5 py-0.5 rounded text-amber-950">
+                {otpPreviewCode}
+              </span>
+            </div>
+          )}
+
+          <div className="flex justify-center gap-2 py-2">
+            {otpDigits.map((digit, idx) => (
+              <Input
+                key={idx}
+                id={`otp-input-${idx}`}
+                type="text"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleDigitChange(idx, e.target.value)}
+                className="w-11 h-12 text-center text-xl font-bold font-mono border-2 border-slate-200 focus:border-[#213685] focus:ring-0 rounded-lg shadow-sm"
+              />
+            ))}
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2">
+            <Button
+              onClick={handleVerifyOtp}
+              disabled={isOtpVerifying || otpDigits.join("").length < 6}
+              className="w-full bg-[#213685] hover:bg-[#213685]/90 text-white font-semibold h-10 text-sm shadow-md"
+            >
+              {isOtpVerifying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+              Verificar Código OTP
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSendOtp}
+              disabled={isOtpSending}
+              className="text-xs text-slate-500 hover:text-slate-700"
+            >
+              ¿No recibiste el código? Reenviar OTP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

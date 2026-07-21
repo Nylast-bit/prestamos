@@ -1,5 +1,6 @@
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState } from "react"
+import { useAuthStore } from "@/store/authStore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -7,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Edit, Trash2, CalendarClock, Banknote, CheckCircle2, Loader2 } from 'lucide-react'
+import { Edit, Trash2, CalendarClock, Banknote, CheckCircle2, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -47,6 +48,7 @@ const getProximoPago = (fechaInicioStr: string, modalidad: string, cuotasPagadas
 
 // --- COMPONENTE PRINCIPAL ---
 export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }: any) {
+  const { user } = useAuthStore();
   
   // Estados
   const [isPayOpen, setIsPayOpen] = useState(false);
@@ -58,11 +60,16 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
   // Estados para los 3 modos de pago
   const [payMode, setPayMode] = useState<'cuota' | 'personalizado' | 'liquidar'>('cuota');
   const [montoPersonalizado, setMontoPersonalizado] = useState("");
+  const [montoLiquidar, setMontoLiquidar] = useState("");
 
   // Estados Detalle (Historial)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [historialPagos, setHistorialPagos] = useState<any[]>([]);
   const [isLoadingHistorial, setIsLoadingHistorial] = useState(false);
+
+  // Estados de Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // --- CÁLCULOS DERIVADOS ---
   const capitalRestanteReal = selectedPrestamo 
@@ -79,9 +86,14 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
     ? baseInteres * (selectedPrestamo.InteresPorcentaje / 100)
     : 0;
 
-  const montoLiquidacion = selectedPrestamo
+  const montoLiquidacionDefecto = selectedPrestamo
     ? capitalRestanteReal + interesMinimo
     : 0;
+
+  const montoLiquidarNum = montoLiquidar !== "" ? parseFloat(montoLiquidar) || 0 : montoLiquidacionDefecto;
+  const minimoLiquidacion = interesMinimo + (capitalRestanteReal * 0.5);
+  const esMontoLiquidarValido = montoLiquidarNum >= minimoLiquidacion && montoLiquidarNum > 0;
+  const descuentoOtorgado = Math.max(0, montoLiquidacionDefecto - montoLiquidarNum);
 
   const montoPersonalizadoNum = parseFloat(montoPersonalizado) || 0;
   const desgloseCapital = Math.max(0, montoPersonalizadoNum - interesMinimo);
@@ -97,6 +109,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
     const esSoloInteres = prestamo.TipoCalculo === "solo_interes";
     setPayMode(esSoloInteres ? 'personalizado' : 'cuota');
     setMontoPersonalizado("");
+    setMontoLiquidar("");
     setIsPayOpen(true);
   };
 
@@ -181,15 +194,16 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
         if (!response.ok) throw new Error(data.error || "Error al procesar el pago personalizado");
 
       } else if (payMode === 'liquidar') {
-        // === MODO 3: LIQUIDACIÓN TOTAL ===
+        // === MODO 3: LIQUIDACIÓN TOTAL (CON O SIN REBAJA) ===
         const idConsolidacion = await getIdConsolidacionActiva();
 
         const payload = {
           idPrestamo: Number(selectedPrestamo.IdPrestamo),
           idConsolidacion,
-          montoPagado: montoLiquidacion,
+          montoPagado: montoLiquidarNum,
           fechaPago: new Date().toISOString(),
-          concepto: observaciones || `Liquidación total del préstamo - ${paymentType}`
+          concepto: observaciones || `Liquidación final del préstamo - ${paymentType}${descuentoOtorgado > 0 ? ` (Rebaja de ${formatMoney(descuentoOtorgado)})` : ''}`,
+          esLiquidacion: true
         };
 
         const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagospersonalizados`, {
@@ -268,10 +282,18 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
     if (isPaying) return "Procesando...";
     if (payMode === 'cuota') return "Cobrar Cuota";
     if (payMode === 'personalizado') return `Cobrar ${montoPersonalizadoNum > 0 ? formatMoney(montoPersonalizadoNum) : ''}`;
-    return `Liquidar ${formatMoney(montoLiquidacion)}`;
+    return `Liquidar ${montoLiquidarNum > 0 ? formatMoney(montoLiquidarNum) : ''}`;
   };
 
   const prestamosVisibles = prestamos.filter((p: any) => p.Estado !== 'Eliminado');
+
+  // Cálculos de Paginación
+  const totalItems = prestamosVisibles.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validPage = Math.min(currentPage, totalPages);
+  const startIndex = (validPage - 1) * pageSize;
+  const endIndex = Math.min(totalItems, validPage * pageSize);
+  const paginatedPrestamos = prestamosVisibles.slice(startIndex, endIndex);
 
   return (
     <>
@@ -280,9 +302,10 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
           <Table className="min-w-max">
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200 hover:bg-gradient-to-r">
+                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider py-4 w-16">ID</TableHead>
                 <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider py-4">Cliente</TableHead>
-                <TableHead className="text-right font-bold text-slate-800 text-xs uppercase tracking-wider">Capital</TableHead>
-                <TableHead className="text-right font-bold text-slate-800 text-xs uppercase tracking-wider">Interés</TableHead>
+                <TableHead className="text-right font-bold text-slate-800 text-xs uppercase tracking-wider">Capital Restante</TableHead>
+                <TableHead className="text-right font-bold text-slate-800 text-xs uppercase tracking-wider">Interés Actual</TableHead>
                 <TableHead className="text-center font-bold text-slate-800 text-xs uppercase tracking-wider">Tasa</TableHead>
                 <TableHead className="text-right font-bold text-[#213685] text-xs uppercase tracking-wider">Saldo Restante</TableHead>
                 <TableHead className="text-right font-bold text-slate-800 text-xs uppercase tracking-wider">Cuota</TableHead>
@@ -295,9 +318,9 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
               </TableRow>
             </TableHeader>
             <TableBody>
-              {prestamosVisibles.length === 0 ? (
+              {paginatedPrestamos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-16 text-slate-400">
+                  <TableCell colSpan={13} className="text-center py-16 text-slate-400">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
                         <Banknote className="w-8 h-8 text-slate-300" />
@@ -308,7 +331,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                   </TableCell>
                 </TableRow>
               ) : (
-                prestamosVisibles.map((prestamo: any, idx: number) => {
+                paginatedPrestamos.map((prestamo: any, idx: number) => {
                   // Contar progreso desde TablaPagos para incluir pagos personalizados insertados
                   let cuotasTotales = prestamo.CantidadCuotas || 0;
                   let cuotasPagadas = cuotasTotales - (prestamo.CuotasRestantes || 0);
@@ -322,8 +345,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                   } catch (e) { /* fallback a CantidadCuotas */ }
                   const progreso = cuotasTotales > 0 ? (cuotasPagadas / cuotasTotales) * 100 : 0;
                   
-                  const interesCalculado = prestamo.MontoPrestado * (prestamo.InteresPorcentaje / 100);
                   const capRestante = prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? Number(prestamo.CapitalRestante) : Number(prestamo.MontoPrestado);
+                  const interesActual = capRestante * (prestamo.InteresPorcentaje / 100);
                   const restanteAPagar = prestamo.TipoCalculo === "solo_interes"
                     ? (capRestante + (capRestante * (Number(prestamo.InteresPorcentaje) / 100)))
                     : (prestamo.MontoCuota * (prestamo.CuotasRestantes || 0));
@@ -339,6 +362,12 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                       `}
                       onClick={() => handleRowClick(prestamo)}
                     >
+                      <TableCell className="py-4">
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-xs font-bold tabular-nums">
+                          #{prestamo.IdPrestamo}
+                        </span>
+                      </TableCell>
+
                       <TableCell className="font-semibold text-slate-900 py-4">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
@@ -349,11 +378,11 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                       </TableCell>
 
                       <TableCell className="text-right font-semibold text-slate-700">
-                        {formatMoney(prestamo.MontoPrestado)}
+                        {formatMoney(capRestante)}
                       </TableCell>
 
                       <TableCell className="text-right text-slate-600 font-medium">
-                        {formatMoney(interesCalculado)}
+                        {formatMoney(interesActual)}
                       </TableCell>
 
                       <TableCell className="text-center">
@@ -406,34 +435,57 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
 
                       <TableCell className="text-right sticky right-0 bg-white group-hover:bg-blue-50/50 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.15)] transition-colors">
                         <div className="flex justify-end gap-2">
-                          {prestamo.Estado !== 'Pagado' && (
-                            <Button 
-                              variant="default" 
-                              size="sm" 
-                              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-md hover:shadow-lg transition-all h-9 px-3"
-                              onClick={(e) => handleOpenPay(e, prestamo)}
-                              title="Registrar Pago"
-                            >
-                              <Banknote className="h-4 w-4 mr-1" />
-                              Cobrar
-                            </Button>
-                          )}
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-9 px-3 border-slate-300 hover:bg-slate-100 hover:border-slate-400 transition-all"
-                            onClick={(e) => { e.stopPropagation(); onEdit(prestamo); }}
-                          >
-                            <Edit className="h-4 w-4 text-slate-600" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-9 px-3 border-slate-300 hover:bg-red-50 hover:border-red-300 transition-all"
-                            onClick={(e) => { e.stopPropagation(); onDelete(prestamo.IdPrestamo); }}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
+                          {(() => {
+                            const isCajero = user?.rol === 'Cajero';
+                            const isPrestamista = user?.rol === 'Prestamista';
+                            const esMio = prestamo.IdPrestatario === user?.idPrestatario;
+                            const puedeCobrar = !isPrestamista || esMio;
+                            const puedeEditarOEliminar = !isCajero && (!isPrestamista || esMio);
+
+                            return (
+                              <>
+                                {prestamo.Estado !== 'Pagado' && (
+                                  <Button 
+                                    variant="default" 
+                                    size="sm" 
+                                    disabled={!puedeCobrar}
+                                    className={`shadow-md hover:shadow-lg transition-all h-9 px-3 ${
+                                      puedeCobrar 
+                                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white' 
+                                        : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                                    }`}
+                                    onClick={(e) => puedeCobrar && handleOpenPay(e, prestamo)}
+                                    title={puedeCobrar ? "Registrar Pago" : "Solo el prestamista asignado puede cobrar este préstamo"}
+                                  >
+                                    <Banknote className="h-4 w-4 mr-1" />
+                                    Cobrar
+                                  </Button>
+                                )}
+                                {puedeEditarOEliminar && (
+                                  <>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-9 px-3 border-slate-300 hover:bg-slate-100 hover:border-slate-400 transition-all"
+                                      onClick={(e) => { e.stopPropagation(); onEdit(prestamo); }}
+                                      title="Editar Préstamo"
+                                    >
+                                      <Edit className="h-4 w-4 text-slate-600" />
+                                    </Button>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-9 px-3 border-slate-300 hover:bg-red-50 hover:border-red-300 transition-all"
+                                      onClick={(e) => { e.stopPropagation(); onDelete(prestamo.IdPrestamo); }}
+                                      title="Eliminar Préstamo"
+                                    >
+                                      <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                  </>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -443,6 +495,82 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
             </TableBody>
           </Table>
         </div>
+
+        {/* --- BARRA DE PAGINACIÓN DE PRÉSTAMOS --- */}
+        {prestamosVisibles.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs font-medium text-slate-600">
+            <div className="flex items-center gap-2">
+              <span>Mostrar</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+              <span>registros por página</span>
+              <span className="text-slate-400 ml-2">
+                (Mostrando {totalItems > 0 ? startIndex + 1 : 0} - {endIndex} de {totalItems})
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                disabled={validPage === 1}
+                onClick={() => setCurrentPage(1)}
+                title="Primera página"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                disabled={validPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                title="Página anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              <span className="px-3 py-1 bg-white border border-slate-300 rounded font-bold text-slate-800">
+                Página {validPage} de {totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                disabled={validPage >= totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                title="Página siguiente"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                disabled={validPage >= totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                title="Última página"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* --- MODAL DE PAGO (3 MODOS) --- */}
@@ -562,18 +690,47 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
 
               {payMode === 'liquidar' && (
                 <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 space-y-3">
-                  <p className="text-sm text-orange-700 font-medium">Se liquidará el préstamo completo con un único pago:</p>
-                  <div className="flex justify-between items-center text-sm border-b border-orange-200 pb-2">
-                    <span className="text-orange-700">Capital restante</span>
-                    <span className="font-mono font-semibold">{formatMoney(capitalRestanteReal)}</span>
+                  <div className="flex justify-between items-center text-xs text-orange-800 font-semibold border-b border-orange-200 pb-2">
+                    <span>Resumen del Préstamo</span>
+                    <span>Mínimo liquidable: {formatMoney(minimoLiquidacion)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm border-b border-orange-200 pb-2">
-                    <span className="text-orange-700">+ Interés del periodo</span>
-                    <span className="font-mono font-semibold">{formatMoney(interesMinimo)}</span>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs border-b border-orange-200 pb-2">
+                    <div>
+                      <span className="text-slate-500">Capital Restante:</span>
+                      <p className="font-semibold text-slate-800">{formatMoney(capitalRestanteReal)}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Interés del período:</span>
+                      <p className="font-semibold text-slate-800">{formatMoney(interesMinimo)}</p>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-orange-800 font-bold">Total a pagar</span>
-                    <span className="text-2xl font-bold text-orange-800">{formatMoney(montoLiquidacion)}</span>
+
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="montoLiquidar" className="text-xs font-bold text-orange-900">
+                        Monto Final de Liquidación ($)
+                      </Label>
+                      {descuentoOtorgado > 0 && esMontoLiquidarValido && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                          Rebaja: {formatMoney(descuentoOtorgado)}
+                        </span>
+                      )}
+                    </div>
+                    <Input
+                      id="montoLiquidar"
+                      type="number"
+                      step="50"
+                      className="font-bold text-lg text-orange-900 border-orange-300 focus:border-orange-500 bg-white"
+                      value={montoLiquidar}
+                      onChange={(e) => setMontoLiquidar(e.target.value)}
+                      placeholder={montoLiquidacionDefecto.toString()}
+                    />
+                    {!esMontoLiquidarValido && (
+                      <p className="text-xs text-red-600 font-medium pt-1">
+                        ⚠️ Para liquidar, el monto mínimo es de {formatMoney(minimoLiquidacion)} (Interés + 50% de Capital restante).
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -608,7 +765,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                 'bg-orange-600 hover:bg-orange-700'
               }`}
               onClick={handleConfirmarPago} 
-              disabled={isPaying || (payMode === 'personalizado' && !esMontoValido)}
+              disabled={isPaying || (payMode === 'personalizado' && !esMontoValido) || (payMode === 'liquidar' && !esMontoLiquidarValido)}
             >
               {isPaying && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {getBotonLabel()}
