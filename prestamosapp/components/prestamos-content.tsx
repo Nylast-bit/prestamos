@@ -163,9 +163,12 @@ export function PrestamosContent() {
 
   // --- HANDLERS (Simulación, Submit, Delete, Edit) ---
   const handleSimular = async () => {
-    if (!formData.MontoPrestado || !formData.InteresPorcentaje || !formData.CantidadCuotas) {
+    const esSoloInteres = formData.TipoCalculo === "solo_interes";
+    const cuotasVal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 8 : 0);
+
+    if (!formData.MontoPrestado || !formData.InteresPorcentaje || (!formData.CantidadCuotas && !esSoloInteres)) {
       console.error("❌ 3. VALIDACIÓN FALLÓ: Faltan campos numéricos");
-      toast.warning('Por favor completa: Monto, Tasa de Interés y Cantidad de Cuotas.');
+      toast.warning('Por favor completa: Monto y Tasa de Interés.');
       return;
     }
 
@@ -177,7 +180,7 @@ export function PrestamosContent() {
       const payload = {
           monto: parseFloat(formData.MontoPrestado),
           tasaInteres: parseFloat(formData.InteresPorcentaje),
-          numeroCuotas: parseInt(formData.CantidadCuotas),
+          numeroCuotas: cuotasVal,
           tipoCalculo: formData.TipoCalculo
       };
 
@@ -188,15 +191,18 @@ export function PrestamosContent() {
       })
 
       if (!response.ok) {
-         throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({ error: 'Error del servidor' }));
+        throw new Error(errorData.error || `Error ${response.status}`);
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
-        setSimulacionResumen({ ...data, ModalidadPago: formData.ModalidadPago });
+        setSimulacionResumen({
+          ...data,
+          ModalidadPago: formData.ModalidadPago
+        });
         setSimulacionCuotas(data.tablaAmortizacion);
-        
         setIsSimOpen(true);
       } else {
         console.error("❌ Error lógico del backend:", data.error);
@@ -211,6 +217,56 @@ export function PrestamosContent() {
     }
   }
 
+  const handleRecalcularCuota = async (nuevaCuota: number) => {
+    if (!formData.MontoPrestado) return;
+    const esSoloInteres = formData.TipoCalculo === "solo_interes";
+    const cuotasVal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 8 : 0);
+
+    try {
+      const url = `${API_BASE_URL}/api/prestamos/calcular-tasa`;
+      const payload = {
+        monto: parseFloat(formData.MontoPrestado),
+        cuotaDeseada: nuevaCuota,
+        numeroCuotas: cuotasVal,
+        tipoCalculo: formData.TipoCalculo
+      };
+
+      const response = await fetchWithAuth(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Error al recalcular' }));
+        throw new Error(errorData.error || `Error del servidor`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Guardamos la tasa limpia a 4 decimales estándar (ej. 7.7143)
+        const tasaRealFloat = Number(data.tasaCalculada !== undefined ? data.tasaCalculada : data.tasaInteres).toFixed(4);
+        setFormData((prev: any) => ({
+          ...prev,
+          InteresPorcentaje: tasaRealFloat
+        }));
+
+        setSimulacionResumen({
+          ...data,
+          ModalidadPago: formData.ModalidadPago
+        });
+        setSimulacionCuotas(data.tablaAmortizacion);
+        const displayVal = data.tasaDisplay !== undefined ? data.tasaDisplay : Number(tasaRealFloat).toFixed(2);
+        toast.success(`Tasa de interés reajustada a ${Number(displayVal).toFixed(2)}%`);
+      } else {
+        toast.error(data.error || 'Error al recalcular la tasa');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Error al recalcular cuota');
+    }
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     
@@ -221,13 +277,16 @@ export function PrestamosContent() {
 
     setSubmitting(true)
     try {
+      const esSoloInteres = formData.TipoCalculo === "solo_interes";
+      const cuotasTotal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 8 : 0);
+
       let prestamoData: any = {
         IdCliente: parseInt(formData.IdCliente),
         IdPrestatario: parseInt(formData.IdPrestatario),
         MontoPrestado: parseFloat(formData.MontoPrestado),
         TipoCalculo: formData.TipoCalculo,
         InteresPorcentaje: parseFloat(formData.InteresPorcentaje),
-        CantidadCuotas: parseInt(formData.CantidadCuotas),
+        CantidadCuotas: cuotasTotal,
         ModalidadPago: formData.ModalidadPago.toLowerCase(), 
         FechaInicio: new Date(formData.FechaInicio).toISOString(),
         FechaFinEstimada: new Date(formData.FechaFinEstimada).toISOString(),
@@ -242,7 +301,7 @@ export function PrestamosContent() {
               CapitalTotalPagar: simulacionResumen.montoTotalAPagar,
               MontoCuota: simulacionResumen.montoCuota,
               CapitalRestante: parseFloat(formData.MontoPrestado),
-              CuotasRestantes: parseInt(formData.CantidadCuotas),
+              CuotasRestantes: cuotasTotal,
               TablaPagos: JSON.stringify(simulacionCuotas) 
           };
       }
@@ -443,6 +502,7 @@ export function PrestamosContent() {
         resumen={simulacionResumen}
         cuotas={simulacionCuotas}
         isSubmitting={submitting}
+        onRecalcularCuota={handleRecalcularCuota}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

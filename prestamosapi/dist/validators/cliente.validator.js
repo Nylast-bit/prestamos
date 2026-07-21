@@ -7,7 +7,8 @@ exports.clienteSchema = zod_1.z.object({
     Nombre: zod_1.z.string().min(1, "El nombre es obligatorio"),
     Cedula: zod_1.z.string().min(5, "La cédula es obligatoria"),
     Telefono: zod_1.z.string().optional(),
-    Email: zod_1.z.string().email("Email inválido").optional(),
+    Email: zod_1.z.union([zod_1.z.string().email("Email inválido"), zod_1.z.literal("")]).optional().nullable(),
+    NumeroCuenta: zod_1.z.string().optional().or(zod_1.z.literal("")).nullable(),
     Direccion: zod_1.z.string().optional(),
     FechaRegistro: zod_1.z.string().optional(), // Puede ser generada automáticamente
 });

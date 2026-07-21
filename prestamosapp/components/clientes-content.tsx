@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, Loader2, ArrowRight } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, Loader2, ArrowRight, CreditCard } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Map, MapControls } from "@/components/ui/map"
@@ -23,7 +23,8 @@ interface Cliente {
   Nombre: string
   Cedula: string
   Telefono: string
-  Email: string
+  Email?: string
+  NumeroCuenta?: string
   Direccion: string
   FechaRegistro: string
   cantidadPrestamosActivos?: number
@@ -69,6 +70,7 @@ export function ClientesContent() {
     Cedula: "",
     Telefono: "",
     Email: "",
+    NumeroCuenta: "",
     Direccion: ""
   })
 
@@ -94,7 +96,8 @@ export function ClientesContent() {
   const filteredClientes = clientes.filter(cliente =>
     cliente.Nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cliente.Cedula.includes(searchTerm) ||
-    (cliente.Email && cliente.Email.toLowerCase().includes(searchTerm.toLowerCase()))
+    (cliente.Email && cliente.Email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (cliente.NumeroCuenta && cliente.NumeroCuenta.includes(searchTerm))
   )
 
   // Calcular paginacion
@@ -197,6 +200,7 @@ export function ClientesContent() {
       Cedula: "",
       Telefono: "",
       Email: "",
+      NumeroCuenta: "",
       Direccion: ""
     })
     setFormErrors({ cedula: "", email: "" })
@@ -210,7 +214,8 @@ export function ClientesContent() {
       Nombre: cliente.Nombre,
       Cedula: cliente.Cedula,
       Telefono: cliente.Telefono,
-      Email: cliente.Email,
+      Email: cliente.Email || "",
+      NumeroCuenta: cliente.NumeroCuenta || "",
       Direccion: cliente.Direccion,
     })
     setFormErrors({ cedula: "", email: "" })
@@ -486,21 +491,31 @@ export function ClientesContent() {
                         />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.Email}
-                        onChange={(e) => {
-                          setFormData({...formData, Email: e.target.value})
-                          if (formErrors.email) setFormErrors({...formErrors, email: ""})
-                        }}
-                        placeholder="correo@ejemplo.com"
-                        required
-                        className={formErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
-                      />
-                      {formErrors.email && <span className="text-xs text-red-500">{formErrors.email}</span>}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email (Opcional)</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.Email}
+                          onChange={(e) => {
+                            setFormData({...formData, Email: e.target.value})
+                            if (formErrors.email) setFormErrors({...formErrors, email: ""})
+                          }}
+                          placeholder="correo@ejemplo.com"
+                          className={formErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
+                        />
+                        {formErrors.email && <span className="text-xs text-red-500">{formErrors.email}</span>}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="numeroCuenta">Número de Cuenta (Opcional)</Label>
+                        <Input
+                          id="numeroCuenta"
+                          value={formData.NumeroCuenta}
+                          onChange={(e) => setFormData({...formData, NumeroCuenta: e.target.value})}
+                          placeholder="Ej: 0123456789"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -583,14 +598,24 @@ export function ClientesContent() {
                         </TableCell>
                         <TableCell>
                             <div className="space-y-1">
-                            <div className="text-sm flex items-center gap-1.5 text-gray-600">
-                                <Phone className="h-3.5 w-3.5 text-gray-400" />
-                                {cliente.Telefono}
-                            </div>
-                            <div className="text-sm flex items-center gap-1.5 text-gray-600">
-                                <Mail className="h-3.5 w-3.5 text-gray-400" />
-                                {cliente.Email}
-                            </div>
+                            {cliente.Telefono && (
+                              <div className="text-sm flex items-center gap-1.5 text-gray-600">
+                                  <Phone className="h-3.5 w-3.5 text-gray-400" />
+                                  {cliente.Telefono}
+                              </div>
+                            )}
+                            {cliente.Email && (
+                              <div className="text-sm flex items-center gap-1.5 text-gray-600">
+                                  <Mail className="h-3.5 w-3.5 text-gray-400" />
+                                  {cliente.Email}
+                              </div>
+                            )}
+                            {cliente.NumeroCuenta && (
+                              <div className="text-xs flex items-center gap-1.5 text-gray-600">
+                                  <CreditCard className="h-3.5 w-3.5 text-gray-400" />
+                                  <span>Cta: {cliente.NumeroCuenta}</span>
+                              </div>
+                            )}
                             </div>
                         </TableCell>
                         <TableCell className="text-sm text-gray-700">{cliente.Cedula}</TableCell>

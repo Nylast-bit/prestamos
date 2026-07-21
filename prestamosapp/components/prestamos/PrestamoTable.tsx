@@ -72,7 +72,9 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
   // capital+interes: interés FIJO basado en MontoPrestado original
   // amortizable: interés VARIABLE basado en CapitalRestante actual
   const tipoCalculo = (selectedPrestamo?.TipoCalculo || '').toLowerCase();
-  const baseInteres = tipoCalculo.includes('amortiza') ? capitalRestanteReal : (selectedPrestamo?.MontoPrestado || 0);
+  const baseInteres = (tipoCalculo.includes('amortiza') || tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) 
+    ? capitalRestanteReal 
+    : (selectedPrestamo?.MontoPrestado || 0);
   const interesMinimo = selectedPrestamo 
     ? baseInteres * (selectedPrestamo.InteresPorcentaje / 100)
     : 0;
@@ -92,7 +94,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
     setSelectedPrestamo(prestamo);
     setPaymentType("Efectivo");
     setObservaciones("");
-    setPayMode('cuota');
+    const esSoloInteres = prestamo.TipoCalculo === "solo_interes";
+    setPayMode(esSoloInteres ? 'personalizado' : 'cuota');
     setMontoPersonalizado("");
     setIsPayOpen(true);
   };
@@ -237,6 +240,18 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
     catch (e) { return []; }
 
     return tablaProyeccion.map((cuotaProyectada: any) => {
+        // Si la entrada ya viene marcada como pagada desde el backend (pago personalizado)
+        if (cuotaProyectada.pagado) {
+            const pagoReal = historialPagos.find((p: any) => p.NumeroCuota === cuotaProyectada.numeroCuota);
+            return {
+                ...cuotaProyectada,
+                estado: 'Pagado',
+                fechaPagoReal: pagoReal ? pagoReal.FechaPago : null,
+                metodoPago: pagoReal ? pagoReal.TipoPago : (cuotaProyectada.tipo === 'personalizado' ? 'Personalizado' : null),
+                idPago: pagoReal ? pagoReal.IdPago : null
+            };
+        }
+        // Si no, buscamos en el historial de pagos por NumeroCuota
         const pagoReal = historialPagos.find((p: any) => p.NumeroCuota === cuotaProyectada.numeroCuota);
         return {
             ...cuotaProyectada,
@@ -294,12 +309,24 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                 </TableRow>
               ) : (
                 prestamosVisibles.map((prestamo: any, idx: number) => {
-                  const cuotasTotales = prestamo.CantidadCuotas || 0;
-                  const cuotasPagadas = cuotasTotales - (prestamo.CuotasRestantes || 0);
+                  // Contar progreso desde TablaPagos para incluir pagos personalizados insertados
+                  let cuotasTotales = prestamo.CantidadCuotas || 0;
+                  let cuotasPagadas = cuotasTotales - (prestamo.CuotasRestantes || 0);
+                  try {
+                    const tabla = JSON.parse(prestamo.TablaPagos || '[]');
+                    const pagadasEnTabla = tabla.filter((c: any) => c.pagado).length;
+                    if (pagadasEnTabla > 0) {
+                      cuotasTotales = tabla.length;
+                      cuotasPagadas = pagadasEnTabla;
+                    }
+                  } catch (e) { /* fallback a CantidadCuotas */ }
                   const progreso = cuotasTotales > 0 ? (cuotasPagadas / cuotasTotales) * 100 : 0;
                   
                   const interesCalculado = prestamo.MontoPrestado * (prestamo.InteresPorcentaje / 100);
-                  const restanteAPagar = prestamo.MontoCuota * (prestamo.CuotasRestantes || 0);
+                  const capRestante = prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? Number(prestamo.CapitalRestante) : Number(prestamo.MontoPrestado);
+                  const restanteAPagar = prestamo.TipoCalculo === "solo_interes"
+                    ? (capRestante + (capRestante * (Number(prestamo.InteresPorcentaje) / 100)))
+                    : (prestamo.MontoCuota * (prestamo.CuotasRestantes || 0));
 
                   return (
                     <TableRow 
@@ -330,8 +357,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                       </TableCell>
 
                       <TableCell className="text-center">
-                        <Badge variant="secondary" className="bg-slate-200 text-slate-700 font-bold px-3 py-1">
-                          {prestamo.InteresPorcentaje}%
+                        <Badge variant="secondary" className="bg-slate-200 text-slate-700 font-bold px-3 py-1" title={`Tasa real guardada: ${prestamo.InteresPorcentaje}%`}>
+                          {Number(prestamo.InteresPorcentaje).toFixed(2)}%
                         </Badge>
                       </TableCell>
 
@@ -433,18 +460,20 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
             <div className="grid gap-5 py-2">
               
               {/* === SELECTOR DE MODO === */}
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => setPayMode('cuota')}
-                  className={`px-3 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${
-                    payMode === 'cuota' 
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' 
-                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-                >
-                  <CalendarClock className="h-5 w-5 mx-auto mb-1" />
-                  Cuota
-                </button>
+              <div className={`grid gap-2 ${selectedPrestamo.TipoCalculo === 'solo_interes' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                {selectedPrestamo.TipoCalculo !== 'solo_interes' && (
+                  <button
+                    onClick={() => setPayMode('cuota')}
+                    className={`px-3 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${
+                      payMode === 'cuota' 
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' 
+                        : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <CalendarClock className="h-5 w-5 mx-auto mb-1" />
+                    Cuota
+                  </button>
+                )}
                 <button
                   onClick={() => setPayMode('personalizado')}
                   className={`px-3 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${

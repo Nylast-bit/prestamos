@@ -49,12 +49,8 @@ const data = {
       key: "pagos",
       icon: CreditCard,
     },
+    // Pagos Personalizados se muestra ahora como filtro dentro de Pagos
     
-    {
-      title: "Pagos Personalizados",
-      key: "pagospersonalizados",
-      icon: Calendar,
-    },
     {
       title: "Solicitudes Futuras",
       key: "solicitudes",

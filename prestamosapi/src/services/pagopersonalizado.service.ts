@@ -31,7 +31,7 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
     // capital+interes: interés FIJO basado en MontoPrestado original
     // amortizable: interés VARIABLE basado en CapitalRestante actual
     const tipoCalculo = (prestamo.TipoCalculo || '').toLowerCase();
-    const baseInteres = tipoCalculo.includes('amortiza') 
+    const baseInteres = (tipoCalculo.includes('amortiza') || tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) 
         ? (prestamo.CapitalRestante || prestamo.MontoPrestado) 
         : prestamo.MontoPrestado;
     const interesGenerado = baseInteres * (prestamo.InteresPorcentaje / 100);
@@ -50,49 +50,84 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
     const estadoPrestamo = nuevoCapitalRestante === 0 ? "Pagado" : prestamo.Estado;
 
     // 5. La magia del JSON (TablaPagos)
-    let cuotasActualizadas = [];
+    let cuotasActualizadas: any[] = [];
     try {
         cuotasActualizadas = JSON.parse(prestamo.TablaPagos || "[]");
     } catch (e) {
         logger.error("Error parseando TablaPagos", e);
     }
 
-    if (nuevoCapitalRestante > 0 && cuotasActualizadas.length > 0) {
-        if (abonoCapital > 0) {
-            // Si pagó capital extra, le restamos ese dinero a la ÚLTIMA cuota del arreglo 
-            // (así se acorta el préstamo de atrás para adelante).
-            let capitalPorDescontar = abonoCapital;
+    // Crear la entrada del pago personalizado que acabamos de realizar
+    const entradaPagoRealizado = {
+        numeroCuota: 0, // se renumerará abajo
+        cuota: montoPagado,
+        interes: abonoInteres,
+        capital: abonoCapital,
+        saldo: nuevoCapitalRestante,
+        pagado: true,
+        tipo: 'personalizado'
+    };
 
-            for (let i = cuotasActualizadas.length - 1; i >= 0; i--) {
-                if (capitalPorDescontar <= 0) break;
+    // Insertar al frente del arreglo (este pago queda como la cuota más reciente pagada)
+    cuotasActualizadas.unshift(entradaPagoRealizado);
 
-                let cuota = cuotasActualizadas[i];
+    // Para préstamos de solo_interes: recalcular el interés de las cuotas pendientes
+    // basado en el nuevo CapitalRestante
+    if (tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) {
+        for (let i = 1; i < cuotasActualizadas.length; i++) {
+            if (cuotasActualizadas[i].pagado) continue; // saltar cuotas ya pagadas
+            const interesNuevo = nuevoCapitalRestante * (prestamo.InteresPorcentaje / 100);
+            cuotasActualizadas[i].interes = interesNuevo;
+            cuotasActualizadas[i].cuota = interesNuevo;
+            cuotasActualizadas[i].capital = 0;
+            cuotasActualizadas[i].saldo = nuevoCapitalRestante;
+        }
+    } else if (nuevoCapitalRestante > 0 && abonoCapital > 0) {
+        // Para tipos estándar (capital+interes, amortizable): ajustar desde atrás
+        let capitalPorDescontar = abonoCapital;
 
-                if (capitalPorDescontar >= cuota.capital) {
-                    capitalPorDescontar -= cuota.capital;
-                    cuota.capital = 0;
-                    cuota.interes = 0;
-                    cuota.cuota = 0;
-                } else {
-                    cuota.capital -= capitalPorDescontar;
-                    cuota.cuota -= capitalPorDescontar;
-                    capitalPorDescontar = 0;
-                }
-            }
+        for (let i = cuotasActualizadas.length - 1; i >= 1; i--) {
+            if (capitalPorDescontar <= 0) break;
+            if (cuotasActualizadas[i].pagado) continue;
 
-            // Filtramos las cuotas que quedaron en 0 (porque las pagó por adelantado)
-            cuotasActualizadas = cuotasActualizadas.filter((c: any) => c.cuota > 0);
+            let cuota = cuotasActualizadas[i];
 
-            // Recalculamos los saldos para que el JSON quede perfecto
-            let saldoAcumulado = nuevoCapitalRestante;
-            for (let i = 0; i < cuotasActualizadas.length; i++) {
-                saldoAcumulado -= cuotasActualizadas[i].capital;
-                cuotasActualizadas[i].saldo = Math.max(0, saldoAcumulado);
+            if (capitalPorDescontar >= cuota.capital) {
+                capitalPorDescontar -= cuota.capital;
+                cuota.capital = 0;
+                cuota.interes = 0;
+                cuota.cuota = 0;
+            } else {
+                cuota.capital -= capitalPorDescontar;
+                cuota.cuota -= capitalPorDescontar;
+                capitalPorDescontar = 0;
             }
         }
-    } else if (nuevoCapitalRestante === 0) {
-        cuotasActualizadas = []; // Si saldó, limpiamos la tabla
+
+        // Filtramos las cuotas pendientes que quedaron en 0 (pagadas por adelantado)
+        cuotasActualizadas = cuotasActualizadas.filter((c: any) => c.pagado || c.cuota > 0);
+
+        // Recalculamos los saldos de las pendientes
+        let saldoAcumulado = nuevoCapitalRestante;
+        for (let i = 0; i < cuotasActualizadas.length; i++) {
+            if (cuotasActualizadas[i].pagado) continue;
+            saldoAcumulado -= cuotasActualizadas[i].capital;
+            cuotasActualizadas[i].saldo = Math.max(0, saldoAcumulado);
+        }
     }
+
+    if (nuevoCapitalRestante === 0) {
+        // Si saldó, solo dejamos las entradas de pagos realizados
+        cuotasActualizadas = cuotasActualizadas.filter((c: any) => c.pagado);
+    }
+
+    // Renumerar todas las cuotas secuencialmente
+    cuotasActualizadas.forEach((c: any, i: number) => {
+        c.numeroCuota = i + 1;
+    });
+
+    // Contar cuotas pendientes (las que NO están pagadas)
+    const cuotasPendientes = cuotasActualizadas.filter((c: any) => !c.pagado).length;
 
     // Volvemos a convertir el JSON a string para guardarlo en Supabase
     const tablaPagosString = JSON.stringify(cuotasActualizadas);
@@ -110,7 +145,7 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
             CapitalRestante: nuevoCapitalRestante,
             Estado: estadoPrestamo,
             TablaPagos: tablaPagosString,
-            CuotasRestantes: cuotasActualizadas.length
+            CuotasRestantes: cuotasPendientes
         })
         .eq("IdPrestamo", idPrestamo);
 
@@ -118,6 +153,9 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
 
     // 🛡️ ABRIMOS EL BLOQUE DE TRANSACCIÓN MANUAL 🛡️
     try {
+        // La cuota del pago personalizado siempre es la primera entrada (numeroCuota = 1 si es el primer pago)
+        const numeroCuotaReal = entradaPagoRealizado.numeroCuota; // ya fue renumerado arriba
+
         // 7. Crear el registro del Pago en la tabla general
         const { data: nuevoPago, error: errorPago } = await supabase
             .from("Pago")
@@ -128,9 +166,9 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
                 MontoPagado: montoPagado,
                 MontoInteresPagado: abonoInteres,
                 MontoCapitalAbonado: abonoCapital,
-                CuotasRestantes: cuotasActualizadas.length,
+                CuotasRestantes: cuotasPendientes,
                 Observaciones: concepto,
-                NumeroCuota: 0
+                NumeroCuota: numeroCuotaReal
             }])
             .select()
             .single();
@@ -189,6 +227,8 @@ export const getAllPagosPersonalizadosService = async (idEmpresa: number) => {
                 CapitalRestante,
                 CantidadCuotas,
                 MontoCuota,
+                TipoCalculo,
+                InteresPorcentaje,
                 Prestatario (
                     Nombre
                 )

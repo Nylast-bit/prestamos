@@ -33,6 +33,8 @@ interface PagoPersonalizado {
     CapitalRestante: number;    // Necesario para la impresión
     CantidadCuotas: number;     // Necesario para la impresión
     MontoCuota?: number;        // Necesario para el cálculo de monto pendiente
+    TipoCalculo?: string;
+    InteresPorcentaje?: number;
     Prestatario?: {             // Aquí cambia a Prestatario
       Nombre: string;
     };
@@ -67,10 +69,11 @@ export function PagosPersonalizadosContent() {
 
   const prepararImpresion = (pago: PagoPersonalizado) => {
     
-    // Como es un pago personalizado, evaluamos si el capital va como extra o regular
-    const esAbonoExtraordinario = pago.TipoPago === "Personalizado";
-    const capitalRegular = esAbonoExtraordinario ? 0 : Number(pago.MontoCapitalAbonado);
-    const capitalExtra = esAbonoExtraordinario ? Number(pago.MontoCapitalAbonado) : 0;
+    const esSoloInteres = pago.Prestamo?.TipoCalculo === "solo_interes";
+
+    // Si el pago es personalizado, mostramos el abono directamente en la fila Pago Capital para evitar confusiones
+    const capitalRegular = Number(pago.MontoCapitalAbonado || 0);
+    const capitalExtra = 0;
 
     const montoCuota = (pago.Prestamo?.MontoCuota && Number(pago.Prestamo.MontoCuota) > 0)
       ? Number(pago.Prestamo.MontoCuota)
@@ -81,7 +84,13 @@ export function PagosPersonalizadosContent() {
       ? Number(pago.CuotasRestantes)
       : Math.max(0, cuotasTotales - Number(pago.NumeroCuota));
 
-    let montoPendienteCalculado = montoCuota * cuotasRestantes;
+    const capRestante = pago.Prestamo?.CapitalRestante !== undefined && pago.Prestamo?.CapitalRestante !== null ? Number(pago.Prestamo.CapitalRestante) : 0;
+    const interesPorc = pago.Prestamo?.InteresPorcentaje !== undefined ? Number(pago.Prestamo.InteresPorcentaje) : 0;
+
+    let montoPendienteCalculado = esSoloInteres
+      ? (capRestante + (capRestante * (interesPorc / 100)))
+      : (montoCuota * cuotasRestantes);
+
     if (montoPendienteCalculado === 0 && pago.Prestamo?.CapitalRestante && Number(pago.Prestamo.CapitalRestante) > 0) {
       montoPendienteCalculado = Number(pago.Prestamo.CapitalRestante);
     }

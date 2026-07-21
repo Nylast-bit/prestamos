@@ -209,60 +209,103 @@ const getPrestamoConDetallesService = async (id, idEmpresa) => {
 exports.getPrestamoConDetallesService = getPrestamoConDetallesService;
 // B. Lógica de Simulación Matemática
 const simularPrestamoService = (params) => {
-    const { monto, tasaInteres, numeroCuotas, tipoCalculo } = params;
+    const { monto, tasaInteres, numeroCuotas, tipoCalculo, cuotaDeseada } = params;
     let cuotas = [];
     let montoCuota = 0;
     let totalInteres = 0;
     let totalPagar = 0;
-    if (tipoCalculo === "amortizable") {
-        const i = tasaInteres / 100;
+    const i = tasaInteres / 100;
+    if (cuotaDeseada && cuotaDeseada > 0) {
+        montoCuota = cuotaDeseada;
+    }
+    else if (tipoCalculo === "solo_interes") {
+        // Solo Interés: La cuota obligatoria por periodo es exclusivamente el interés del principal
+        montoCuota = monto * i;
+    }
+    else if (tipoCalculo === "amortizable") {
         if (i === 0) {
             montoCuota = monto / numeroCuotas;
         }
         else {
             montoCuota = monto * ((i * Math.pow(1 + i, numeroCuotas)) / (Math.pow(1 + i, numeroCuotas) - 1));
         }
+    }
+    else {
+        // FLAT
+        const interesPorCuota = monto * i;
+        const capitalPorCuota = monto / numeroCuotas;
+        montoCuota = capitalPorCuota + interesPorCuota;
+    }
+    if (tipoCalculo === "solo_interes") {
+        const interesPorCuota = cuotaDeseada && cuotaDeseada > 0 ? cuotaDeseada : (monto * i);
+        totalInteres = interesPorCuota * numeroCuotas;
+        totalPagar = monto + totalInteres;
+        let saldo = monto;
+        for (let j = 1; j <= numeroCuotas; j++) {
+            const esUltima = (j === numeroCuotas);
+            const cap = esUltima ? saldo : 0;
+            const interesPeriodo = interesPorCuota;
+            const cuotaActual = interesPeriodo + cap;
+            const nuevoSaldo = esUltima ? 0 : saldo;
+            cuotas.push({
+                numeroCuota: j,
+                cuota: Number(cuotaActual.toFixed(2)),
+                interes: Number(interesPeriodo.toFixed(2)),
+                capital: Number(cap.toFixed(2)),
+                saldo: Number(nuevoSaldo.toFixed(2))
+            });
+        }
+    }
+    else if (tipoCalculo === "amortizable") {
         let saldo = monto;
         totalPagar = montoCuota * numeroCuotas;
         totalInteres = totalPagar - monto;
         for (let j = 1; j <= numeroCuotas; j++) {
             const interesPeriodo = saldo * i;
-            const capitalPeriodo = montoCuota - interesPeriodo;
+            let capitalPeriodo = montoCuota - interesPeriodo;
+            if (j === numeroCuotas) {
+                capitalPeriodo = saldo;
+            }
             let nuevoSaldo = saldo - capitalPeriodo;
-            if (j === numeroCuotas)
-                nuevoSaldo = 0; // Ajuste final
+            if (j === numeroCuotas || nuevoSaldo < 0)
+                nuevoSaldo = 0;
+            const cuotaActual = capitalPeriodo + interesPeriodo;
             cuotas.push({
                 numeroCuota: j,
-                cuota: Number(montoCuota.toFixed(2)),
+                cuota: Number(cuotaActual.toFixed(2)),
                 interes: Number(interesPeriodo.toFixed(2)),
                 capital: Number(capitalPeriodo.toFixed(2)),
-                saldo: nuevoSaldo > 0 ? Number(nuevoSaldo.toFixed(2)) : 0
+                saldo: Number(nuevoSaldo.toFixed(2))
             });
             saldo = nuevoSaldo;
         }
     }
     else {
         // FLAT
-        const interesPorCuota = monto * (tasaInteres / 100);
+        const interesPorCuota = monto * i;
         const capitalPorCuota = monto / numeroCuotas;
-        montoCuota = capitalPorCuota + interesPorCuota;
-        totalInteres = interesPorCuota * numeroCuotas;
+        totalInteres = (cuotaDeseada ? (cuotaDeseada - capitalPorCuota) : interesPorCuota) * numeroCuotas;
         totalPagar = monto + totalInteres;
         let saldo = monto;
         for (let j = 1; j <= numeroCuotas; j++) {
-            saldo -= capitalPorCuota;
+            let cap = capitalPorCuota;
+            if (j === numeroCuotas)
+                cap = saldo;
+            saldo -= cap;
+            const cuotaActual = cuotaDeseada ? cuotaDeseada : (cap + interesPorCuota);
             cuotas.push({
                 numeroCuota: j,
-                cuota: Number(montoCuota.toFixed(2)),
-                interes: Number(interesPorCuota.toFixed(2)),
-                capital: Number(capitalPorCuota.toFixed(2)),
+                cuota: Number(cuotaActual.toFixed(2)),
+                interes: Number((cuotaActual - cap).toFixed(2)),
+                capital: Number(cap.toFixed(2)),
                 saldo: saldo > 0 ? Number(saldo.toFixed(2)) : 0
             });
         }
     }
     return {
         montoSolicitado: monto,
-        tasaInteres,
+        tasaInteres, // Guardar float real de precisión completa
+        tasaDisplay: Number(tasaInteres.toFixed(2)), // Tasa formateada a 2 decimales para la UI
         numeroCuotas,
         tipoCalculo,
         montoCuota: Number(montoCuota.toFixed(2)),
@@ -290,27 +333,29 @@ exports.opcionesSimularPrestamoService = opcionesSimularPrestamoService;
 // D. Calcular Tasa Inversa (Dado un monto de cuota, hallar el %)
 const calcularTasaPorCuotaService = (params) => {
     const { monto, cuotaDeseada, numeroCuotas, tipoCalculo } = params;
-    // Validación inicial: La cuota debe cubrir al menos el capital
-    const capitalMinimo = monto / numeroCuotas;
-    if (cuotaDeseada <= capitalMinimo) {
-        throw new Error("La cuota deseada es muy baja, no cubre el capital.");
-    }
     let tasaEncontrada = 0;
-    if (tipoCalculo === 'capital+interes') {
-        // Fórmula directa: Cuota = (Monto/n) + (Monto * Tasa/100)
-        // Despejando Tasa:
-        // InteresMonto = Cuota - (Monto/n)
-        // Tasa = (InteresMonto / Monto) * 100
+    if (tipoCalculo === 'solo_interes') {
+        // En solo_interes, la cuota deseada es la cuota de interés directo
+        tasaEncontrada = (cuotaDeseada / monto) * 100;
+    }
+    else if (tipoCalculo === 'capital+interes') {
+        const capitalMinimo = monto / numeroCuotas;
+        if (cuotaDeseada <= capitalMinimo) {
+            throw new Error(`La cuota deseada debe ser mayor a RD$ ${capitalMinimo.toFixed(2)} para cubrir el capital.`);
+        }
         const interesMonto = cuotaDeseada - capitalMinimo;
         tasaEncontrada = (interesMonto / monto) * 100;
     }
     else {
-        // Amortizable (Newton-Raphson o Búsqueda Binaria)
-        // Usaremos búsqueda binaria simple entre 0% y 100% mensual
+        // Amortizable (Búsqueda Binaria de ultra alta precisión)
+        const capitalMinimo = monto / numeroCuotas;
+        if (cuotaDeseada <= capitalMinimo) {
+            throw new Error(`La cuota deseada debe ser mayor a RD$ ${capitalMinimo.toFixed(2)} para cubrir el capital.`);
+        }
         let low = 0;
-        let high = 100;
-        let epsilon = 0.001; // Precisión
-        for (let i = 0; i < 100; i++) { // Max 100 iteraciones
+        let high = 500;
+        let epsilon = 0.00001; // Ultra preciso (0.001 centavo)
+        for (let i = 0; i < 100; i++) {
             let mid = (low + high) / 2;
             const sim = (0, exports.simularPrestamoService)({
                 monto, tasaInteres: mid, numeroCuotas, tipoCalculo: 'amortizable'
@@ -328,12 +373,21 @@ const calcularTasaPorCuotaService = (params) => {
             tasaEncontrada = mid;
         }
     }
-    return {
+    // Redondeamos a 4 decimales (estándar bancario/financiero) para evitar feos artefactos flotantes de 16 dígitos
+    const tasaCuatroDecimales = Number(tasaEncontrada.toFixed(4));
+    const simulacionAjustada = (0, exports.simularPrestamoService)({
         monto,
+        tasaInteres: tasaCuatroDecimales,
         numeroCuotas,
-        cuotaObjetivo: cuotaDeseada,
-        tasaCalculada: Number(tasaEncontrada.toFixed(2)),
-        tipoCalculo
+        tipoCalculo,
+        cuotaDeseada
+    });
+    return {
+        ...simulacionAjustada,
+        tasaCalculada: tasaCuatroDecimales,
+        tasaInteres: tasaCuatroDecimales,
+        tasaDisplay: Number(tasaCuatroDecimales.toFixed(2)),
+        cuotaObjetivo: cuotaDeseada
     };
 };
 exports.calcularTasaPorCuotaService = calcularTasaPorCuotaService;

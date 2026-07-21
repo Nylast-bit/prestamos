@@ -35,6 +35,8 @@ interface Pago {
     CapitalRestante: number;    // Nuevo campo agregado
     MontoCuota: number;         // Nuevo campo agregado 
     CantidadCuotas: number;     // Nuevo campo agregado
+    TipoCalculo?: string;
+    InteresPorcentaje?: number;
     Cliente?: {
       Nombre: string;
     };
@@ -52,6 +54,7 @@ export function PagosContent() {
   const [pagos, setPagos] = useState<Pago[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [filtroTipo, setFiltroTipo] = useState<'todos' | 'cuota' | 'personalizado'>('todos')
   
   // Estados para el borrado (Reversión)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -72,9 +75,11 @@ export function PagosContent() {
     // Si el tipo de pago es "Personalizado" y el capital abonado es mayor que la cuota regular,
     // calculamos la diferencia como "Abono Extraordinario". Si no, es 0.
     // (Ajusta esta lógica según prefieras manejarlo visualmente)
-    const esAbonoExtraordinario = pago.TipoPago === "Personalizado";
-    const capitalRegular = esAbonoExtraordinario ? 0 : Number(pago.MontoCapitalAbonado);
-    const capitalExtra = esAbonoExtraordinario ? Number(pago.MontoCapitalAbonado) : 0;
+    const esSoloInteres = pago.Prestamo?.TipoCalculo === "solo_interes";
+
+    // Si el pago es personalizado, mostramos el abono directamente en la fila Pago Capital para evitar confusiones
+    const capitalRegular = Number(pago.MontoCapitalAbonado || 0);
+    const capitalExtra = 0;
 
     const montoCuota = (pago.Prestamo?.MontoCuota && Number(pago.Prestamo.MontoCuota) > 0)
       ? Number(pago.Prestamo.MontoCuota)
@@ -85,7 +90,13 @@ export function PagosContent() {
       ? Number(pago.CuotasRestantes)
       : Math.max(0, cuotasTotales - Number(pago.NumeroCuota));
 
-    let montoPendienteCalculado = montoCuota * cuotasRestantes;
+    const capRestante = pago.Prestamo?.CapitalRestante !== undefined && pago.Prestamo?.CapitalRestante !== null ? Number(pago.Prestamo.CapitalRestante) : 0;
+    const interesPorc = pago.Prestamo?.InteresPorcentaje !== undefined ? Number(pago.Prestamo.InteresPorcentaje) : 0;
+
+    let montoPendienteCalculado = esSoloInteres
+      ? (capRestante + (capRestante * (interesPorc / 100)))
+      : (montoCuota * cuotasRestantes);
+
     if (montoPendienteCalculado === 0 && pago.Prestamo?.CapitalRestante && Number(pago.Prestamo.CapitalRestante) > 0) {
       montoPendienteCalculado = Number(pago.Prestamo.CapitalRestante);
     }
@@ -154,7 +165,11 @@ export function PagosContent() {
     const idPago = pago.IdPago.toString()
     const idPrestamo = pago.IdPrestamo.toString()
 
-    return clienteNombre.includes(term) || idPago.includes(term) || idPrestamo.includes(term)
+    const matchSearch = clienteNombre.includes(term) || idPago.includes(term) || idPrestamo.includes(term)
+    const matchTipo = filtroTipo === 'todos' ? true 
+      : filtroTipo === 'personalizado' ? pago.TipoPago === 'Personalizado'
+      : pago.TipoPago !== 'Personalizado'
+    return matchSearch && matchTipo
   })
 
   // Cálculos de Totales
@@ -255,15 +270,31 @@ export function PagosContent() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Buscador */}
-          <div className="flex items-center space-x-2 mb-4 bg-gray-50 p-2 rounded-md border">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por cliente, ID de pago o préstamo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
+          {/* Buscador y Filtros */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center space-x-2 flex-1 bg-gray-50 p-2 rounded-md border">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por cliente, ID de pago o préstamo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+            <div className="flex gap-1 bg-gray-50 p-1.5 rounded-md border">
+              <button
+                onClick={() => setFiltroTipo('todos')}
+                className={`px-3 py-1.5 rounded text-xs font-semibold transition-all ${filtroTipo === 'todos' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+              >Todos</button>
+              <button
+                onClick={() => setFiltroTipo('cuota')}
+                className={`px-3 py-1.5 rounded text-xs font-semibold transition-all ${filtroTipo === 'cuota' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >Cuotas</button>
+              <button
+                onClick={() => setFiltroTipo('personalizado')}
+                className={`px-3 py-1.5 rounded text-xs font-semibold transition-all ${filtroTipo === 'personalizado' ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >Personalizados</button>
+            </div>
           </div>
 
           <div className="rounded-md border">

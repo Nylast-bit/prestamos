@@ -1,17 +1,19 @@
 // 📄 ARCHIVO: components/prestamo-simulation-dialog.tsx
 
+import React, { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { DollarSign, TrendingUp, Wallet, Calculator, CalendarClock } from 'lucide-react'
+import { DollarSign, TrendingUp, Wallet, Calculator, CalendarClock, RefreshCw, Loader2 } from 'lucide-react'
 
 // Helper para formato de dinero exacto
 const formatMoney = (amount: number) => {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('es-DO', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'DOP',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(amount);
@@ -23,9 +25,31 @@ export function PrestamoSimulationDialog({
   onConfirm, 
   resumen, 
   cuotas, 
-  isSubmitting 
+  isSubmitting,
+  onRecalcularCuota
 }: any) {
+  const [cuotaInput, setCuotaInput] = useState<string>("")
+  const [loadingAjuste, setLoadingAjuste] = useState(false)
+
+  useEffect(() => {
+    if (resumen && resumen.montoCuota) {
+      setCuotaInput(resumen.montoCuota.toString())
+    }
+  }, [resumen])
+
   if (!resumen) return null;
+
+  const handleAjustarTasa = async () => {
+    const val = parseFloat(cuotaInput)
+    if (isNaN(val) || val <= 0 || !onRecalcularCuota) return
+
+    setLoadingAjuste(true)
+    try {
+      await onRecalcularCuota(val)
+    } finally {
+      setLoadingAjuste(false)
+    }
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -39,7 +63,7 @@ export function PrestamoSimulationDialog({
                         Simulación de Préstamo
                     </DialogTitle>
                     <DialogDescription className="mt-1">
-                        Desglose financiero del nuevo préstamo.
+                        Desglose financiero del nuevo préstamo. Modifica la cuota para recalcular el interés.
                     </DialogDescription>
                 </div>
                 <Badge variant="secondary" className="text-sm px-3 py-1">
@@ -74,8 +98,8 @@ export function PrestamoSimulationDialog({
                                 <p className="text-xl font-bold text-orange-600">
                                     {formatMoney(resumen.montoTotalInteres)}
                                 </p>
-                                <span className="text-xs font-medium text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">
-                                    {resumen.tasaInteres}%
+                                <span className="text-xs font-medium text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded cursor-help" title={`Tasa de interés real guardada: ${resumen.tasaInteres}%`}>
+                                    {Number(resumen.tasaDisplay || resumen.tasaInteres).toFixed(2)}%
                                 </span>
                             </div>
                         </div>
@@ -100,24 +124,59 @@ export function PrestamoSimulationDialog({
                 </Card>
             </div>
 
-            {/* INFO CUOTA */}
-            <div className="bg-white p-4 rounded-lg border flex items-center justify-between shadow-sm">
+            {/* INFO CUOTA EDITABLE */}
+            <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 p-4 rounded-xl border border-blue-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gray-100 rounded-md">
-                        <CalendarClock className="h-5 w-5 text-gray-600" />
+                    <div className="p-2.5 bg-[#213685] text-white rounded-lg shadow-sm">
+                        <CalendarClock className="h-5 w-5" />
                     </div>
                     <div>
-                        {/* Se capitaliza la primera letra de la modalidad */}
-                        <h4 className="font-semibold text-sm text-gray-900 capitalize">
+                        <h4 className="font-semibold text-sm text-gray-900 capitalize flex items-center gap-2">
                             Cuota {resumen.ModalidadPago || "Fija"}
+                            <span className="text-[10px] font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                              Ajustable
+                            </span>
                         </h4>
-                        <p className="text-xs text-muted-foreground">Pago estimado por periodo</p>
+                        <p className="text-xs text-muted-foreground">
+                            {resumen.tipoCalculo === 'solo_interes'
+                                ? 'Cuota mínima obligatoria (Solo Interés). Abonos adicionales reducen el principal.'
+                                : 'Cambia la cuota y presiona Reajustar Tasa para calcular el interés exacto.'
+                            }
+                        </p>
                     </div>
                 </div>
-                <div className="text-right">
-                    <span className="text-2xl font-bold text-[#213685]">
-                        {formatMoney(resumen.montoCuota)}
-                    </span>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-400">$</span>
+                        <Input
+                            type="number"
+                            step="any"
+                            value={cuotaInput}
+                            onChange={(e) => setCuotaInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAjustarTasa();
+                              }
+                            }}
+                            className="w-36 pl-7 text-right font-bold text-lg text-[#213685] bg-white border-blue-300 focus-visible:ring-blue-500 shadow-sm"
+                        />
+                    </div>
+                    <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleAjustarTasa}
+                        disabled={loadingAjuste || !cuotaInput || parseFloat(cuotaInput) === resumen.montoCuota}
+                        className="bg-[#213685] hover:bg-[#213685]/90 text-white text-xs h-10 px-3 shadow-sm"
+                    >
+                        {loadingAjuste ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <span className="flex items-center gap-1">
+                                <RefreshCw className="h-3.5 w-3.5" /> Reajustar
+                            </span>
+                        )}
+                    </Button>
                 </div>
             </div>
 

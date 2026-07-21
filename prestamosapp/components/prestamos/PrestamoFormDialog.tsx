@@ -41,52 +41,116 @@ export function PrestamoFormDialog({
     setFormData((prev: any) => ({ ...prev, [field]: value }))
   }
 
+  const formatDateDDMMYYYY = (isoDateStr: string) => {
+    if (!isoDateStr) return "";
+    const cleanStr = isoDateStr.split("T")[0];
+    const parts = cleanStr.split("-");
+    if (parts.length !== 3) return isoDateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  };
+
+  const obtenerDiaSemanaNombre = (date: Date) => {
+    const dias = ['Domingos', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábados'];
+    return dias[date.getDay()];
+  };
+
+  const calcularPlanPagos = (fechaInicioStr: string, cuotas: number, modalidadStr: string) => {
+    if (!fechaInicioStr || isNaN(cuotas) || cuotas <= 0) {
+      return { primeraCuotaIso: "", primeraCuotaFormatted: "", fechaFinIso: "", fechaFinFormatted: "", helperInfo: "" };
+    }
+
+    const fechaBase = new Date(fechaInicioStr + "T12:00:00");
+    const modalidad = (modalidadStr || "mensual").toLowerCase();
+
+    let primeraCuota = new Date(fechaBase);
+    let fechaFin = new Date(fechaBase);
+    let helperInfo = "";
+
+    if (modalidad === "diario") {
+      primeraCuota.setDate(primeraCuota.getDate() + 1);
+      fechaFin.setDate(fechaFin.getDate() + cuotas);
+      helperInfo = "Cobro diario (1 día después de inicio)";
+    } else if (modalidad === "semanal") {
+      const diaNombre = obtenerDiaSemanaNombre(fechaBase);
+      primeraCuota.setDate(primeraCuota.getDate() + 7);
+      fechaFin.setDate(fechaFin.getDate() + (cuotas * 7));
+      helperInfo = `Cobros fijos cada ${diaNombre}`;
+    } else if (modalidad === "quincenal") {
+      let tempDate = new Date(fechaBase);
+      for (let k = 0; k < cuotas; k++) {
+        const year = tempDate.getFullYear();
+        const mes = tempDate.getMonth();
+        const dia = tempDate.getDate();
+        const ultimoDiaMes = new Date(year, mes + 1, 0).getDate();
+        const dia30OFinMes = Math.min(30, ultimoDiaMes);
+
+        if (dia < 15) {
+          tempDate = new Date(year, mes, 15, 12, 0, 0);
+        } else if (dia < dia30OFinMes) {
+          tempDate = new Date(year, mes, dia30OFinMes, 12, 0, 0);
+        } else {
+          tempDate = new Date(year, mes + 1, 15, 12, 0, 0);
+        }
+
+        if (k === 0) {
+          primeraCuota = new Date(tempDate);
+        }
+      }
+      fechaFin = tempDate;
+      helperInfo = "Cobros fijados días 15 y 30";
+    } else if (modalidad === "mensual") {
+      const diaDelMes = fechaBase.getDate();
+      primeraCuota.setMonth(primeraCuota.getMonth() + 1);
+      fechaFin.setMonth(fechaFin.getMonth() + cuotas);
+      helperInfo = `Cobros fijados los días ${diaDelMes} de cada mes`;
+    }
+
+    const primeraCuotaIso = primeraCuota.toISOString().split("T")[0];
+    const fechaFinIso = fechaFin.toISOString().split("T")[0];
+
+    return {
+      primeraCuotaIso,
+      primeraCuotaFormatted: formatDateDDMMYYYY(primeraCuotaIso),
+      fechaFinIso,
+      fechaFinFormatted: formatDateDDMMYYYY(fechaFinIso),
+      helperInfo
+    };
+  };
+
   // ------------------------------------------------------------------
   // 🔮 CÁLCULO AUTOMÁTICO DE FECHA DE VENCIMIENTO
   // ------------------------------------------------------------------
   useEffect(() => {
-    if (!isEditing && formData.FechaInicio && formData.CantidadCuotas && formData.ModalidadPago) {
+    if (!isEditing && formData.FechaInicio && formData.ModalidadPago) {
+      const esSoloInteres = formData.TipoCalculo === "solo_interes";
+      const cuotas = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 8 : 0);
+      if (cuotas <= 0) return;
 
-      const cuotas = parseInt(formData.CantidadCuotas);
-      if (isNaN(cuotas) || cuotas <= 0) return;
+      const plan = calcularPlanPagos(formData.FechaInicio, cuotas, formData.ModalidadPago);
 
-      // Creamos la fecha base a mediodía para evitar problemas de zona horaria
-      const fechaBase = new Date(formData.FechaInicio + "T12:00:00");
-      const modalidad = formData.ModalidadPago.toLowerCase();
-
-      let diasAAgregar = 0;
-
-      if (modalidad === 'mensual') {
-        fechaBase.setMonth(fechaBase.getMonth() + cuotas);
-      } else if (modalidad === 'quincenal') {
-        diasAAgregar = cuotas * 15;
-        fechaBase.setDate(fechaBase.getDate() + diasAAgregar);
-      } else if (modalidad === 'semanal') {
-        diasAAgregar = cuotas * 7;
-        fechaBase.setDate(fechaBase.getDate() + diasAAgregar);
-      } else if (modalidad === 'diario') {
-        diasAAgregar = cuotas;
-        fechaBase.setDate(fechaBase.getDate() + diasAAgregar);
-      }
-
-      const nuevaFechaFin = fechaBase.toISOString().split('T')[0];
-
-      if (formData.FechaFinEstimada !== nuevaFechaFin) {
-        updateField("FechaFinEstimada", nuevaFechaFin);
+      if (plan.fechaFinIso && formData.FechaFinEstimada !== plan.fechaFinIso) {
+        updateField("FechaFinEstimada", plan.fechaFinIso);
       }
     }
-  }, [formData.FechaInicio, formData.CantidadCuotas, formData.ModalidadPago, isEditing]);
+  }, [formData.FechaInicio, formData.CantidadCuotas, formData.ModalidadPago, formData.TipoCalculo, isEditing]);
+
+  const esSoloInteres = formData.TipoCalculo === "solo_interes";
+  const planActual = calcularPlanPagos(
+    formData.FechaInicio,
+    parseInt(formData.CantidadCuotas) || (esSoloInteres ? 8 : 0),
+    formData.ModalidadPago
+  );
 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="border-b pb-4">
-          <DialogTitle className="flex items-center gap-2 text-[#213685]">
+        <DialogHeader className="border-b pb-2.5">
+          <DialogTitle className="flex items-center gap-2 text-[#213685] text-lg">
             {isEditing ? <Wand2 className="h-5 w-5" /> : <Calculator className="h-5 w-5" />}
             {isEditing ? "Editar Préstamo" : "Nuevo Préstamo"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             {isEditing
               ? "Modifica los parámetros del préstamo."
               : "Configura los términos financieros. La fecha final se calculará automáticamente."
@@ -95,17 +159,17 @@ export function PrestamoFormDialog({
         </DialogHeader>
 
         {/* --- INICIO DEL FORMULARIO --- */}
-        <div className="grid gap-6 py-6">
+        <div className="grid gap-4 py-3.5">
 
           {/* SECCIÓN 1: PERSONAS */}
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase text-gray-500">Cliente</Label>
               <Select
                 value={formData.IdCliente}
                 onValueChange={(val) => updateField("IdCliente", val)}
               >
-                <SelectTrigger className="bg-gray-50/50">
+                <SelectTrigger className="bg-gray-50/50 h-9.5 text-sm">
                   <SelectValue placeholder="Seleccionar cliente" />
                 </SelectTrigger>
                 <SelectContent>
@@ -117,13 +181,13 @@ export function PrestamoFormDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase text-gray-500">Prestatario (Inversionista)</Label>
               <Select
                 value={formData.IdPrestatario}
                 onValueChange={(val) => updateField("IdPrestatario", val)}
               >
-                <SelectTrigger className="bg-gray-50/50">
+                <SelectTrigger className="bg-gray-50/50 h-9.5 text-sm">
                   <SelectValue placeholder="Seleccionar prestatario" />
                 </SelectTrigger>
                 <SelectContent>
@@ -137,60 +201,66 @@ export function PrestamoFormDialog({
             </div>
           </div>
 
-          <div className="border-t border-gray-100 my-1"></div>
-
           {/* SECCIÓN 2: TÉRMINOS FINANCIEROS */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="MontoPrestado" className="text-blue-700 font-medium">Monto Principal ($)</Label>
+          <div className="grid grid-cols-3 gap-3.5">
+            <div className="space-y-1.5">
+              <Label htmlFor="MontoPrestado" className="text-blue-700 font-semibold text-xs">Monto Principal ($)</Label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-gray-400 font-bold">$</span>
+                <span className="absolute left-2.5 top-2.5 text-gray-400 font-bold text-sm">$</span>
                 <Input
                   id="MontoPrestado"
                   type="number"
                   step="100"
-                  className="pl-7 font-bold text-lg"
+                  className="pl-6.5 font-bold h-9.5 text-base"
                   value={formData.MontoPrestado}
                   onChange={(e) => updateField("MontoPrestado", e.target.value)}
                   placeholder="0.00"
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="InteresPorcentaje">Tasa Interés (%)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="InteresPorcentaje" className="text-xs font-semibold">Tasa Interés (%)</Label>
               <div className="relative">
                 <Input
                   id="InteresPorcentaje"
                   type="number"
                   step="0.1"
-                  className="pr-8"
+                  className="pr-7.5 h-9.5 text-sm"
                   value={formData.InteresPorcentaje}
                   onChange={(e) => updateField("InteresPorcentaje", e.target.value)}
                   placeholder="Ej. 10"
                 />
-                <span className="absolute right-3 top-2.5 text-gray-400 font-bold">%</span>
+                <span className="absolute right-2.5 top-2.5 text-gray-400 font-bold text-sm">%</span>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="CantidadCuotas">Cantidad Cuotas</Label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="CantidadCuotas" className="text-xs font-semibold">Cantidad Cuotas</Label>
+                {formData.TipoCalculo === "solo_interes" && !formData.CantidadCuotas && (
+                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                    Plazo Libre (8 proy.)
+                  </span>
+                )}
+              </div>
               <Input
                 id="CantidadCuotas"
                 type="number"
+                className="h-9.5 text-sm"
                 value={formData.CantidadCuotas}
                 onChange={(e) => updateField("CantidadCuotas", e.target.value)}
-                placeholder="Ej. 12"
+                placeholder={formData.TipoCalculo === "solo_interes" ? "Opcional (Ej. 8)" : "Ej. 12"}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label>Modalidad de Pago</Label>
+          <div className="grid grid-cols-2 gap-3.5">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Modalidad de Pago</Label>
               <Select
                 value={formData.ModalidadPago}
                 onValueChange={(val) => updateField("ModalidadPago", val)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-9.5 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -201,65 +271,92 @@ export function PrestamoFormDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Tipo de Cálculo</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Tipo de Cálculo</Label>
               <Select
                 value={formData.TipoCalculo}
                 onValueChange={(val) => updateField("TipoCalculo", val)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-9.5 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="capital+interes">Capital + Interés (Cuota Fija Flat)</SelectItem>
                   <SelectItem value="amortizable">Amortizable (Interés sobre Saldo)</SelectItem>
+                  <SelectItem value="solo_interes">Solo Interés (Abonos Abiertos a Capital)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="border-t border-gray-100 my-1"></div>
+          {/* SECCIÓN 3: FECHAS Y CALENDARIO DE PAGO */}
+          <div className="bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-3 rounded-xl border border-blue-100 space-y-2.5">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="FechaInicio" className="flex items-center gap-1.5 font-semibold text-blue-900 text-xs">
+                    <CalendarDays className="h-3.5 w-3.5 text-blue-600" /> Inicio Préstamo
+                  </Label>
+                  {formData.FechaInicio && (
+                    <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                      {formatDateDDMMYYYY(formData.FechaInicio)}
+                    </span>
+                  )}
+                </div>
+                <Input
+                  id="FechaInicio"
+                  type="date"
+                  className="bg-white h-9 text-xs"
+                  value={formData.FechaInicio}
+                  onChange={(e) => updateField("FechaInicio", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="FechaFinEstimada" className="flex items-center gap-1.5 font-semibold text-purple-900 text-xs">
+                    <Wand2 className="h-3.5 w-3.5 text-purple-600" /> Fecha Final (Estimada)
+                  </Label>
+                  {formData.FechaFinEstimada && (
+                    <span className="text-xs font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
+                      {formatDateDDMMYYYY(formData.FechaFinEstimada)}
+                    </span>
+                  )}
+                </div>
+                <Input
+                  id="FechaFinEstimada"
+                  type="date"
+                  className="bg-white font-semibold text-gray-700 h-9 text-xs"
+                  value={formData.FechaFinEstimada}
+                  onChange={(e) => updateField("FechaFinEstimada", e.target.value)}
+                  required
+                />
+              </div>
+            </div>
 
-          {/* SECCIÓN 3: FECHAS AUTOMÁTICAS */}
-          <div className="grid grid-cols-2 gap-6 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
-            <div className="space-y-2">
-              <Label htmlFor="FechaInicio" className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-blue-600" /> Inicio del Préstamo
-              </Label>
-              <Input
-                id="FechaInicio"
-                type="date"
-                className="bg-white"
-                value={formData.FechaInicio}
-                onChange={(e) => updateField("FechaInicio", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="FechaFinEstimada" className="flex items-center gap-2">
-                <Wand2 className="h-4 w-4 text-purple-600" /> Fecha Final (Estimada)
-              </Label>
-              <Input
-                id="FechaFinEstimada"
-                type="date"
-                className="bg-white font-semibold text-gray-700"
-                value={formData.FechaFinEstimada}
-                onChange={(e) => updateField("FechaFinEstimada", e.target.value)}
-                required
-              />
-              <p className="text-[10px] text-muted-foreground text-right">
-                *Calculada automáticamente según cuotas
-              </p>
-            </div>
+            {/* INFORMACIÓN DE LA PRIMERA CUOTA Y REGLA DE COBRO */}
+            {planActual.primeraCuotaFormatted && (
+              <div className="bg-white p-2.5 rounded-lg border border-blue-100 flex items-center justify-between gap-2 shadow-xs">
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                  <span className="bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded text-xs">
+                    1ª Cuota
+                  </span>
+                  <span>Primera cuota: <strong className="text-green-700 font-bold">{planActual.primeraCuotaFormatted}</strong></span>
+                </div>
+                <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2.5 py-0.5 rounded-full">
+                  {planActual.helperInfo}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Observaciones */}
-          <div className="space-y-2">
-            <Label htmlFor="Observaciones">Notas / Garantía</Label>
+          <div className="space-y-1">
+            <Label htmlFor="Observaciones" className="text-xs font-semibold">Notas / Garantía</Label>
             <Textarea
               id="Observaciones"
-              className="resize-none"
-              rows={2}
+              className="resize-none text-xs py-2 min-h-[42px]"
+              rows={1}
               value={formData.Observaciones}
               onChange={(e) => updateField("Observaciones", e.target.value)}
               placeholder="Detalles sobre garantía o condiciones especiales..."
@@ -274,8 +371,8 @@ export function PrestamoFormDialog({
               onClick={() => {
                 onSimular(); // Llama a la función del padre
               }}
-              disabled={isSimulating || !formData.MontoPrestado || !formData.InteresPorcentaje || !formData.CantidadCuotas}
-              className="w-full bg-slate-800 text-white hover:bg-slate-700 h-12 shadow-sm"
+              disabled={isSimulating || !formData.MontoPrestado || !formData.InteresPorcentaje || (!formData.CantidadCuotas && formData.TipoCalculo !== "solo_interes")}
+              className="w-full bg-slate-800 text-white hover:bg-slate-700 h-10 text-sm font-semibold shadow-sm"
             >
               {isSimulating ? (
                 "Calculando..."
@@ -290,13 +387,13 @@ export function PrestamoFormDialog({
         </div>
         {/* --- FIN DEL FORMULARIO --- */}
 
-        <DialogFooter className="border-t pt-4">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
+        <DialogFooter className="border-t pt-3">
+          <Button type="button" variant="ghost" className="h-9 text-xs" onClick={onClose} disabled={isSubmitting}>
             Cancelar
           </Button>
           <Button
             onClick={() => onSubmit()}
-            className="bg-[#213685] hover:bg-[#213685]/90 min-w-[150px]"
+            className="bg-[#213685] hover:bg-[#213685]/90 min-w-[140px] h-9 text-xs font-semibold"
             disabled={isSubmitting}
           >
             {isSubmitting ? "Procesando..." : (isEditing ? "Guardar Cambios" : "Crear Préstamo")}

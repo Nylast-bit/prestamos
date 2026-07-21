@@ -107,6 +107,8 @@ const getAllPagosService = async (idEmpresa) => {
         CapitalRestante,
         CantidadCuotas,
         MontoCuota,
+        TipoCalculo,
+        InteresPorcentaje,
         Cliente (
           Nombre
         )
