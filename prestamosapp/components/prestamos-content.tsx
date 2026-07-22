@@ -15,10 +15,12 @@ import { PrestamoStats } from "@/components/prestamos/PrestamoStats"
 import { PrestamoTable } from "@/components/prestamos/PrestamoTable"
 import { PrestamoFormDialog } from "@/components/prestamos/PrestamoFormDialog"
 import { PrestamoSimulationDialog } from "@/components/prestamos/PrestamoSimulationDialog"
+import { ReengancheModal } from "@/components/prestamos/ReengancheModal"
 
 // --- INTERFACES ---
 interface Prestamo {
   IdPrestamo: number
+  NumeroEmpresa?: number
   IdCliente: number
   IdPrestatario: number
   clienteNombre?: string
@@ -75,15 +77,17 @@ export function PrestamosContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filtroPrestatario, setFiltroPrestatario] = useState("todos")
   const [filtroModalidad, setFiltroModalidad] = useState("todos")
-  const [filtroEstado, setFiltroEstado] = useState("Activo") // Por defecto mostramos solo activos
+  const [filtroEstado, setFiltroEstado] = useState("todos") // Mostramos todos por defecto (Activos, En Mora, Pagados)
   
   // Estados de Diálogos
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isSimOpen, setIsSimOpen] = useState(false)
+  const [isReengancheOpen, setIsReengancheOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   
   // Datos temporales
   const [editingPrestamo, setEditingPrestamo] = useState<Prestamo | null>(null)
+  const [prestamoToReenganchar, setPrestamoToReenganchar] = useState<any>(null)
   const [prestamoToDelete, setPrestamoToDelete] = useState<number | null>(null)
   const [simulacionResumen, setSimulacionResumen] = useState<SimulacionResumen | null>(null)
   const [simulacionCuotas, setSimulacionCuotas] = useState<SimulacionCuota[]>([])
@@ -134,6 +138,7 @@ export function PrestamosContent() {
     const matchesSearch = 
       p.clienteNombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.prestatarioNombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.NumeroEmpresa?.toString().includes(searchTerm) ||
       p.IdPrestamo?.toString().includes(searchTerm);
 
     // 2. Filtro por Prestatario
@@ -155,11 +160,19 @@ export function PrestamosContent() {
       setFiltroEstado("Activo");
   }
 
-  // --- ESTADÍSTICAS ---
+  // --- ESTADÍSTICAS (Suma exacta de la columna Saldo Restante) ---
+  const prestamosVigentes = prestamos.filter(p => p.Estado !== "Pagado" && p.Estado !== "Cancelado");
+
   const stats = {
     activos: prestamos.filter(p => p.Estado === "Activo").length,
-    restanteAPagar: prestamos.filter(p => p.Estado === "Activo").reduce((sum, p) => sum + (Number(p.MontoCuota) * Number(p.CuotasRestantes)), 0),
-    interes: prestamos.filter(p => p.Estado === "Activo").reduce((sum, p) => sum + (Number(p.MontoPrestado) * (Number(p.InteresPorcentaje) / 100)), 0),
+    restanteAPagar: prestamosVigentes.reduce((sum, p) => {
+      const capRestante = p.CapitalRestante !== undefined && p.CapitalRestante !== null ? Number(p.CapitalRestante) : Number(p.MontoPrestado);
+      const saldoRestante = p.TipoCalculo === "solo_interes"
+        ? (capRestante + (capRestante * (Number(p.InteresPorcentaje) / 100)))
+        : (Number(p.MontoCuota) * Number(p.CuotasRestantes || 0));
+      return sum + saldoRestante;
+    }, 0),
+    interes: prestamosVigentes.reduce((sum, p) => sum + (Number(p.MontoPrestado) * (Number(p.InteresPorcentaje) / 100)), 0),
     mora: prestamos.filter(p => p.Estado === "En Mora").length
   }
 
@@ -282,6 +295,17 @@ export function PrestamosContent() {
       const esSoloInteres = formData.TipoCalculo === "solo_interes";
       const cuotasTotal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0);
 
+      const safeISO = (dateStr: string, defaultOffsetDays: number = 0) => {
+        if (dateStr) {
+          const clean = dateStr.split("T")[0];
+          const d = new Date(`${clean}T12:00:00.000Z`);
+          if (!isNaN(d.getTime())) return d.toISOString();
+        }
+        const fallback = new Date();
+        fallback.setDate(fallback.getDate() + defaultOffsetDays);
+        return fallback.toISOString();
+      };
+
       let prestamoData: any = {
         IdCliente: parseInt(formData.IdCliente),
         IdPrestatario: parseInt(formData.IdPrestatario),
@@ -290,8 +314,8 @@ export function PrestamosContent() {
         InteresPorcentaje: parseFloat(formData.InteresPorcentaje),
         CantidadCuotas: cuotasTotal,
         ModalidadPago: formData.ModalidadPago.toLowerCase(), 
-        FechaInicio: new Date(formData.FechaInicio).toISOString(),
-        FechaFinEstimada: new Date(formData.FechaFinEstimada).toISOString(),
+        FechaInicio: safeISO(formData.FechaInicio, 0),
+        FechaFinEstimada: safeISO(formData.FechaFinEstimada, cuotasTotal * 30 || 30),
         Observaciones: formData.Observaciones || null,
         Estado: "Activo"
       }
@@ -321,8 +345,10 @@ export function PrestamosContent() {
       })
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || errorData.message || `Error ${response.status}`)
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.message || `Error ${response.status}`;
+        toast.error(errorMessage);
+        return;
       }
       
       await fetchData()
@@ -336,8 +362,7 @@ export function PrestamosContent() {
       setSimulacionCuotas([])
 
     } catch (error: any) {
-      console.error('Error en handleSubmit:', error)
-      toast.error(`Error: ${error.message}`)
+      toast.error(error?.message || "Ocurrió un error inesperado al procesar la solicitud")
     } finally {
       setSubmitting(false)
     }
@@ -482,7 +507,8 @@ export function PrestamosContent() {
             prestamos={filteredPrestamos}
             onEdit={handleEdit}
             onDelete={(id: number) => { setPrestamoToDelete(id); setDeleteDialogOpen(true); }}
-            onPaymentSuccess={fetchData} 
+            onPaymentSuccess={fetchData}
+            onReenganchar={(p: any) => { setPrestamoToReenganchar(p); setIsReengancheOpen(true); }} 
           />
         </CardContent>
       </Card>
@@ -510,6 +536,14 @@ export function PrestamosContent() {
         cuotas={simulacionCuotas}
         isSubmitting={submitting}
         onRecalcularCuota={handleRecalcularCuota}
+      />
+
+      <ReengancheModal
+        isOpen={isReengancheOpen}
+        onClose={() => { setIsReengancheOpen(false); setPrestamoToReenganchar(null); }}
+        prestamo={prestamoToReenganchar}
+        prestatarios={prestatarios}
+        onSuccess={fetchData}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

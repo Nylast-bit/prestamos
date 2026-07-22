@@ -36,23 +36,71 @@ const createPagoService = async (data, idEmpresa) => {
         }
     }
     logger_1.logger.info(`👤 Cliente identificado: ${nombreCliente}`);
-    // 3. CÁLCULOS LÓGICOS (Igual que antes)
+    // 3. CÁLCULOS LÓGICOS Y ACTUALIZACIÓN DE TABLA DE PAGOS
     const cuotasPrevias = prestamo.CuotasRestantes;
     const nuevasCuotas = cuotasPrevias - 1;
-    const cuotasParaGuardar = nuevasCuotas < 0 ? 0 : nuevasCuotas;
+    let cuotasParaGuardar = nuevasCuotas < 0 ? 0 : nuevasCuotas;
     const numeroCuotaReal = NumeroCuota || ((prestamo.CantidadCuotas - cuotasPrevias) + 1);
+    const nowISO = new Date().toISOString();
+    let tablaPagosString = prestamo.TablaPagos;
+    if (tablaPagosString) {
+        try {
+            const tabla = JSON.parse(tablaPagosString);
+            const cuotaIndex = tabla.findIndex((c) => c.numeroCuota === numeroCuotaReal || (!c.pagado && c.numeroCuota !== undefined));
+            if (cuotaIndex !== -1) {
+                tabla[cuotaIndex].pagado = true;
+                tabla[cuotaIndex].fechaPago = nowISO;
+            }
+            else {
+                const firstUnpaid = tabla.findIndex((c) => !c.pagado);
+                if (firstUnpaid !== -1) {
+                    tabla[firstUnpaid].pagado = true;
+                    tabla[firstUnpaid].fechaPago = nowISO;
+                }
+            }
+            tablaPagosString = JSON.stringify(tabla);
+            const pendientes = tabla.filter((c) => !c.pagado).length;
+            cuotasParaGuardar = pendientes;
+        }
+        catch (e) {
+            logger_1.logger.error("Error parseando TablaPagos en createPagoService:", e);
+        }
+    }
+    const nuevoCapitalRestante = Math.max(0, (prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? prestamo.CapitalRestante : prestamo.MontoPrestado) - Number(MontoCapitalAbonado || 0));
+    const esSoloInteres = (prestamo.TipoCalculo || '').toLowerCase().includes('solo_interes') || (prestamo.TipoCalculo || '').toLowerCase().includes('solo');
     let nuevoEstado = prestamo.Estado;
-    if (cuotasParaGuardar === 0)
-        nuevoEstado = 'Pagado';
-    // 4. INSERTAR EL PAGO (Igual que antes)
+    if (esSoloInteres) {
+        if (nuevoCapitalRestante === 0) {
+            nuevoEstado = 'Pagado';
+        }
+        else {
+            nuevoEstado = 'Activo';
+        }
+    }
+    else {
+        if (cuotasParaGuardar === 0 || nuevoCapitalRestante === 0) {
+            nuevoEstado = 'Pagado';
+        }
+    }
+    // 3.5 Calcular NumeroEmpresa secuencial para el Pago
+    const { data: maxPago } = await supabaseClient_1.supabase
+        .from("Pago")
+        .select("NumeroEmpresa, Prestamo!inner(IdEmpresa)")
+        .eq("Prestamo.IdEmpresa", idEmpresa)
+        .order("NumeroEmpresa", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    const nextNumeroEmpresa = ((maxPago?.NumeroEmpresa) || 0) + 1;
+    // 4. INSERTAR EL PAGO
     const { data: pagoRegistrado, error: errorPago } = await supabaseClient_1.supabase
         .from("Pago")
         .insert([{
             IdPrestamo,
+            NumeroEmpresa: nextNumeroEmpresa,
             MontoPagado,
             TipoPago,
             Observaciones,
-            FechaPago: new Date(),
+            FechaPago: nowISO,
             NumeroCuota: numeroCuotaReal,
             MontoInteresPagado,
             MontoCapitalAbonado,
@@ -63,15 +111,18 @@ const createPagoService = async (data, idEmpresa) => {
     if (errorPago)
         throw new Error("Error DB Pago: " + errorPago.message);
     // 5. ACTUALIZAR EL PRÉSTAMO
-    const nuevoCapitalRestante = Math.max(0, (prestamo.CapitalRestante || prestamo.MontoPrestado) - Number(MontoCapitalAbonado || 0));
-    const { error: errorUpdate } = await supabaseClient_1.supabase
-        .from("Prestamo")
-        .update({
+    const updatePayload = {
         CuotasRestantes: cuotasParaGuardar,
         CapitalRestante: nuevoCapitalRestante,
         Estado: nuevoEstado,
-        FechaUltimoPago: new Date()
-    })
+        FechaUltimoPago: nowISO
+    };
+    if (tablaPagosString) {
+        updatePayload.TablaPagos = tablaPagosString;
+    }
+    const { error: errorUpdate } = await supabaseClient_1.supabase
+        .from("Prestamo")
+        .update(updatePayload)
         .eq("IdPrestamo", IdPrestamo);
     if (errorUpdate)
         throw new Error("Error update préstamo: " + errorUpdate.message);

@@ -19,6 +19,7 @@ import { VolantePago } from "@/components/VolantePagoPDF"
 
 interface Pago {
   IdPago: number
+  NumeroEmpresa?: number
   IdPrestamo: number
   FechaPago: string
   TipoPago: string
@@ -30,6 +31,7 @@ interface Pago {
   NumeroCuota: number
   Prestamo?: {
     IdPrestamo: number;
+    NumeroEmpresa?: number;
     FechaInicio: string;
     FechaFinEstimada: string;
     CapitalRestante: number;
@@ -399,7 +401,7 @@ export function PagosContent() {
                   paginatedPagos.map((pago) => (
                     <TableRow key={pago.IdPago} className="hover:bg-slate-50/70 border-b border-slate-100 transition-colors">
                       <TableCell className="font-mono text-xs font-bold text-slate-600">
-                        #{pago.IdPago.toString().padStart(4, '0')}
+                        #{(pago.NumeroEmpresa ?? pago.IdPago).toString().padStart(4, '0')}
                       </TableCell>
                       
                       <TableCell>
@@ -419,7 +421,7 @@ export function PagosContent() {
                             {pago.Prestamo?.Cliente?.Nombre || "Cliente Desconocido"}
                           </span>
                           <span className="text-[10px] text-slate-500 font-mono">
-                            Préstamo #{pago.IdPrestamo}
+                            Préstamo #{pago.Prestamo?.NumeroEmpresa ?? pago.IdPrestamo}
                           </span>
                         </div>
                       </TableCell>

@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger';
 import { supabase } from "../config/supabaseClient";
-import { getConsolidacionActivaId } from "./consolidacioncapital.service";
+import { getConsolidacionActivaId, getBalanceDisponibleActivoService } from "./consolidacioncapital.service";
 
 interface RegistroConsolidacionData {
     IdConsolidacion?: number;
@@ -29,6 +29,21 @@ export const createRegistroConsolidacionService = async (data: RegistroConsolida
     const fechaFinalISO = data.FechaRegistro
         ? new Date(data.FechaRegistro).toISOString()
         : new Date().toISOString();
+
+    const tipoNorm = (data.TipoRegistro || '').toLowerCase().trim();
+    const estadoNorm = (data.Estado || '').toLowerCase().trim();
+
+    if (tipoNorm === 'egreso' && estadoNorm !== 'pendiente') {
+        const infoBalance = await getBalanceDisponibleActivoService(idEmpresa, fechaFinalISO);
+        const balanceDisponible = infoBalance.balanceDisponible;
+        const montoEgreso = Number(data.Monto || 0);
+
+        if (montoEgreso > balanceDisponible) {
+            const formattedBalance = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(balanceDisponible);
+            const formattedMonto = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(montoEgreso);
+            throw new Error(`Saldo insuficiente en caja. El balance disponible es ${formattedBalance} y se intentó retirar/desembolsar ${formattedMonto}.`);
+        }
+    }
 
     const { data: nuevoRegistro, error } = await supabase
         .from("RegistroConsolidacion")

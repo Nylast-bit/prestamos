@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Edit, Trash2, CalendarClock, Banknote, CheckCircle2, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { Edit, Trash2, CalendarClock, Banknote, CheckCircle2, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw } from 'lucide-react'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -47,7 +47,7 @@ const getProximoPago = (fechaInicioStr: string, modalidad: string, cuotasPagadas
 }
 
 // --- COMPONENTE PRINCIPAL ---
-export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }: any) {
+export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, onReenganchar }: any) {
   const { user } = useAuthStore();
   
   // Estados
@@ -363,8 +363,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                       onClick={() => handleRowClick(prestamo)}
                     >
                       <TableCell className="py-4">
-                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-xs font-bold tabular-nums">
-                          #{prestamo.IdPrestamo}
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-xs font-bold tabular-nums" title={`ID Interno: ${prestamo.IdPrestamo}`}>
+                          #{prestamo.NumeroEmpresa ?? prestamo.IdPrestamo}
                         </span>
                       </TableCell>
 
@@ -445,21 +445,35 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess }:
                             return (
                               <>
                                 {prestamo.Estado !== 'Pagado' && (
-                                  <Button 
-                                    variant="default" 
-                                    size="sm" 
-                                    disabled={!puedeCobrar}
-                                    className={`shadow-md hover:shadow-lg transition-all h-9 px-3 ${
-                                      puedeCobrar 
-                                        ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white' 
-                                        : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-60'
-                                    }`}
-                                    onClick={(e) => puedeCobrar && handleOpenPay(e, prestamo)}
-                                    title={puedeCobrar ? "Registrar Pago" : "Solo el prestamista asignado puede cobrar este préstamo"}
-                                  >
-                                    <Banknote className="h-4 w-4 mr-1" />
-                                    Cobrar
-                                  </Button>
+                                  <>
+                                    <Button 
+                                      variant="default" 
+                                      size="sm" 
+                                      disabled={!puedeCobrar}
+                                      className={`shadow-md hover:shadow-lg transition-all h-9 px-3 ${
+                                        puedeCobrar 
+                                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white' 
+                                          : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                                      }`}
+                                      onClick={(e) => puedeCobrar && handleOpenPay(e, prestamo)}
+                                      title={puedeCobrar ? "Registrar Pago" : "Solo el prestamista asignado puede cobrar este préstamo"}
+                                    >
+                                      <Banknote className="h-4 w-4 mr-1" />
+                                      Cobrar
+                                    </Button>
+
+                                    {puedeEditarOEliminar && onReenganchar && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-9 px-3 border-amber-300 bg-amber-50/50 hover:bg-amber-100 hover:border-amber-400 text-amber-900 transition-all font-medium text-xs shadow-sm"
+                                        onClick={(e) => { e.stopPropagation(); onReenganchar(prestamo); }}
+                                        title="Reenganchar Préstamo"
+                                      >
+                                        <RefreshCw className="h-3.5 w-3.5 mr-1 text-amber-700" />
+                                      </Button>
+                                    )}
+                                  </>
                                 )}
                                 {puedeEditarOEliminar && (
                                   <>

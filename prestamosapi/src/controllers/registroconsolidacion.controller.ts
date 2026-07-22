@@ -8,15 +8,17 @@ import * as registroConsolidacionService from "../services/registroconsolidacion
 
 // Crear registro de consolidación
 export const createRegistroConsolidacion = asyncHandler(async (req: any, res: Response) => {
-    // 1. Validar y parsear la data de entrada (Trabajo del controlador)
-    // El middleware validate(registroConsolidacionSchema) ya debe haber hecho esto,
-    // pero si se llama directamente, usamos parse:
     const data = registroConsolidacionSchema.parse(req.body);
 
-    // 2. Llamar al servicio (Trabajo del controlador)
-    const nuevoRegistro = await registroConsolidacionService.createRegistroConsolidacionService(data, req.user.IdEmpresa);
-
-    res.status(201).json(nuevoRegistro);
+    try {
+        const nuevoRegistro = await registroConsolidacionService.createRegistroConsolidacionService(data, req.user.IdEmpresa);
+        res.status(201).json(nuevoRegistro);
+    } catch (error: any) {
+        if (error.message.includes("Saldo insuficiente")) {
+            return res.status(400).json({ success: false, error: error.message });
+        }
+        throw error;
+    }
 });
 
 // Obtener todos los registros (con filtro opcional por idConsolidacion)

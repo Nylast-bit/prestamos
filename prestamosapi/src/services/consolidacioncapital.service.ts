@@ -122,14 +122,18 @@ const getRangoConsolidacion = (fecha: Date) => {
 
 // --- 2. FUNCIÓN PRINCIPAL ---
 export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa: number): Promise<number> => {
+  const fechaObj = new Date(fechaRegistro);
+  const inicioDia = new Date(fechaObj.getFullYear(), fechaObj.getMonth(), fechaObj.getDate(), 0, 0, 0, 0).toISOString();
+  const finDia = new Date(fechaObj.getFullYear(), fechaObj.getMonth(), fechaObj.getDate(), 23, 59, 59, 999).toISOString();
 
   // A. ¿YA EXISTE LA CONSOLIDACIÓN?
   const { data: consolidacion } = await supabase
     .from("ConsolidacionCapital")
     .select("IdConsolidacion")
     .eq("IdEmpresa", idEmpresa)
-    .lte("FechaInicio", fechaRegistro)
-    .gte("FechaFin", fechaRegistro)
+    .lte("FechaInicio", finDia)
+    .gte("FechaFin", inicioDia)
+    .order("FechaInicio", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -140,7 +144,6 @@ export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa:
   // B. NO EXISTE -> CREARLA + ARRASTRAR SALDO
   logger.info("⚠️ No hay consolidación activa. Creando nueva y arrastrando saldo...");
 
-  const fechaObj = new Date(fechaRegistro);
   const { inicioISO, finISO } = getRangoConsolidacion(fechaObj);
 
   // 1. Buscamos la consolidación INMEDIATAMENTE ANTERIOR para sacar el balance
@@ -462,5 +465,47 @@ export const getResumenConsolidacionActivaService = async (idEmpresa: number) =>
     FechaInicio: consolidacion.FechaInicio,
     FechaFin: consolidacion.FechaFin,
     IdConsolidacion: idConsolidacionActiva
+  };
+};
+
+export const getBalanceDisponibleActivoService = async (idEmpresa: number, fechaISO?: string) => {
+  const fecha = fechaISO || new Date().toISOString();
+  const idConsolidacionActiva = await getConsolidacionActivaId(fecha, idEmpresa);
+
+  const { data: registros, error: errReg } = await supabase
+    .from("RegistroConsolidacion")
+    .select("Monto, TipoRegistro")
+    .eq("IdConsolidacion", idConsolidacionActiva);
+
+  if (errReg) {
+    throw new Error("Error consultando registros de la consolidación activa: " + errReg.message);
+  }
+
+  let ingresos = 0;
+  let egresos = 0;
+
+  if (registros) {
+    for (const r of registros) {
+      const tipo = (r.TipoRegistro || "").toLowerCase().trim();
+      const monto = Number(r.Monto || 0);
+
+      if (tipo === "ingreso") {
+        ingresos += monto;
+      } else if (tipo === "egreso") {
+        egresos += monto;
+      }
+    }
+  }
+
+  const balanceDisponible = ingresos - egresos;
+
+  logger.info(`💰 Balance Neto Exacto para Consolidación #${idConsolidacionActiva}: Ingresos=${ingresos}, Egresos=${egresos} => Disponible=${balanceDisponible}`);
+
+  return {
+    idConsolidacion: idConsolidacionActiva,
+    capitalInicial: 0,
+    ingresos,
+    egresos,
+    balanceDisponible
   };
 };

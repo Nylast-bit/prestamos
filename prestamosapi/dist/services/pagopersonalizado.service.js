@@ -128,7 +128,8 @@ const createPagoPersonalizadoService = async (data) => {
         CapitalRestante: nuevoCapitalRestante,
         Estado: estadoPrestamo,
         TablaPagos: tablaPagosString,
-        CuotasRestantes: cuotasPendientes
+        CuotasRestantes: cuotasPendientes,
+        FechaUltimoPago: fechaPago
     })
         .eq("IdPrestamo", idPrestamo);
     if (errorUpdatePrestamo)
@@ -137,11 +138,21 @@ const createPagoPersonalizadoService = async (data) => {
     try {
         // La cuota del pago personalizado siempre es la primera entrada (numeroCuota = 1 si es el primer pago)
         const numeroCuotaReal = entradaPagoRealizado.numeroCuota; // ya fue renumerado arriba
+        // 6.5 Calcular NumeroEmpresa secuencial para el Pago
+        const { data: maxPago } = await supabaseClient_1.supabase
+            .from("Pago")
+            .select("NumeroEmpresa, Prestamo!inner(IdEmpresa)")
+            .eq("Prestamo.IdEmpresa", prestamo.IdEmpresa)
+            .order("NumeroEmpresa", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        const nextNumeroEmpresa = ((maxPago?.NumeroEmpresa) || 0) + 1;
         // 7. Crear el registro del Pago en la tabla general
         const { data: nuevoPago, error: errorPago } = await supabaseClient_1.supabase
             .from("Pago")
             .insert([{
                 IdPrestamo: idPrestamo,
+                NumeroEmpresa: nextNumeroEmpresa,
                 FechaPago: fechaPago,
                 TipoPago: "Personalizado",
                 MontoPagado: montoPagado,

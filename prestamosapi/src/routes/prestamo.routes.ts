@@ -6,6 +6,7 @@ import {
   createPrestamo,
   updatePrestamo,
   deletePrestamo,
+  reengancharPrestamo,
   simularPrestamo, // <--- Asegúrate que esto esté importado
   opcionesSimularPrestamoCapitalInteres,
   calcularTasaPorCuota,
@@ -31,6 +32,7 @@ router.get("/conteo-activos/:idPrestatario", getPrestamosActivosCount);
 router.post("/", createPrestamo);
 
 // ✅ RUTAS DINÁMICAS (VAN AL FINAL)
+router.post("/:id/reenganchar", reengancharPrestamo);
 router.get("/:id", getPrestamoById);
 router.put("/:id", updatePrestamo);
 router.delete("/:id", deletePrestamo);

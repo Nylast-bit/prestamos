@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import { supabase } from "../config/supabaseClient";
 import * as capitalJobService from './capitaljob.service';
+import { getBalanceDisponibleActivoService, getConsolidacionActivaId } from './consolidacioncapital.service';
 
 // --- INTERFACES ---
 interface CreatePrestamoData {
@@ -59,36 +60,19 @@ export const createPrestamoService = async (data: CreatePrestamoData, idEmpresa:
 
   const hoy = new Date().toISOString();
 
-  // 1. INTENTAR OBTENER CAJA ABIERTA
-  let { data: consolidacion } = await supabase
-    .from("ConsolidacionCapital")
-    .select("IdConsolidacion")
-    .eq("IdEmpresa", idEmpresa)
-    .lte("FechaInicio", hoy)
-    .gte("FechaFin", hoy)
-    .order("FechaInicio", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // 1. OBTENER O CREAR CAJA/CONSOLIDACIÓN ACTIVA PARA HOY
+  const idConsolidacionActiva = await getConsolidacionActivaId(hoy, idEmpresa);
+  const consolidacion = { IdConsolidacion: idConsolidacionActiva };
 
-  // 🚨 PLAN DE EMERGENCIA: SI NO HAY CAJA, LA CREAMOS AHORA MISMO
-  if (!consolidacion) {
-    logger.info("⚠️ Caja cerrada detectada al crear préstamo. Ejecutando apertura de emergencia...");
-    try {
-      // Llamamos al servicio que creamos antes
-      const nuevaCaja = await capitalJobService.checkAndCreateConsolidation(idEmpresa);
+  // 1.5 VALIDACIÓN DE LIQUIDEZ Y SALDO DISPONIBLE EN CAJA
+  const infoBalance = await getBalanceDisponibleActivoService(idEmpresa, hoy);
+  const balanceDisponible = infoBalance.balanceDisponible;
+  const montoSolicitado = Number(data.MontoPrestado || 0);
 
-      if (nuevaCaja && nuevaCaja.IdConsolidacion) {
-        consolidacion = { IdConsolidacion: nuevaCaja.IdConsolidacion };
-        logger.info("✅ Caja de emergencia creada y asignada.");
-      }
-    } catch (e) {
-      logger.error("❌ Falló la apertura de emergencia:", e);
-    }
-  }
-
-  // Si después del intento sigue sin haber consolidación, ahí sí lanzamos error
-  if (!consolidacion) {
-    throw new Error("ERROR CRÍTICO: No se pudo abrir la caja del día automáticamente. Verifica el sistema.");
+  if (montoSolicitado > balanceDisponible) {
+    const formattedBalance = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(balanceDisponible);
+    const formattedMonto = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(montoSolicitado);
+    throw new Error(`Saldo insuficiente en la consolidación activa. El balance disponible en caja es ${formattedBalance} y el préstamo requiere ${formattedMonto}.`);
   }
 
   // 2. Obtener Cliente
@@ -101,10 +85,25 @@ export const createPrestamoService = async (data: CreatePrestamoData, idEmpresa:
 
   if (!cliente) throw new Error("Cliente no encontrado.");
 
+  // 2.5 Obtener el siguiente NumeroEmpresa secuencial
+  const { data: maxPrestamo } = await supabase
+    .from("Prestamo")
+    .select("NumeroEmpresa")
+    .eq("IdEmpresa", idEmpresa)
+    .order("NumeroEmpresa", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const nextNumeroEmpresa = ((maxPrestamo?.NumeroEmpresa) || 0) + 1;
+  const prestamoToInsert = {
+    ...data,
+    NumeroEmpresa: nextNumeroEmpresa
+  };
+
   // 3. Crear Préstamo
   const { data: nuevoPrestamo, error: errorPrestamo } = await supabase
     .from("Prestamo")
-    .insert(data)
+    .insert(prestamoToInsert)
     .select()
     .single();
 
@@ -130,16 +129,93 @@ export const createPrestamoService = async (data: CreatePrestamoData, idEmpresa:
 export const getPrestamosService = async (idEmpresa: number) => {
   const { data, error } = await supabase
     .from("Prestamo")
-    .select(`*, Cliente(Nombre), Prestatario(Nombre)`)
+    .select(`*, Cliente(Nombre), Prestatario(Nombre), Pago(FechaPago, NumeroCuota)`)
     .eq("IdEmpresa", idEmpresa)
     .order("IdPrestamo", { ascending: false });
 
   if (error) throw new Error(error.message);
 
-  return data.map((p: any) => ({
-    ...p,
-    clienteNombre: p.Cliente?.Nombre || 'N/A',
-    prestatarioNombre: p.Prestatario?.Nombre || 'N/A'
+  return Promise.all(data.map(async (p: any) => {
+    let estado = p.Estado;
+    let cuotasRestantes = p.CuotasRestantes;
+    let fechaUltimoPago = p.FechaUltimoPago;
+    let needsUpdate = false;
+    const updates: any = {};
+
+    const pagos = p.Pago || [];
+    const totalPagosCount = pagos.length;
+
+    // A. Evaluar cuotas desde TablaPagos si está disponible
+    if (p.TablaPagos) {
+      try {
+        const tabla = JSON.parse(p.TablaPagos);
+        const pendientes = tabla.filter((c: any) => !c.pagado).length;
+        if (pendientes !== cuotasRestantes && pendientes >= 0) {
+          cuotasRestantes = pendientes;
+          updates.CuotasRestantes = cuotasRestantes;
+          needsUpdate = true;
+        }
+      } catch (e) { /* fallback */ }
+    }
+
+    // B. Verificar si el préstamo está completamente pagado
+    const esSoloInteres = (p.TipoCalculo || '').toLowerCase().includes('solo_interes') || (p.TipoCalculo || '').toLowerCase().includes('solo');
+    const capRestanteNum = p.CapitalRestante !== undefined && p.CapitalRestante !== null ? Number(p.CapitalRestante) : Number(p.MontoPrestado);
+
+    let estaPagado = false;
+    if (esSoloInteres) {
+      // Los préstamos de solo interés NUNCA se pagan por cumplir número de cuotas de interés.
+      // Únicamente se saldan cuando se paga el capital restante (esLiquidacion o abono total).
+      estaPagado = capRestanteNum === 0;
+    } else {
+      estaPagado = (cuotasRestantes <= 0 && totalPagosCount >= (p.CantidadCuotas || 1)) || capRestanteNum === 0;
+    }
+
+    if (estaPagado && estado !== 'Pagado') {
+      estado = 'Pagado';
+      cuotasRestantes = 0;
+      updates.Estado = 'Pagado';
+      updates.CuotasRestantes = 0;
+      needsUpdate = true;
+    } else if (!estaPagado && estado === 'Pagado' && esSoloInteres) {
+      // Si un préstamo de solo interés tenía capital activo pero figuraba como Pagado, corregirlo a Activo!
+      estado = 'Activo';
+      updates.Estado = 'Activo';
+      needsUpdate = true;
+    }
+
+    // C. Sincronizar FechaUltimoPago con el pago más reciente registrado
+    if (totalPagosCount > 0) {
+      const sortedPagos = [...pagos].sort((a: any, b: any) => new Date(b.FechaPago).getTime() - new Date(a.FechaPago).getTime());
+      const fechaUltimoPagoCalculada = sortedPagos[0].FechaPago;
+
+      if (!fechaUltimoPago || new Date(fechaUltimoPagoCalculada).getTime() > new Date(fechaUltimoPago).getTime()) {
+        fechaUltimoPago = fechaUltimoPagoCalculada;
+        updates.FechaUltimoPago = fechaUltimoPago;
+        needsUpdate = true;
+      }
+    }
+
+    // D. Si hubo inconsistencias, persistir la corrección en Supabase en segundo plano
+    if (needsUpdate) {
+      supabase
+        .from("Prestamo")
+        .update(updates)
+        .eq("IdPrestamo", p.IdPrestamo)
+        .then(({ error: errUpd }) => {
+          if (errUpd) logger.error(`Error al auto-reparar préstamo #${p.IdPrestamo}:`, errUpd.message);
+          else logger.info(`✅ Préstamo #${p.IdPrestamo} sincronizado: Estado '${estado}', FechaUltimoPago '${fechaUltimoPago}'`);
+        });
+    }
+
+    return {
+      ...p,
+      Estado: estado,
+      CuotasRestantes: cuotasRestantes,
+      FechaUltimoPago: fechaUltimoPago,
+      clienteNombre: p.Cliente?.Nombre || 'N/A',
+      prestatarioNombre: p.Prestatario?.Nombre || 'N/A'
+    };
   }));
 };
 
@@ -449,4 +525,218 @@ export const countPrestamosActivosByPrestatarioService = async (idPrestatario: n
   }
 
   return count || 0;
+};
+
+export const calcularSaldoPendientePrestamo = (prestamo: any): number => {
+  if (prestamo.TipoCalculo === 'solo_interes') {
+    return Number(prestamo.CapitalRestante ?? prestamo.MontoPrestado ?? 0);
+  }
+  
+  if (prestamo.TablaPagos) {
+    try {
+      const tabla = JSON.parse(prestamo.TablaPagos);
+      const pendientes = tabla.filter((c: any) => !c.pagado);
+      if (pendientes.length > 0) {
+        return pendientes.reduce((sum: number, c: any) => sum + Number(c.cuota || 0), 0);
+      }
+    } catch (e) {}
+  }
+  
+  return Number(prestamo.CuotasRestantes || 0) * Number(prestamo.MontoCuota || 0);
+};
+
+export const reengancharPrestamoService = async (
+  idPrestamoOriginal: number,
+  nuevoPrestamoData: {
+    MontoPrestado: number;
+    TipoCalculo: string;
+    InteresPorcentaje: number;
+    CantidadCuotas: number;
+    ModalidadPago: string;
+    IdPrestatario: number;
+    Observaciones?: string;
+    TablaPagos?: string;
+    CapitalTotalPagar?: number;
+    InteresMontoTotal?: number;
+    MontoCuota?: number;
+    FechaInicio?: string;
+    FechaFinEstimada?: string;
+  },
+  idEmpresa: number,
+  isSuperAdmin: boolean = false
+) => {
+  // 1. Obtener Préstamo Original
+  const { data: prestamoOriginal, error: errOrig } = await supabase
+    .from("Prestamo")
+    .select("*")
+    .eq("IdPrestamo", idPrestamoOriginal)
+    .eq("IdEmpresa", idEmpresa)
+    .single();
+
+  if (errOrig || !prestamoOriginal) {
+    throw new Error("El préstamo original a reenganchar no fue encontrado.");
+  }
+
+  if (prestamoOriginal.Estado === "Pagado" || prestamoOriginal.Estado === "Cancelado") {
+    throw new Error("No se puede reenganchar un préstamo que ya está pagado o cancelado.");
+  }
+
+  // 2. Calcular el Saldo Pendiente del Préstamo Original
+  const saldoPendienteOriginal = calcularSaldoPendientePrestamo(prestamoOriginal);
+  const nuevoMonto = Number(nuevoPrestamoData.MontoPrestado || 0);
+
+  if (nuevoMonto <= saldoPendienteOriginal) {
+    const format = (n: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(n);
+    throw new Error(`El nuevo préstamo (${format(nuevoMonto)}) debe ser mayor al saldo pendiente a liquidar (${format(saldoPendienteOriginal)}).`);
+  }
+
+  const efectivoNetoAEntregar = nuevoMonto - saldoPendienteOriginal;
+  const hoyISO = new Date().toISOString();
+
+  // 3. Validar Liquidez en Caja (Solo la diferencia real a entregar)
+  const infoBalance = await getBalanceDisponibleActivoService(idEmpresa, hoyISO);
+  const balanceDisponible = infoBalance.balanceDisponible;
+
+  if (efectivoNetoAEntregar > balanceDisponible) {
+    const format = (n: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(n);
+    throw new Error(`Saldo insuficiente en caja para el reenganche. El balance disponible es ${format(balanceDisponible)} y la diferencia en efectivo requerida es ${format(efectivoNetoAEntregar)}.`);
+  }
+
+  // 4. Calcular Valores Financieros y Tabla de Pagos del Nuevo Préstamo (ANTES de tocar la DB)
+  const simulacion = simularPrestamoService({
+    monto: nuevoMonto,
+    tasaInteres: Number(nuevoPrestamoData.InteresPorcentaje || 0),
+    numeroCuotas: Number(nuevoPrestamoData.CantidadCuotas || 1),
+    tipoCalculo: nuevoPrestamoData.TipoCalculo
+  });
+
+  const interesMontoTotal = nuevoPrestamoData.InteresMontoTotal ?? simulacion.montoTotalInteres;
+  const capitalTotalPagar = nuevoPrestamoData.CapitalTotalPagar ?? simulacion.montoTotalAPagar;
+  const montoCuota = nuevoPrestamoData.MontoCuota ?? simulacion.montoCuota;
+  const tablaPagos = nuevoPrestamoData.TablaPagos || JSON.stringify(simulacion.tablaAmortizacion);
+  const fechaInicioFinal = nuevoPrestamoData.FechaInicio || hoyISO;
+
+  // Auto-calcular FechaFinEstimada según modalidad y cantidad de cuotas si no viene provista
+  let fechaFinEstimadaFinal = nuevoPrestamoData.FechaFinEstimada;
+  if (!fechaFinEstimadaFinal) {
+    const dFin = new Date(fechaInicioFinal);
+    const cuotasNum = Number(nuevoPrestamoData.CantidadCuotas || 1);
+    const mod = (nuevoPrestamoData.ModalidadPago || "mensual").toLowerCase().trim();
+
+    if (mod === "diario") {
+      dFin.setDate(dFin.getDate() + cuotasNum);
+    } else if (mod === "semanal") {
+      dFin.setDate(dFin.getDate() + (cuotasNum * 7));
+    } else if (mod === "quincenal") {
+      dFin.setDate(dFin.getDate() + (cuotasNum * 15));
+    } else {
+      dFin.setMonth(dFin.getMonth() + cuotasNum);
+    }
+    fechaFinEstimadaFinal = dFin.toISOString();
+  }
+
+  const { data: maxPrestamo } = await supabase
+    .from("Prestamo")
+    .select("NumeroEmpresa")
+    .eq("IdEmpresa", idEmpresa)
+    .order("NumeroEmpresa", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const nextNumeroEmpresa = ((maxPrestamo?.NumeroEmpresa) || 0) + 1;
+
+  const nuevoPrestamoPayload = {
+    ...nuevoPrestamoData,
+    IdCliente: prestamoOriginal.IdCliente,
+    IdEmpresa: idEmpresa,
+    NumeroEmpresa: nextNumeroEmpresa,
+    Estado: "Activo",
+    MontoPrestado: nuevoMonto,
+    InteresMontoTotal: interesMontoTotal,
+    CapitalTotalPagar: capitalTotalPagar,
+    MontoCuota: montoCuota,
+    CapitalRestante: nuevoMonto,
+    CantidadCuotas: nuevoPrestamoData.CantidadCuotas,
+    CuotasRestantes: nuevoPrestamoData.CantidadCuotas,
+    TablaPagos: tablaPagos,
+    FechaInicio: fechaInicioFinal,
+    FechaFinEstimada: fechaFinEstimadaFinal,
+    Observaciones: (nuevoPrestamoData.Observaciones ? nuevoPrestamoData.Observaciones + " | " : "") + `Creado por Reenganche del Préstamo #${prestamoOriginal.NumeroEmpresa ?? idPrestamoOriginal}`
+  };
+
+  // 5. PRIMERO INSERTAR EL NUEVO PRÉSTAMO. Si la inserción falla, el préstamo anterior NUNCA se altera.
+  const { data: nuevoPrestamo, error: errNuevo } = await supabase
+    .from("Prestamo")
+    .insert(nuevoPrestamoPayload)
+    .select()
+    .single();
+
+  if (errNuevo) {
+    throw new Error("Error creando nuevo préstamo reenganchado: " + errNuevo.message);
+  }
+
+  // 6. AHORA SÍ LIQUIDAR EL PRÉSTAMO ORIGINAL
+  let tablaOriginalActualizada = prestamoOriginal.TablaPagos;
+  if (tablaOriginalActualizada) {
+    try {
+      const tabla = JSON.parse(tablaOriginalActualizada);
+      tabla.forEach((c: any) => {
+        if (!c.pagado) {
+          c.pagado = true;
+          c.fechaPago = hoyISO;
+          c.observacion = `Saldado por Reenganche a Préstamo #${nuevoPrestamo.NumeroEmpresa ?? nuevoPrestamo.IdPrestamo}`;
+        }
+      });
+      tablaOriginalActualizada = JSON.stringify(tabla);
+    } catch (e) {}
+  }
+
+  const { error: errUpdOrig } = await supabase
+    .from("Prestamo")
+    .update({
+      Estado: "Pagado",
+      CuotasRestantes: 0,
+      CapitalRestante: 0,
+      FechaUltimoPago: hoyISO,
+      TablaPagos: tablaOriginalActualizada,
+      Observaciones: (prestamoOriginal.Observaciones ? prestamoOriginal.Observaciones + " | " : "") + `Liquidado por Reenganche a Préstamo #${nuevoPrestamo.NumeroEmpresa ?? nuevoPrestamo.IdPrestamo}`
+    })
+    .eq("IdPrestamo", idPrestamoOriginal);
+
+  if (errUpdOrig) {
+    logger.error(`⚠️ Préstamo nuevo #${nuevoPrestamo.IdPrestamo} creado pero falló liquidar original #${idPrestamoOriginal}:`, errUpdOrig.message);
+  }
+
+  // 7. Registrar Egreso Neto en RegistroConsolidacion (diferenciaEfectivo)
+  const idConsolidacionActiva = await getConsolidacionActivaId(hoyISO, idEmpresa);
+
+  const { data: cliente } = await supabase
+    .from("Cliente")
+    .select("Nombre")
+    .eq("IdCliente", prestamoOriginal.IdCliente)
+    .single();
+
+  const nombreCliente = cliente?.Nombre || "Cliente";
+
+  const { error: errEgreso } = await supabase
+    .from("RegistroConsolidacion")
+    .insert({
+      IdConsolidacion: idConsolidacionActiva,
+      FechaRegistro: hoyISO,
+      TipoRegistro: "Egreso",
+      Estado: "Prestado",
+      Descripcion: `Reenganche Préstamo #${nuevoPrestamo.NumeroEmpresa ?? nuevoPrestamo.IdPrestamo} (Dif. entregada: ${efectivoNetoAEntregar}) - ${nombreCliente}`,
+      Monto: efectivoNetoAEntregar
+    });
+
+  if (errEgreso) {
+    logger.error("Error al registrar egreso de reenganche en consolidación:", errEgreso.message);
+  }
+
+  return {
+    prestamoOriginalLiquidado: idPrestamoOriginal,
+    nuevoPrestamo,
+    saldoPendienteOriginal,
+    efectivoNetoAEntregar
+  };
 };

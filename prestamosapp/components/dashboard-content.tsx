@@ -90,11 +90,18 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
   const prestamosActivos = prestamosFiltrados.filter(p => p.Estado === "Activo" || p.Estado === "En Mora");
   const prestamosEnMora = prestamosFiltrados.filter(p => p.Estado === "En Mora");
 
-  // 4. CÁLCULOS MATEMÁTICOS PARA LAS STAT CARDS
-  const capitalEnCalle = prestamosActivos.reduce((sum, p) => sum + (Number(p.MontoCuota) * Number(p.CuotasRestantes)), 0);
+  // 4. CÁLCULOS MATEMÁTICOS PARA LAS STAT CARDS (Suma exacta de la columna Saldo Restante)
+  const getSaldoRestante = (p: any) => {
+    const capRestante = p.CapitalRestante !== undefined && p.CapitalRestante !== null ? Number(p.CapitalRestante) : Number(p.MontoPrestado);
+    return p.TipoCalculo === "solo_interes"
+      ? (capRestante + (capRestante * (Number(p.InteresPorcentaje) / 100)))
+      : (Number(p.MontoCuota) * Number(p.CuotasRestantes || 0));
+  };
+
+  const capitalEnCalle = prestamosActivos.reduce((sum, p) => sum + getSaldoRestante(p), 0);
   const interesEsperado = prestamosActivos.reduce((sum, p) => sum + (Number(p.MontoPrestado) * (Number(p.InteresPorcentaje) / 100)), 0);
   const totalCuotasActivas = prestamosActivos.reduce((sum, p) => sum + Number(p.MontoCuota), 0);
-  const dineroEnMora = prestamosEnMora.reduce((sum, p) => sum + (Number(p.MontoCuota) * Number(p.CuotasRestantes)), 0);
+  const dineroEnMora = prestamosEnMora.reduce((sum, p) => sum + getSaldoRestante(p), 0);
 
   if (loading) return <div>Cargando dashboard...</div>;
   return (

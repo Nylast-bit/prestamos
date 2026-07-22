@@ -16,6 +16,7 @@ router.get("/", prestamo_controller_1.getPrestamos);
 router.get("/conteo-activos/:idPrestatario", prestamo_controller_1.getPrestamosActivosCount);
 router.post("/", prestamo_controller_1.createPrestamo);
 // ✅ RUTAS DINÁMICAS (VAN AL FINAL)
+router.post("/:id/reenganchar", prestamo_controller_1.reengancharPrestamo);
 router.get("/:id", prestamo_controller_1.getPrestamoById);
 router.put("/:id", prestamo_controller_1.updatePrestamo);
 router.delete("/:id", prestamo_controller_1.deletePrestamo);

@@ -48,11 +48,35 @@ export const createPrestamo = asyncHandler(async (req: any, res: Response) => {
   } catch (error: any) {
     if (
       error.message.includes("suscripción activa") ||
-      error.message.includes("Límite de préstamos")
+      error.message.includes("Límite de préstamos") ||
+      error.message.includes("Saldo insuficiente")
     ) {
-      return res.status(403).json({ success: false, error: error.message });
+      return res.status(400).json({ success: false, error: error.message });
     }
     throw error;
+  }
+});
+
+// Reenganchar préstamo
+export const reengancharPrestamo = asyncHandler(async (req: any, res: Response) => {
+  if (req.user?.Rol === 'Cajero') {
+    res.status(403).json({ success: false, error: 'Acceso denegado. Los cajeros no están autorizados para reenganchar préstamos.' });
+    return;
+  }
+
+  const idPrestamoOriginal = Number(req.params.id);
+  const data = req.body;
+  const idEmpresa = req.user.IdEmpresa;
+  const isSuperAdmin = req.user.Rol === 'SuperAdmin';
+
+  try {
+    const resultado = await prestamoService.reengancharPrestamoService(idPrestamoOriginal, data, idEmpresa, isSuperAdmin);
+    res.status(200).json({
+      success: true,
+      data: resultado
+    });
+  } catch (error: any) {
+    return res.status(400).json({ success: false, error: error.message });
   }
 });
 

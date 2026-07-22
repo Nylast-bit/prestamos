@@ -19,6 +19,18 @@ const createRegistroConsolidacionService = async (data, idEmpresa) => {
     const fechaFinalISO = data.FechaRegistro
         ? new Date(data.FechaRegistro).toISOString()
         : new Date().toISOString();
+    const tipoNorm = (data.TipoRegistro || '').toLowerCase().trim();
+    const estadoNorm = (data.Estado || '').toLowerCase().trim();
+    if (tipoNorm === 'egreso' && estadoNorm !== 'pendiente') {
+        const infoBalance = await (0, consolidacioncapital_service_1.getBalanceDisponibleActivoService)(idEmpresa, fechaFinalISO);
+        const balanceDisponible = infoBalance.balanceDisponible;
+        const montoEgreso = Number(data.Monto || 0);
+        if (montoEgreso > balanceDisponible) {
+            const formattedBalance = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(balanceDisponible);
+            const formattedMonto = new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(montoEgreso);
+            throw new Error(`Saldo insuficiente en caja. El balance disponible es ${formattedBalance} y se intentó retirar/desembolsar ${formattedMonto}.`);
+        }
+    }
     const { data: nuevoRegistro, error } = await supabaseClient_1.supabase
         .from("RegistroConsolidacion")
         .insert({

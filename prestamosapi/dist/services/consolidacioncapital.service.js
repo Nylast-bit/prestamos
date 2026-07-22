@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getResumenConsolidacionActivaService = exports.deleteConsolidacionCapitalService = exports.updateConsolidacionCapitalService = exports.getConsolidacionCapitalByIdService = exports.getAllConsolidacionesCapitalService = exports.crearConsolidacionAutomatica = exports.createConsolidacionCapitalService = exports.getConsolidacionActivaId = void 0;
+exports.getBalanceDisponibleActivoService = exports.getResumenConsolidacionActivaService = exports.deleteConsolidacionCapitalService = exports.updateConsolidacionCapitalService = exports.getConsolidacionCapitalByIdService = exports.getAllConsolidacionesCapitalService = exports.crearConsolidacionAutomatica = exports.createConsolidacionCapitalService = exports.getConsolidacionActivaId = void 0;
 const logger_1 = require("../utils/logger");
 // src/services/consolidacionCapital.service.ts
 const supabaseClient_1 = require("../config/supabaseClient");
@@ -90,13 +90,17 @@ const getRangoConsolidacion = (fecha) => {
 };
 // --- 2. FUNCIÓN PRINCIPAL ---
 const getConsolidacionActivaId = async (fechaRegistro, idEmpresa) => {
+    const fechaObj = new Date(fechaRegistro);
+    const inicioDia = new Date(fechaObj.getFullYear(), fechaObj.getMonth(), fechaObj.getDate(), 0, 0, 0, 0).toISOString();
+    const finDia = new Date(fechaObj.getFullYear(), fechaObj.getMonth(), fechaObj.getDate(), 23, 59, 59, 999).toISOString();
     // A. ¿YA EXISTE LA CONSOLIDACIÓN?
     const { data: consolidacion } = await supabaseClient_1.supabase
         .from("ConsolidacionCapital")
         .select("IdConsolidacion")
         .eq("IdEmpresa", idEmpresa)
-        .lte("FechaInicio", fechaRegistro)
-        .gte("FechaFin", fechaRegistro)
+        .lte("FechaInicio", finDia)
+        .gte("FechaFin", inicioDia)
+        .order("FechaInicio", { ascending: false })
         .limit(1)
         .maybeSingle();
     if (consolidacion) {
@@ -104,7 +108,6 @@ const getConsolidacionActivaId = async (fechaRegistro, idEmpresa) => {
     }
     // B. NO EXISTE -> CREARLA + ARRASTRAR SALDO
     logger_1.logger.info("⚠️ No hay consolidación activa. Creando nueva y arrastrando saldo...");
-    const fechaObj = new Date(fechaRegistro);
     const { inicioISO, finISO } = getRangoConsolidacion(fechaObj);
     // 1. Buscamos la consolidación INMEDIATAMENTE ANTERIOR para sacar el balance
     const { data: consolidacionAnterior } = await supabaseClient_1.supabase
@@ -391,3 +394,38 @@ const getResumenConsolidacionActivaService = async (idEmpresa) => {
     };
 };
 exports.getResumenConsolidacionActivaService = getResumenConsolidacionActivaService;
+const getBalanceDisponibleActivoService = async (idEmpresa, fechaISO) => {
+    const fecha = fechaISO || new Date().toISOString();
+    const idConsolidacionActiva = await (0, exports.getConsolidacionActivaId)(fecha, idEmpresa);
+    const { data: registros, error: errReg } = await supabaseClient_1.supabase
+        .from("RegistroConsolidacion")
+        .select("Monto, TipoRegistro")
+        .eq("IdConsolidacion", idConsolidacionActiva);
+    if (errReg) {
+        throw new Error("Error consultando registros de la consolidación activa: " + errReg.message);
+    }
+    let ingresos = 0;
+    let egresos = 0;
+    if (registros) {
+        for (const r of registros) {
+            const tipo = (r.TipoRegistro || "").toLowerCase().trim();
+            const monto = Number(r.Monto || 0);
+            if (tipo === "ingreso") {
+                ingresos += monto;
+            }
+            else if (tipo === "egreso") {
+                egresos += monto;
+            }
+        }
+    }
+    const balanceDisponible = ingresos - egresos;
+    logger_1.logger.info(`💰 Balance Neto Exacto para Consolidación #${idConsolidacionActiva}: Ingresos=${ingresos}, Egresos=${egresos} => Disponible=${balanceDisponible}`);
+    return {
+        idConsolidacion: idConsolidacionActiva,
+        capitalInicial: 0,
+        ingresos,
+        egresos,
+        balanceDisponible
+    };
+};
+exports.getBalanceDisponibleActivoService = getBalanceDisponibleActivoService;

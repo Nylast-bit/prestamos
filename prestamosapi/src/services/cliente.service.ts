@@ -53,9 +53,23 @@ export const getClienteByIdService = async (id: number, idEmpresa: number) => {
 };
 
 export const createClienteService = async (clienteData: any) => {
+  const { data: maxCliente } = await supabase
+    .from(CLIENT_TABLE_NAME)
+    .select("NumeroEmpresa")
+    .eq("IdEmpresa", clienteData.IdEmpresa)
+    .order("NumeroEmpresa", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const nextNumeroEmpresa = ((maxCliente?.NumeroEmpresa) || 0) + 1;
+  const clienteToInsert = {
+    ...clienteData,
+    NumeroEmpresa: nextNumeroEmpresa
+  };
+
   const { data, error } = await supabase
     .from(CLIENT_TABLE_NAME)
-    .insert(clienteData)
+    .insert(clienteToInsert)
     .select()
     .single();
 
