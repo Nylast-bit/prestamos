@@ -11,11 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Search } from 'lucide-react'
 
-// 👇 NUESTROS COMPONENTES SEGMENTADOS
 import { ConsolidacionStats } from "@/components/consolidacion/ConsolidacionStats"
 import { ConsolidacionTable } from "@/components/consolidacion/ConsolidacionTable"
-
-// --- INTERFACES ---
 
 export interface RegistroConsolidacion {
   IdRegistro: number;
@@ -43,7 +40,7 @@ const getTodayLocal = () => {
 }
 
 export function ConsolidacionContent() {
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ;
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   // --- ESTADOS ---
   const [allConsolidaciones, setAllConsolidaciones] = useState<ConsolidacionCapital[]>([]);
@@ -51,9 +48,10 @@ export function ConsolidacionContent() {
   const [registros, setRegistros] = useState<RegistroConsolidacion[]>([]);
   
   const [loading, setLoading] = useState(true);
+  const [loadingRegistros, setLoadingRegistros] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filtroEstado, setFiltroEstado] = useState("todos"); // 👇 NUEVO ESTADO PARA EL FILTRO DE ESTADO
+  const [filtroEstado, setFiltroEstado] = useState("todos");
   
   // Estados Modal
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -77,18 +75,20 @@ export function ConsolidacionContent() {
     }
   };
 
-  // --- FETCH LOGIC ---
+  // --- FETCH LOGIC (Carga Bajo Demanda) ---
   const fetchRegistros = useCallback(async (idConsolidacion: number) => {
+    setLoadingRegistros(true);
     try {
-        const resR = await fetchWithAuth(`${API_BASE_URL}/api/registroconsolidacion`);
-        if (!resR.ok) throw new Error("Fallo al obtener todos los registros.");
-        const allData: RegistroConsolidacion[] = await resR.json();
-        const filteredData = allData.filter(r => r.IdConsolidacion === idConsolidacion);
-        setRegistros(filteredData);
+        const resR = await fetchWithAuth(`${API_BASE_URL}/api/registroconsolidacion?idConsolidacion=${idConsolidacion}`);
+        if (!resR.ok) throw new Error("Fallo al obtener los registros de esta consolidación.");
+        const data: RegistroConsolidacion[] = await resR.json();
+        setRegistros(data);
     } catch (e: any) {
         console.error('Error fetching registros:', e);
         setError(e.message || 'Error al cargar registros.');
         setRegistros([]);
+    } finally {
+        setLoadingRegistros(false);
     }
   }, [API_BASE_URL]);
 
@@ -103,7 +103,7 @@ export function ConsolidacionContent() {
         dataC.sort((a, b) => new Date(b.FechaInicio).getTime() - new Date(a.FechaInicio).getTime());
         setAllConsolidaciones(dataC);
 
-        if (dataC.length > 0 && !consolidacion) {
+        if (dataC.length > 0) {
             const initialConsolidacion = dataC[0];
             setConsolidacion(initialConsolidacion);
             await fetchRegistros(initialConsolidacion.IdConsolidacion);
@@ -114,7 +114,7 @@ export function ConsolidacionContent() {
     } finally {
         setLoading(false);
     }
-  }, [API_BASE_URL, fetchRegistros, consolidacion]);
+  }, [API_BASE_URL, fetchRegistros]);
 
   useEffect(() => {
     fetchAllConsolidaciones();
@@ -141,7 +141,6 @@ export function ConsolidacionContent() {
     Pagado: registros.filter(r => r.Estado === "Pagado").reduce((sum, r) => sum + r.Monto, 0)
   }
   
-  // 👇 NUEVA LÓGICA DE FILTRADO
   const filteredRegistros = registros.filter(registro => {
     const matchesSearch = registro.Descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           registro.Estado.toLowerCase().includes(searchTerm.toLowerCase());
@@ -305,7 +304,6 @@ export function ConsolidacionContent() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* 👇 NUEVA BARRA DE FILTROS COMBINADA */}
           <div className="flex flex-col md:flex-row items-center gap-3 mb-4">
             <div className="relative flex-1 w-full max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -330,12 +328,16 @@ export function ConsolidacionContent() {
             </Select>
           </div>
           
-          <ConsolidacionTable 
-             registros={filteredRegistros} 
-             onEdit={handleEdit} 
-             onDelete={handleDelete} 
-             formatDate={formatDate} 
-          />
+          {loadingRegistros ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">Cargando registros del período...</div>
+          ) : (
+            <ConsolidacionTable 
+               registros={filteredRegistros} 
+               onEdit={handleEdit} 
+               onDelete={handleDelete} 
+               formatDate={formatDate} 
+            />
+          )}
           
           {/* OBSERVACIONES */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">

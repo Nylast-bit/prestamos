@@ -19,9 +19,10 @@ export const createRegistroConsolidacion = asyncHandler(async (req: any, res: Re
     res.status(201).json(nuevoRegistro);
 });
 
-// Obtener todos los registros
+// Obtener todos los registros (con filtro opcional por idConsolidacion)
 export const getAllRegistrosConsolidacion = asyncHandler(async (req: any, res: Response) => {
-    const lista = await registroConsolidacionService.getAllRegistrosConsolidacionService(req.user.IdEmpresa);
+    const idConsolidacion = req.query.idConsolidacion ? Number(req.query.idConsolidacion) : undefined;
+    const lista = await registroConsolidacionService.getAllRegistrosConsolidacionService(req.user.IdEmpresa, idConsolidacion);
     res.json(lista);
 });
 

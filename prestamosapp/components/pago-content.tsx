@@ -300,7 +300,7 @@ export function PagosContent() {
 
         <Card className="border-l-4 border-l-indigo-500 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">Ticket Promedio</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">Pago Promedio</CardTitle>
             <CreditCard className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent>

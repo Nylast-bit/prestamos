@@ -1,8 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Edit, Trash2, TrendingUp, TrendingDown, ArrowUpDown } from 'lucide-react' // <- Agregamos ArrowUpDown
+import { Edit, Trash2, TrendingUp, TrendingDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { RegistroConsolidacion } from "@/components/consolidacion-content" 
 
 interface ConsolidacionTableProps {
@@ -19,8 +19,17 @@ export function ConsolidacionTable({
   formatDate 
 }: ConsolidacionTableProps) {
   
-  // 👇 NUEVO: Estado para controlar el orden (desc = más nuevos primero)
+  // Estado para controlar el orden (desc = más nuevos primero)
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Estados de Paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Reiniciar a la página 1 cuando cambia la lista de registros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [registros.length]);
 
   const getEstadoBadgeColor = (estado: string) => {
     switch (estado) {
@@ -38,7 +47,7 @@ export function ConsolidacionTable({
       : <TrendingDown className="h-4 w-4 text-red-600" />
   }
 
-  // 👇 NUEVO: Lógica para ordenar los registros justo antes de dibujarlos
+  // Ordenar los registros justo antes de paginarlos
   const sortedRegistros = [...registros].sort((a, b) => {
     const dateA = new Date(a.FechaRegistro).getTime();
     const dateB = new Date(b.FechaRegistro).getTime();
@@ -47,7 +56,13 @@ export function ConsolidacionTable({
 
   const toggleSort = () => {
     setSortOrder(sortOrder === "desc" ? "asc" : "desc");
+    setCurrentPage(1);
   };
+
+  // Lógica de Paginación
+  const totalPages = Math.ceil(sortedRegistros.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedRegistros = sortedRegistros.slice(startIndex, startIndex + pageSize);
 
   if (registros.length === 0) {
     return <div className="text-center py-10 text-slate-500 border rounded-lg">No se encontraron registros para esta consolidación con los filtros actuales.</div>
@@ -60,7 +75,6 @@ export function ConsolidacionTable({
           <TableRow className="bg-gray-50">
             <TableHead className="font-bold">INGRESOS</TableHead>
             <TableHead className="font-bold">EGRESOS</TableHead>
-            {/* 👇 NUEVO: Hacemos la columna FECHA clickeable */}
             <TableHead 
               className="font-bold cursor-pointer hover:bg-slate-200 transition-colors group select-none"
               onClick={toggleSort}
@@ -78,8 +92,7 @@ export function ConsolidacionTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {/* 👇 Usamos sortedRegistros en lugar de registros */}
-          {sortedRegistros.map((registro) => (
+          {paginatedRegistros.map((registro) => (
             <TableRow key={registro.IdRegistro} className="hover:bg-slate-50/50">
               <TableCell>
                 {registro.TipoRegistro === "Ingreso" && (
@@ -137,6 +150,85 @@ export function ConsolidacionTable({
           ))}
         </TableBody>
       </Table>
+
+      {/* --- BARRA DE PAGINACIÓN DE REGISTROS DE CONSOLIDACIÓN --- */}
+      {sortedRegistros.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs font-medium text-slate-600">
+          <div className="flex items-center gap-2">
+            <span>Mostrar</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-white border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#213685]"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span>registros por página</span>
+          </div>
+
+          <div className="text-slate-500">
+            Mostrando <span className="font-semibold text-slate-700">{startIndex + 1}</span> a{" "}
+            <span className="font-semibold text-slate-700">
+              {Math.min(startIndex + pageSize, sortedRegistros.length)}
+            </span>{" "}
+            de <span className="font-semibold text-slate-700">{sortedRegistros.length}</span> registros
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              title="Primera página"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              title="Página anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            <span className="px-2 font-semibold text-slate-700">
+              {currentPage} / {totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              title="Página siguiente"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              title="Última página"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

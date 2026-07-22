@@ -51,15 +51,25 @@ export function ConsolidacionStats({
                 value={consolidacion.IdConsolidacion.toString()} 
                 onValueChange={onConsolidacionChange}
               >
-                <SelectTrigger className="w-[300px] mt-1 bg-white">
+                <SelectTrigger className="w-[340px] mt-1 bg-white border-slate-300 font-semibold shadow-sm">
                   <SelectValue placeholder="Seleccionar Período" />
                 </SelectTrigger>
                 <SelectContent>
-                  {allConsolidaciones.map(c => (
-                    <SelectItem key={c.IdConsolidacion} value={c.IdConsolidacion.toString()}>
-                      {formatDate(c.FechaInicio)} al {formatDate(c.FechaFin)} (ID: {c.IdConsolidacion})
-                    </SelectItem>
-                  ))}
+                  {allConsolidaciones.map((c, index) => {
+                    let labelPrefix = "📜 ";
+                    let labelSuffix = "";
+                    if (index === 0) {
+                      labelPrefix = "📍 Actual: ";
+                      labelSuffix = " (En curso)";
+                    } else if (index === 1) {
+                      labelPrefix = "⏪ Anterior: ";
+                    }
+                    return (
+                      <SelectItem key={c.IdConsolidacion} value={c.IdConsolidacion.toString()}>
+                        {labelPrefix}{formatDate(c.FechaInicio)} al {formatDate(c.FechaFin)}{labelSuffix}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

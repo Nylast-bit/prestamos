@@ -94,14 +94,14 @@ const createPagoService = async (data, idEmpresa) => {
 };
 exports.createPagoService = createPagoService;
 // 1. Obtener todos los pagos
-// Agregamos (idEmpresa: number) dentro de los paréntesis
 const getAllPagosService = async (idEmpresa) => {
     const { data, error } = await supabaseClient_1.supabase
         .from("Pago")
         .select(`
       *,
-      Prestamo (
+      Prestamo!inner (
         IdPrestamo,
+        IdEmpresa,
         FechaInicio,
         FechaFinEstimada,
         CapitalRestante,
@@ -114,8 +114,7 @@ const getAllPagosService = async (idEmpresa) => {
         )
       )
     `)
-        // OPCIONAL: Si necesitas filtrar para que solo traiga los pagos de esa empresa
-        // .eq("IdEmpresa", idEmpresa) 
+        .eq("Prestamo.IdEmpresa", idEmpresa)
         .order("FechaPago", { ascending: false });
     if (error) {
         throw new Error(`Error al obtener el historial de pagos: ${error.message}`);
