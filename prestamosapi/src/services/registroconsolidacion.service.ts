@@ -14,21 +14,13 @@ interface RegistroConsolidacionData {
 
 // --- CREAR REGISTRO ---
 export const createRegistroConsolidacionService = async (data: RegistroConsolidacionData, idEmpresa: number) => {
-    let idConsolidacionFinal: number;
-
-    if (data.IdConsolidacion) {
-        idConsolidacionFinal = data.IdConsolidacion;
-    } else {
-        const fechaRegistroParaBusqueda = data.FechaRegistro
-            ? new Date(data.FechaRegistro).toISOString()
-            : new Date().toISOString();
-
-        idConsolidacionFinal = await getConsolidacionActivaId(fechaRegistroParaBusqueda, idEmpresa);
-    }
-
     const fechaFinalISO = data.FechaRegistro
         ? new Date(data.FechaRegistro).toISOString()
         : new Date().toISOString();
+
+    const idConsolidacionFinal = data.IdConsolidacion 
+        ? data.IdConsolidacion
+        : await getConsolidacionActivaId(fechaFinalISO, idEmpresa);
 
     const tipoNorm = (data.TipoRegistro || '').toLowerCase().trim();
     const estadoNorm = (data.Estado || '').toLowerCase().trim();
@@ -66,22 +58,22 @@ export const createRegistroConsolidacionService = async (data: RegistroConsolida
     return nuevoRegistro;
 };
 
-// --- OBTENER TODOS (Con filtro opcional por idConsolidacion) ---
+// --- OBTENER REGISTROS DE UNA CONSOLIDACIÓN ESPECÍFICA ---
 export const getAllRegistrosConsolidacionService = async (idEmpresa: number, idConsolidacion?: number) => {
-    let query = supabase
+    let targetId = idConsolidacion;
+    if (!targetId) {
+        targetId = await getConsolidacionActivaId(new Date().toISOString(), idEmpresa);
+    }
+
+    const { data: lista, error } = await supabase
         .from("RegistroConsolidacion")
         .select(`
             *,
-            ConsolidacionCapital!inner (*)
+            ConsolidacionCapital!inner (IdEmpresa)
         `)
         .eq("ConsolidacionCapital.IdEmpresa", idEmpresa)
+        .eq("IdConsolidacion", targetId)
         .order("IdRegistro", { ascending: false });
-
-    if (idConsolidacion) {
-        query = query.eq("IdConsolidacion", idConsolidacion);
-    }
-
-    const { data: lista, error } = await query;
 
     if (error) {
         logger.error("Error en getAllRegistrosConsolidacionService:", error.message);

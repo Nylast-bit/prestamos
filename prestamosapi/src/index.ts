@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { errorHandler } from "./middlewares/errorHandler";
+import { idempotencyMiddleware } from "./middlewares/idempotency.middleware";
 import express, { Request, Response } from 'express';
 import prestamoRoutes from "./routes/prestamo.routes";
 import clienteRoutes from "./routes/cliente.routes";
@@ -55,12 +56,8 @@ app.use(helmet({
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Si no hay origen (como Postman), permitimos la petición
     if (!origin) return callback(null, true);
-    
-    // Removemos cualquier barra diagonal al final del string del origen para evitar conflictos
     const cleanedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
-
     if (allowedOrigins.includes(cleanedOrigin)) {
       callback(null, true);
     } else {
@@ -68,14 +65,27 @@ app.use(cors({
     }
   },
   credentials: true,
-  // Le decimos al navegador exactamente qué métodos y cabeceras aceptamos en la petición "preflight"
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept']
+  allowedHeaders: ['*'], // Permitir todas las cabeceras requeridas por el cliente (incluyendo x-idempotency-key)
 }));
+
+// Middleware explícito de respaldo para cabeceras CORS preflight
+app.use((req: Request, res: Response, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-idempotency-key, X-Idempotency-Key, idempotency-key, Idempotency-Key");
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // 4. Middlewares de Parseo de Body (Lectura de datos)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(idempotencyMiddleware);
 
 // 5. Aplicación de Rate Limiters Globales y Específicos
 app.use(limiter);

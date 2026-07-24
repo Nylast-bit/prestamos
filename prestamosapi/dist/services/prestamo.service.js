@@ -31,11 +31,12 @@ const createPrestamoService = async (data, idEmpresa, isSuperAdmin = false) => {
         }
     }
     const hoy = new Date().toISOString();
-    // 1. OBTENER O CREAR CAJA/CONSOLIDACIÓN ACTIVA PARA HOY
-    const idConsolidacionActiva = await (0, consolidacioncapital_service_1.getConsolidacionActivaId)(hoy, idEmpresa);
+    const fechaValidacion = data.FechaInicio ? new Date(data.FechaInicio).toISOString() : hoy;
+    // 1. OBTENER O CREAR CAJA/CONSOLIDACIÓN ACTIVA PARA LA FECHA DEL PRÉSTAMO
+    const idConsolidacionActiva = await (0, consolidacioncapital_service_1.getConsolidacionActivaId)(fechaValidacion, idEmpresa);
     const consolidacion = { IdConsolidacion: idConsolidacionActiva };
     // 1.5 VALIDACIÓN DE LIQUIDEZ Y SALDO DISPONIBLE EN CAJA
-    const infoBalance = await (0, consolidacioncapital_service_1.getBalanceDisponibleActivoService)(idEmpresa, hoy);
+    const infoBalance = await (0, consolidacioncapital_service_1.getBalanceDisponibleActivoService)(idEmpresa, fechaValidacion);
     const balanceDisponible = infoBalance.balanceDisponible;
     const montoSolicitado = Number(data.MontoPrestado || 0);
     if (montoSolicitado > balanceDisponible) {
@@ -78,7 +79,7 @@ const createPrestamoService = async (data, idEmpresa, isSuperAdmin = false) => {
         .from("RegistroConsolidacion")
         .insert({
         IdConsolidacion: consolidacion.IdConsolidacion,
-        FechaRegistro: hoy,
+        FechaRegistro: fechaValidacion,
         TipoRegistro: "Egreso",
         Estado: "Prestado",
         Descripcion: `Préstamo - ${cliente.Nombre}`,

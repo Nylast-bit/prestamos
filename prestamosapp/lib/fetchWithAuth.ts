@@ -8,6 +8,14 @@ export const fetchWithAuth = async (input: RequestInfo | URL, init?: RequestInit
         headers.set("Authorization", `Bearer ${token}`);
     }
 
+    const method = (init?.method || "GET").toUpperCase();
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(method) && !headers.has("x-idempotency-key")) {
+        const idempotencyKey = typeof crypto !== "undefined" && crypto.randomUUID 
+            ? crypto.randomUUID() 
+            : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        headers.set("x-idempotency-key", idempotencyKey);
+    }
+
     const config = { ...init, headers };
 
     const response = await fetch(input, config);

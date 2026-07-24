@@ -1,163 +1,19 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkAndCreateConsolidation = void 0;
 const logger_1 = require("../utils/logger");
 const supabaseClient_1 = require("../config/supabaseClient");
-const registroConsolidacionService = __importStar(require("./registroconsolidacion.service"));
-const gastoFijoJobService = __importStar(require("./gastofijojob.service"));
-// --- HELPER: CALCULAR EL RANGO DE FECHAS SEGÚN REGLA DE NEGOCIO ---
-// Regla: Periodo 1 (Día 8 al 22) | Periodo 2 (Día 23 al 7 del mes siguiente)
-const calcularRangoFechas = (fechaActual) => {
-    const d = fechaActual.getDate();
-    const m = fechaActual.getMonth();
-    const y = fechaActual.getFullYear();
-    let inicio;
-    let fin;
-    if (d >= 8 && d <= 22) {
-        // ESTAMOS EN EL PERIODO 1 (Del 8 al 22 del mismo mes)
-        inicio = new Date(y, m, 8, 0, 0, 0);
-        fin = new Date(y, m, 22, 23, 59, 59, 999);
-    }
-    else if (d >= 23) {
-        // ESTAMOS EN EL PERIODO 2 (Del 23 de este mes al 7 del SIGUIENTE)
-        inicio = new Date(y, m, 23, 0, 0, 0);
-        fin = new Date(y, m + 1, 7, 23, 59, 59, 999); // JS maneja el cambio de año solo
-    }
-    else {
-        // ESTAMOS EN EL PERIODO 2 (Del 23 del ANTERIOR al 7 de este mes)
-        // (Ejemplo: Hoy es día 5, pertenecemos al periodo que empezó el 23 pasado)
-        inicio = new Date(y, m - 1, 23, 0, 0, 0);
-        fin = new Date(y, m, 7, 23, 59, 59, 999);
-    }
-    return {
-        inicioISO: inicio.toISOString(),
-        finISO: fin.toISOString()
-    };
-};
-// --- FUNCIÓN PRINCIPAL ---
+const consolidacioncapital_service_1 = require("./consolidacioncapital.service");
+// --- FUNCIÓN PRINCIPAL DE JOB DE CAPITAL ---
 const checkAndCreateConsolidation = async (idEmpresa) => {
-    const hoy = new Date();
-    // 1. OBTENER LAS FECHAS CORRECTAS DEL PERIODO (GRANULARIDAD 1)
-    const { inicioISO, finISO } = calcularRangoFechas(hoy);
-    logger_1.logger.info(`🔍 Verificando consolidación para el periodo: ${inicioISO} al ${finISO}`);
-    // 2. VERIFICAR SI YA EXISTE UNA CONSOLIDACIÓN EN ESTE RANGO
-    const { data: existente } = await supabaseClient_1.supabase
+    const hoy = new Date().toISOString();
+    logger_1.logger.info(`🔍 Verificando/creando consolidación para hoy (${hoy}) en Empresa #${idEmpresa}...`);
+    const idConsolidacion = await (0, consolidacioncapital_service_1.getConsolidacionActivaId)(hoy, idEmpresa);
+    const { data } = await supabaseClient_1.supabase
         .from("ConsolidacionCapital")
         .select("*")
-        .eq("IdEmpresa", idEmpresa)
-        .eq("FechaInicio", inicioISO) // Buscamos coincidencia exacta de inicio
-        .maybeSingle();
-    if (existente) {
-        logger_1.logger.info(`✅ Consolidación ya existe (ID: ${existente.IdConsolidacion}).`);
-        return existente;
-    }
-    logger_1.logger.info("⚠️ Creando nueva consolidación para el periodo detectado...");
-    // 3. OBTENER LA ÚLTIMA PARA ARRASTRAR EL BALANCE (GRANULARIDAD 2)
-    // Buscamos la que cerró antes de que empiece la nueva
-    const { data: ultima } = await supabaseClient_1.supabase
-        .from("ConsolidacionCapital")
-        .select("IdConsolidacion, CapitalEntrante, CapitalSaliente")
-        .eq("IdEmpresa", idEmpresa)
-        .lt("FechaInicio", inicioISO) // Que haya empezado antes de la nueva
-        .order("FechaInicio", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-    // 4. CALCULAR BALANCE NETO EXACTO
-    let balanceAnterior = 0;
-    if (ultima) {
-        const entradas = Number(ultima.CapitalEntrante) || 0;
-        const salidas = Number(ultima.CapitalSaliente) || 0;
-        balanceAnterior = entradas - salidas;
-        // Cerramos la anterior visualmente (Opcional)
-        // await supabase.from("ConsolidacionCapital").update({ Estado: "Cerrado" }).eq("IdConsolidacion", ultima.IdConsolidacion);
-    }
-    // 5. PREPARAR DATOS (AQUÍ MANEJAMOS EL SIGNO)
-    const nuevaConsolidacionData = {
-        FechaInicio: inicioISO,
-        FechaFin: finISO,
-        // Si el balance es negativo (-3000), entra tal cual (-3000) para que la matemática cuadre
-        CapitalEntrante: balanceAnterior,
-        CapitalSaliente: 0,
-        Observaciones: balanceAnterior < 0
-            ? `⚠️ Apertura con Déficit arrastrado: $${balanceAnterior.toFixed(2)}`
-            : `Apertura normal. Saldo anterior: $${balanceAnterior.toFixed(2)}`,
-        FechaGeneracion: hoy.toISOString(),
-        IdEmpresa: idEmpresa
-    };
-    // 6. INSERTAR EN BBDD
-    const { data: nueva, error: createError } = await supabaseClient_1.supabase
-        .from("ConsolidacionCapital")
-        .insert(nuevaConsolidacionData)
-        .select()
+        .eq("IdConsolidacion", idConsolidacion)
         .single();
-    if (createError) {
-        logger_1.logger.error("❌ Error creando consolidación:", createError.message);
-        throw new Error(`Error crítico creando consolidación: ${createError.message}`);
-    }
-    // 7. CREAR EL REGISTRO CONTABLE CORRECTO (CONTABILIDAD AMARRADA)
-    // Aquí es donde solucionamos "que no puso el registro en negativo"
-    if (balanceAnterior !== 0) {
-        const esDeficit = balanceAnterior < 0;
-        const montoAbsoluto = Math.abs(balanceAnterior);
-        await registroConsolidacionService.createRegistroConsolidacionService({
-            IdConsolidacion: nueva.IdConsolidacion,
-            FechaRegistro: hoy.toISOString(), // Registramos el movimiento hoy
-            // Si es déficit (Negativo), lo registramos como Egreso o como Ingreso Negativo.
-            // Para que se vea en rojo en tu tabla, lo ideal es:
-            // Opción A: Tipo 'Egreso' con descripción 'Déficit Anterior'
-            // Opción B: Tipo 'Ingreso' con monto negativo (Depende de cómo tu frontend sume)
-            // Usaremos la lógica de Tipo según el signo para mayor claridad:
-            TipoRegistro: esDeficit ? "Egreso" : "Ingreso",
-            Estado: "Procesado", // Estado fijo ya que es automático
-            Descripcion: esDeficit
-                ? `🔻 Arrastre de Déficit (Periodo Anterior)`
-                : `✅ Saldo Inicial (Periodo Anterior)`,
-            // Aquí aseguramos que el monto sea el correcto para tus cálculos
-            // Si tu sistema resta los 'Egresos', mandamos el positivo absoluto.
-            Monto: montoAbsoluto,
-        }, idEmpresa); // AQUI PASAMOS IDEMPRESA A REGISTRO CONSOLIDACION
-    }
-    // 8. PROCESAR GASTOS FIJOS
-    try {
-        await gastoFijoJobService.processFixedExpenses(nueva.IdConsolidacion, idEmpresa);
-    }
-    catch (e) {
-        logger_1.logger.error("⚠️ Error procesando gastos fijos:", e);
-    }
-    logger_1.logger.info(`✅ Nueva Consolidación creada: ID ${nueva.IdConsolidacion} | Balance Inicial: ${balanceAnterior}`);
-    return nueva;
+    return data;
 };
 exports.checkAndCreateConsolidation = checkAndCreateConsolidation;

@@ -47,6 +47,7 @@ export function ConsolidacionContent() {
   const [consolidacion, setConsolidacion] = useState<ConsolidacionCapital | null>(null);
   const [registros, setRegistros] = useState<RegistroConsolidacion[]>([]);
   
+  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingRegistros, setLoadingRegistros] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,9 +105,12 @@ export function ConsolidacionContent() {
         setAllConsolidaciones(dataC);
 
         if (dataC.length > 0) {
-            const initialConsolidacion = dataC[0];
-            setConsolidacion(initialConsolidacion);
-            await fetchRegistros(initialConsolidacion.IdConsolidacion);
+            setConsolidacion(prev => {
+                const found = prev ? dataC.find(c => c.IdConsolidacion === prev.IdConsolidacion) : null;
+                const targetConsolidacion = found || dataC[0];
+                fetchRegistros(targetConsolidacion.IdConsolidacion);
+                return targetConsolidacion;
+            });
         }
     } catch (e: any) {
         console.error('Error fetching all data:', e);
@@ -158,8 +162,9 @@ export function ConsolidacionContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!consolidacion) return alert("Debe haber una consolidación seleccionada para registrar.")
+    if (!consolidacion || submitting) return;
 
+    setSubmitting(true);
     const dataToSend = {
       ...formData,
       Monto: parseFloat(formData.Monto),
@@ -185,6 +190,8 @@ export function ConsolidacionContent() {
 
     } catch (e: any) {
       alert(`Fallo la operación: ${e.message}`)
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -295,8 +302,10 @@ export function ConsolidacionContent() {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>
-                    <Button type="submit" className="bg-[#213685] hover:bg-[#213685]/90">{editingRegistro ? "Actualizar" : "Crear"} Registro</Button>
+                    <Button type="button" variant="outline" onClick={resetForm} disabled={submitting}>Cancelar</Button>
+                    <Button type="submit" disabled={submitting} className="bg-[#213685] hover:bg-[#213685]/90">
+                      {submitting ? "Procesando..." : `${editingRegistro ? "Actualizar" : "Crear"} Registro`}
+                    </Button>
                   </DialogFooter>
                 </form>
               </DialogContent>

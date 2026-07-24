@@ -126,7 +126,7 @@ export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa:
   const inicioDia = new Date(fechaObj.getFullYear(), fechaObj.getMonth(), fechaObj.getDate(), 0, 0, 0, 0).toISOString();
   const finDia = new Date(fechaObj.getFullYear(), fechaObj.getMonth(), fechaObj.getDate(), 23, 59, 59, 999).toISOString();
 
-  // A. ¿YA EXISTE LA CONSOLIDACIÓN?
+  // A. ¿YA EXISTE LA CONSOLIDACIÓN PARA ESTA FECHA?
   const { data: consolidacion } = await supabase
     .from("ConsolidacionCapital")
     .select("IdConsolidacion")
@@ -141,29 +141,44 @@ export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa:
     return consolidacion.IdConsolidacion;
   }
 
-  // B. NO EXISTE -> CREARLA + ARRASTRAR SALDO
-  logger.info("⚠️ No hay consolidación activa. Creando nueva y arrastrando saldo...");
+  // B. NO EXISTE -> CREARLA Y ARRASTRAR EL BALANCE DEL PERÍODO ANTERIOR
+  logger.info(`⚠️ No hay consolidación para la fecha ${fechaRegistro}. Creando nueva y arrastrando saldo...`);
 
   const { inicioISO, finISO } = getRangoConsolidacion(fechaObj);
 
-  // 1. Buscamos la consolidación INMEDIATAMENTE ANTERIOR para sacar el balance
+  // 1. Buscamos la consolidación INMEDIATAMENTE ANTERIOR
   const { data: consolidacionAnterior } = await supabase
     .from("ConsolidacionCapital")
-    .select("CapitalEntrante, CapitalSaliente") // Traemos los montos para calcular
+    .select("IdConsolidacion")
     .eq("IdEmpresa", idEmpresa)
-    .lt("FechaInicio", inicioISO) // Que haya empezado antes
-    .order("FechaInicio", { ascending: false }) // La más reciente
+    .lt("FechaInicio", inicioISO)
+    .order("FechaInicio", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   let balanceAnterior = 0;
   if (consolidacionAnterior) {
-    // Cálculo simple: Lo que entró menos lo que salió
-    balanceAnterior = Number(consolidacionAnterior.CapitalEntrante) - Number(consolidacionAnterior.CapitalSaliente);
-    logger.info(`💰 Balance anterior encontrado: ${balanceAnterior}`);
+    // Calculamos el saldo final de la consolidación anterior sumando sus registros
+    const { data: registrosAnt } = await supabase
+      .from("RegistroConsolidacion")
+      .select("Monto, TipoRegistro")
+      .eq("IdConsolidacion", consolidacionAnterior.IdConsolidacion);
+
+    if (registrosAnt) {
+      for (const r of registrosAnt) {
+        const tipo = (r.TipoRegistro || "").toLowerCase().trim();
+        const monto = Number(r.Monto || 0);
+        if (tipo === "ingreso") {
+          balanceAnterior += monto;
+        } else if (tipo === "egreso") {
+          balanceAnterior -= monto;
+        }
+      }
+    }
+    logger.info(`💰 Balance anterior calculado de registros: ${balanceAnterior}`);
   }
 
-  // 2. Insertamos la Nueva Consolidación (Padre)
+  // 2. Insertamos la Nueva Consolidación
   const { data: nuevaConsolidacion, error: errorCreate } = await supabase
     .from("ConsolidacionCapital")
     .insert({
@@ -183,8 +198,7 @@ export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa:
 
   const nuevoId = nuevaConsolidacion.IdConsolidacion;
 
-  // 3. 🚨 REGISTRAR EL BALANCE ANTERIOR COMO UNA TRANSACCIÓN 🚨
-  // Si el balance es distinto de 0, creamos el registro para que cuadre la caja
+  // 3. REGISTRAR EL BALANCE ANTERIOR COMO REGISTRO DE ARRASTRE
   if (balanceAnterior !== 0) {
     const esPositivo = balanceAnterior > 0;
 
@@ -192,23 +206,21 @@ export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa:
       .from("RegistroConsolidacion")
       .insert({
         IdConsolidacion: nuevoId,
-        FechaRegistro: new Date().toISOString(), // Se registra al momento de crearla
-        Monto: Math.abs(balanceAnterior), // Siempre positivo en el monto
-        TipoRegistro: esPositivo ? "Ingreso" : "Egreso", // El signo lo define el tipo
-        Estado: "Depositado", // Este nace completado porque es un arrastre
+        FechaRegistro: inicioISO,
+        Monto: Math.abs(balanceAnterior),
+        TipoRegistro: esPositivo ? "Ingreso" : "Egreso",
+        Estado: "Depositado",
         Descripcion: `Balance Inicial (Arrastre periodo anterior)`
       });
 
     if (errorBalance) {
       logger.error("Error crítico insertando balance inicial:", errorBalance);
-      // No detenemos el proceso, pero queda el log
     } else {
       logger.info("✅ Registro de balance inicial creado correctamente.");
     }
   }
 
   try {
-    // Le pasamos el ID nuevo y las fechas del rango calculado
     await procesarGastosFijos(nuevoId, inicioISO, finISO, idEmpresa);
   } catch (e) {
     logger.error("Error no bloqueante procesando gastos fijos:", e);
@@ -219,18 +231,17 @@ export const getConsolidacionActivaId = async (fechaRegistro: string, idEmpresa:
 
 // --- CREAR ---
 export const createConsolidacionCapitalService = async (data: ConsolidacionCapitalData, idEmpresa: number) => {
-  // Nota: Transformamos las fechas antes de enviar a Supabase.
   const { data: nuevo, error } = await supabase
-    .from("VistaConsolidacionCapital")
+    .from("ConsolidacionCapital")
     .insert({
       FechaInicio: data.FechaInicio ? new Date(data.FechaInicio).toISOString() : null,
       FechaFin: data.FechaFin ? new Date(data.FechaFin).toISOString() : null,
-      CapitalEntrante: data.CapitalEntrante,
-      CapitalSaliente: data.CapitalSaliente,
+      CapitalEntrante: data.CapitalEntrante || 0,
+      CapitalSaliente: data.CapitalSaliente || 0,
       Observaciones: data.Observaciones || null,
       FechaGeneracion: data.FechaGeneracion
         ? new Date(data.FechaGeneracion).toISOString()
-        : new Date(data.FechaGeneracion!).toISOString(),
+        : new Date().toISOString(),
       IdEmpresa: idEmpresa
     })
     .select()
@@ -244,62 +255,16 @@ export const createConsolidacionCapitalService = async (data: ConsolidacionCapit
 };
 
 export const crearConsolidacionAutomatica = async (fechaRegistro: string, idEmpresa: number) => {
-  const fechaObj = new Date(fechaRegistro);
-  const { inicioISO, finISO } = getRangoConsolidacion(fechaObj);
-
-  logger.info(`⏳ Creando consolidación automática: ${inicioISO} al ${finISO}`);
-
-  // A. BUSCAR EL SALDO DE LA CONSOLIDACIÓN ANTERIOR
-  // Buscamos la consolidación cuya FechaFin sea inmediatamente anterior a nuestra nueva FechaInicio
-  const { data: consolidacionAnterior, error: errorAnt } = await supabase
-    .from("ConsolidacionCapital") // O la tabla física donde guardas los datos
-    .select("SaldoFinalCalculado") // O como se llame tu campo de saldo final
-    .eq("IdEmpresa", idEmpresa)
-    .lt("FechaInicio", inicioISO) // Que haya empezado antes que esta
-    .order("FechaInicio", { ascending: false }) // La más reciente de las anteriores
-    .limit(1)
-    .maybeSingle();
-
-  let montoInicial = 0;
-
-  if (consolidacionAnterior) {
-    montoInicial = consolidacionAnterior.SaldoFinalCalculado || 0;
-    logger.info(`💰 Saldo arrastrado de la anterior: ${montoInicial}`);
-  } else {
-    logger.info("⚠️ No hay consolidación anterior. Iniciando con Saldo 0.");
-  }
-
-  // B. CREAR LA NUEVA CONSOLIDACIÓN
-  const { data: nuevaConsolidacion, error: errorCreate } = await supabase
-    .from("ConsolidacionCapital") // Asegúrate que esta sea la tabla INSERTABLE
-    .insert({
-      FechaInicio: inicioISO,
-      FechaFin: finISO,
-      Estado: "Abierta",
-      MontoInicial: montoInicial, // <--- AQUÍ ARRASTRAMOS EL SALDO
-      FechaGeneracion: new Date().toISOString(), // Fecha de creación del registro
-      IdEmpresa: idEmpresa
-    })
-    .select("IdConsolidacion")
-    .single();
-
-  if (errorCreate || !nuevaConsolidacion) {
-    throw new Error(`Error creando consolidación automática: ${errorCreate?.message}`);
-  }
-
-  return nuevaConsolidacion.IdConsolidacion;
+  return await getConsolidacionActivaId(fechaRegistro, idEmpresa);
 };
 
-// --- OBTENER TODAS ---
+// --- OBTENER TODAS (RÁPIDO: SOLO METADATOS) ---
 export const getAllConsolidacionesCapitalService = async (idEmpresa: number) => {
-  // Traducción de findMany con include: Registros (Relación uno-a-muchos)
   const { data: lista, error } = await supabase
-    .from("VistaConsolidacionCapital")
-    .select(`
-      *,
-      Registros:RegistroConsolidacion (*)
-    `)
-    .eq("IdEmpresa", idEmpresa);
+    .from("ConsolidacionCapital")
+    .select("IdConsolidacion, FechaInicio, FechaFin, CapitalEntrante, CapitalSaliente, Observaciones, FechaGeneracion")
+    .eq("IdEmpresa", idEmpresa)
+    .order("FechaInicio", { ascending: false });
 
   if (error) {
     logger.error("Error en getAllConsolidacionesCapitalService:", error.message);

@@ -9,6 +9,7 @@ const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const errorHandler_1 = require("./middlewares/errorHandler");
+const idempotency_middleware_1 = require("./middlewares/idempotency.middleware");
 const express_1 = __importDefault(require("express"));
 const prestamo_routes_1 = __importDefault(require("./routes/prestamo.routes"));
 const cliente_routes_1 = __importDefault(require("./routes/cliente.routes"));
@@ -54,10 +55,8 @@ app.use((0, helmet_1.default)({
 }));
 app.use((0, cors_1.default)({
     origin: function (origin, callback) {
-        // Si no hay origen (como Postman), permitimos la petición
         if (!origin)
             return callback(null, true);
-        // Removemos cualquier barra diagonal al final del string del origen para evitar conflictos
         const cleanedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
         if (allowedOrigins.includes(cleanedOrigin)) {
             callback(null, true);
@@ -67,13 +66,24 @@ app.use((0, cors_1.default)({
         }
     },
     credentials: true,
-    // Le decimos al navegador exactamente qué métodos y cabeceras aceptamos en la petición "preflight"
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept']
+    allowedHeaders: ['*'], // Permitir todas las cabeceras requeridas por el cliente (incluyendo x-idempotency-key)
 }));
+// Middleware explícito de respaldo para cabeceras CORS preflight
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-idempotency-key, X-Idempotency-Key, idempotency-key, Idempotency-Key");
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+    }
+    next();
+});
 // 4. Middlewares de Parseo de Body (Lectura de datos)
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
+app.use(idempotency_middleware_1.idempotencyMiddleware);
 // 5. Aplicación de Rate Limiters Globales y Específicos
 app.use(limiter);
 app.use("/api/auth/login", authLimiter);

@@ -77,7 +77,7 @@ export function ReengancheModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!prestamo) return;
+    if (!prestamo || submitting) return;
 
     if (!esValidoMonto) {
       toast.error(`El nuevo préstamo debe ser mayor al saldo pendiente a liquidar (${formatMoney(saldoPendiente)})`);
@@ -272,7 +272,7 @@ export function ReengancheModal({
           </div>
 
           <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
               Cancelar
             </Button>
             <Button

@@ -6,19 +6,12 @@ const supabaseClient_1 = require("../config/supabaseClient");
 const consolidacioncapital_service_1 = require("./consolidacioncapital.service");
 // --- CREAR REGISTRO ---
 const createRegistroConsolidacionService = async (data, idEmpresa) => {
-    let idConsolidacionFinal;
-    if (data.IdConsolidacion) {
-        idConsolidacionFinal = data.IdConsolidacion;
-    }
-    else {
-        const fechaRegistroParaBusqueda = data.FechaRegistro
-            ? new Date(data.FechaRegistro).toISOString()
-            : new Date().toISOString();
-        idConsolidacionFinal = await (0, consolidacioncapital_service_1.getConsolidacionActivaId)(fechaRegistroParaBusqueda, idEmpresa);
-    }
     const fechaFinalISO = data.FechaRegistro
         ? new Date(data.FechaRegistro).toISOString()
         : new Date().toISOString();
+    const idConsolidacionFinal = data.IdConsolidacion
+        ? data.IdConsolidacion
+        : await (0, consolidacioncapital_service_1.getConsolidacionActivaId)(fechaFinalISO, idEmpresa);
     const tipoNorm = (data.TipoRegistro || '').toLowerCase().trim();
     const estadoNorm = (data.Estado || '').toLowerCase().trim();
     if (tipoNorm === 'egreso' && estadoNorm !== 'pendiente') {
@@ -51,20 +44,21 @@ const createRegistroConsolidacionService = async (data, idEmpresa) => {
     return nuevoRegistro;
 };
 exports.createRegistroConsolidacionService = createRegistroConsolidacionService;
-// --- OBTENER TODOS (Con filtro opcional por idConsolidacion) ---
+// --- OBTENER REGISTROS DE UNA CONSOLIDACIÓN ESPECÍFICA ---
 const getAllRegistrosConsolidacionService = async (idEmpresa, idConsolidacion) => {
-    let query = supabaseClient_1.supabase
+    let targetId = idConsolidacion;
+    if (!targetId) {
+        targetId = await (0, consolidacioncapital_service_1.getConsolidacionActivaId)(new Date().toISOString(), idEmpresa);
+    }
+    const { data: lista, error } = await supabaseClient_1.supabase
         .from("RegistroConsolidacion")
         .select(`
             *,
-            ConsolidacionCapital!inner (*)
+            ConsolidacionCapital!inner (IdEmpresa)
         `)
         .eq("ConsolidacionCapital.IdEmpresa", idEmpresa)
+        .eq("IdConsolidacion", targetId)
         .order("IdRegistro", { ascending: false });
-    if (idConsolidacion) {
-        query = query.eq("IdConsolidacion", idConsolidacion);
-    }
-    const { data: lista, error } = await query;
     if (error) {
         logger_1.logger.error("Error en getAllRegistrosConsolidacionService:", error.message);
         throw new Error(`Error obteniendo registros: ${error.message}`);

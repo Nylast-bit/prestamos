@@ -121,7 +121,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
   };
 
   const handleConfirmarPago = async () => {
-    if (!selectedPrestamo) return;
+    if (!selectedPrestamo || isPaying) return;
     setIsPaying(true);
 
     try {

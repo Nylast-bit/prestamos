@@ -85,7 +85,7 @@ export function ConsolidacionTable({
                 <ArrowUpDown className={`h-4 w-4 transition-colors ${sortOrder === 'asc' ? 'text-[#213685]' : 'text-slate-400 group-hover:text-slate-600'}`} />
               </div>
             </TableHead>
-            <TableHead className="font-bold">CONCEPTO</TableHead>
+            <TableHead className="font-bold min-w-[280px] md:min-w-[340px]">CONCEPTO</TableHead>
             <TableHead className="font-bold">TOTAL</TableHead>
             <TableHead className="font-bold">ESTADO</TableHead>
             <TableHead className="text-right font-bold">ACCIONES</TableHead>
@@ -114,9 +114,9 @@ export function ConsolidacionTable({
                   </div>
                 )}
               </TableCell>
-              <TableCell className="text-slate-600">{formatDate(registro.FechaRegistro)}</TableCell>
-              <TableCell>
-                <div className="max-w-[200px] truncate font-medium text-slate-800" title={registro.Descripcion}>
+              <TableCell className="text-slate-600 font-medium whitespace-nowrap">{formatDate(registro.FechaRegistro)}</TableCell>
+              <TableCell className="min-w-[280px] md:min-w-[340px]">
+                <div className="whitespace-normal break-words leading-relaxed font-medium text-slate-800 text-sm py-1">
                   {registro.Descripcion}
                 </div>
               </TableCell>
