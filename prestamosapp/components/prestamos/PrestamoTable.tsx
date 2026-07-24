@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Edit, Trash2, CalendarClock, Banknote, CheckCircle2, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw } from 'lucide-react'
+import { Edit, Trash2, CalendarClock, Banknote, CheckCircle2, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Zap, TrendingDown, AlertCircle } from 'lucide-react'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -57,10 +57,13 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
   const [observaciones, setObservaciones] = useState("");
   const [isPaying, setIsPaying] = useState(false);
 
-  // Estados para los 3 modos de pago
-  const [payMode, setPayMode] = useState<'cuota' | 'personalizado' | 'liquidar'>('cuota');
+  // Estados para los 5 modos de pago
+  const [payMode, setPayMode] = useState<'cuota' | 'personalizado' | 'extraordinario' | 'liquidar' | 'reenganche'>('cuota');
   const [montoPersonalizado, setMontoPersonalizado] = useState("");
   const [montoLiquidar, setMontoLiquidar] = useState("");
+  const [montoExtraordinario, setMontoExtraordinario] = useState("");
+  const [interesPagadoEnPeriodo, setInteresPagadoEnPeriodo] = useState<number>(0);
+  const [cargandoInteresCheck, setCargandoInteresCheck] = useState<boolean>(false);
 
   // Estados Detalle (Historial)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -86,6 +89,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
     ? baseInteres * (selectedPrestamo.InteresPorcentaje / 100)
     : 0;
 
+  const yaPagoInteresPeriodo = interesPagadoEnPeriodo >= (interesMinimo - 0.01);
+
   const montoLiquidacionDefecto = selectedPrestamo
     ? capitalRestanteReal + interesMinimo
     : 0;
@@ -100,7 +105,29 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
   const desgloseInteres = Math.min(montoPersonalizadoNum, interesMinimo);
   const esMontoValido = montoPersonalizadoNum >= interesMinimo && montoPersonalizadoNum > 0;
 
+  const montoExtraordinarioNum = parseFloat(montoExtraordinario) || 0;
+  const nuevoCapitalPostExtraordinario = Math.max(0, capitalRestanteReal - montoExtraordinarioNum);
+
   // --- HANDLERS ---
+  const checkInteresPeriodo = async (idPrestamo: number) => {
+    try {
+      setCargandoInteresCheck(true);
+      const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagos/historial/${idPrestamo}`);
+      if (res.ok) {
+        const historial = await res.json();
+        const hoy = new Date();
+        const hace15Dias = new Date(hoy.setDate(hoy.getDate() - 15));
+        const pagosRecientes = (historial || []).filter((p: any) => new Date(p.FechaPago) >= hace15Dias);
+        const totalInteres = pagosRecientes.reduce((sum: number, p: any) => sum + Number(p.MontoInteresPagado || 0), 0);
+        setInteresPagadoEnPeriodo(totalInteres);
+      }
+    } catch (e) {
+      console.error("Error verificando historial de interés:", e);
+    } finally {
+      setCargandoInteresCheck(false);
+    }
+  };
+
   const handleOpenPay = (e: React.MouseEvent, prestamo: any) => {
     e.stopPropagation();
     setSelectedPrestamo(prestamo);
@@ -110,7 +137,10 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
     setPayMode(esSoloInteres ? 'personalizado' : 'cuota');
     setMontoPersonalizado("");
     setMontoLiquidar("");
+    setMontoExtraordinario("");
+    setInteresPagadoEnPeriodo(0);
     setIsPayOpen(true);
+    checkInteresPeriodo(prestamo.IdPrestamo);
   };
 
   const getIdConsolidacionActiva = async () => {
@@ -193,8 +223,34 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Error al procesar el pago personalizado");
 
+      } else if (payMode === 'extraordinario') {
+        // === MODO 3: ABONO EXTRAORDINARIO A CAPITAL (100% DIRECTO A CAPITAL) ===
+        if (montoExtraordinarioNum <= 0) {
+          throw new Error("El monto del abono extraordinario debe ser mayor a RD$0.00.");
+        }
+
+        const idConsolidacion = await getIdConsolidacionActiva();
+
+        const payload = {
+          idPrestamo: Number(selectedPrestamo.IdPrestamo),
+          idConsolidacion,
+          montoPagado: montoExtraordinarioNum,
+          fechaPago: new Date().toISOString(),
+          concepto: observaciones || `Abono Extraordinario a Capital - ${paymentType}`,
+          esAbonoExtraordinario: true
+        };
+
+        const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagospersonalizados`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Error al procesar el abono extraordinario");
+
       } else if (payMode === 'liquidar') {
-        // === MODO 3: LIQUIDACIÓN TOTAL (CON O SIN REBAJA) ===
+        // === MODO 4: LIQUIDACIÓN TOTAL (CON O SIN REBAJA) ===
         const idConsolidacion = await getIdConsolidacionActiva();
 
         const payload = {
@@ -214,9 +270,17 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Error al liquidar el préstamo");
+      } else if (payMode === 'reenganche') {
+        setIsPayOpen(false);
+        if (onReenganchar) onReenganchar(selectedPrestamo);
+        return;
       }
 
-      alert(payMode === 'liquidar' ? "¡Préstamo liquidado exitosamente!" : "¡Pago registrado correctamente!");
+      alert(
+        payMode === 'liquidar' 
+          ? "¡Préstamo liquidado exitosamente!" 
+          : (payMode === 'extraordinario' ? "¡Abono extraordinario a capital registrado correctamente!" : "¡Pago registrado correctamente!")
+      );
       setIsPayOpen(false);
       if (onPaymentSuccess) onPaymentSuccess();
       
@@ -281,7 +345,9 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
   const getBotonLabel = () => {
     if (isPaying) return "Procesando...";
     if (payMode === 'cuota') return "Cobrar Cuota";
-    if (payMode === 'personalizado') return `Cobrar ${montoPersonalizadoNum > 0 ? formatMoney(montoPersonalizadoNum) : ''}`;
+    if (payMode === 'personalizado') return `Cobrar ${montoPersonalizadoNum > 0 ? formatMoney(montoPersonalizadoNum) : 'Personalizado'}`;
+    if (payMode === 'extraordinario') return `Abonar ${montoExtraordinarioNum > 0 ? formatMoney(montoExtraordinarioNum) : 'a Capital'}`;
+    if (payMode === 'reenganche') return "Ir a Reenganche";
     return `Liquidar ${montoLiquidarNum > 0 ? formatMoney(montoLiquidarNum) : ''}`;
   };
 
@@ -456,23 +522,11 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                                           : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-60'
                                       }`}
                                       onClick={(e) => puedeCobrar && handleOpenPay(e, prestamo)}
-                                      title={puedeCobrar ? "Registrar Pago" : "Solo el prestamista asignado puede cobrar este préstamo"}
+                                      title={puedeCobrar ? "Registrar Cobro u Opciones de Pago" : "Solo el prestamista asignado puede cobrar este préstamo"}
                                     >
                                       <Banknote className="h-4 w-4 mr-1" />
                                       Cobrar
                                     </Button>
-
-                                    {puedeEditarOEliminar && onReenganchar && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-9 px-3 border-amber-300 bg-amber-50/50 hover:bg-amber-100 hover:border-amber-400 text-amber-900 transition-all font-medium text-xs shadow-sm"
-                                        onClick={(e) => { e.stopPropagation(); onReenganchar(prestamo); }}
-                                        title="Reenganchar Préstamo"
-                                      >
-                                        <RefreshCw className="h-3.5 w-3.5 mr-1 text-amber-700" />
-                                      </Button>
-                                    )}
                                   </>
                                 )}
                                 {puedeEditarOEliminar && (
@@ -601,42 +655,69 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
           {selectedPrestamo && (
             <div className="grid gap-5 py-2">
               
-              {/* === SELECTOR DE MODO === */}
-              <div className={`grid gap-2 ${selectedPrestamo.TipoCalculo === 'solo_interes' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              {/* === SELECTOR DE MODO (5 OPCIONES) === */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {selectedPrestamo.TipoCalculo !== 'solo_interes' && (
                   <button
+                    type="button"
                     onClick={() => setPayMode('cuota')}
-                    className={`px-3 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${
+                    className={`px-2.5 py-2.5 rounded-lg border-2 text-xs font-semibold transition-all ${
                       payMode === 'cuota' 
                         ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' 
                         : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
                     }`}
                   >
-                    <CalendarClock className="h-5 w-5 mx-auto mb-1" />
+                    <CalendarClock className="h-4 w-4 mx-auto mb-1" />
                     Cuota
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => setPayMode('personalizado')}
-                  className={`px-3 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${
+                  className={`px-2.5 py-2.5 rounded-lg border-2 text-xs font-semibold transition-all ${
                     payMode === 'personalizado' 
                       ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' 
                       : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <Banknote className="h-5 w-5 mx-auto mb-1" />
+                  <Banknote className="h-4 w-4 mx-auto mb-1" />
                   Personalizado
                 </button>
                 <button
+                  type="button"
+                  onClick={() => setPayMode('extraordinario')}
+                  className={`px-2.5 py-2.5 rounded-lg border-2 text-xs font-semibold transition-all ${
+                    payMode === 'extraordinario' 
+                      ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-sm' 
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <Zap className="h-4 w-4 mx-auto mb-1 text-purple-600" />
+                  Abono Capital
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPayMode('liquidar')}
-                  className={`px-3 py-3 rounded-lg border-2 text-sm font-semibold transition-all ${
+                  className={`px-2.5 py-2.5 rounded-lg border-2 text-xs font-semibold transition-all ${
                     payMode === 'liquidar' 
                       ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-sm' 
                       : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  <CheckCircle2 className="h-5 w-5 mx-auto mb-1" />
+                  <CheckCircle2 className="h-4 w-4 mx-auto mb-1" />
                   Liquidar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayMode('reenganche')}
+                  className={`px-2.5 py-2.5 rounded-lg border-2 text-xs font-semibold transition-all col-span-2 sm:col-span-1 ${
+                    payMode === 'reenganche' 
+                      ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-sm' 
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <RefreshCw className="h-4 w-4 mx-auto mb-1 text-amber-700" />
+                  Reenganchar
                 </button>
               </div>
 
@@ -702,6 +783,78 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                 </div>
               )}
 
+              {payMode === 'extraordinario' && (
+                <div className="space-y-4">
+                  {!yaPagoInteresPeriodo ? (
+                    <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 space-y-2">
+                      <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                        <AlertCircle className="h-4 w-4 text-amber-700 shrink-0" />
+                        Barrera del Interés Pendiente
+                      </div>
+                      <p className="text-xs text-amber-800 leading-relaxed">
+                        Para registrar un <strong>Abono Directo a Capital</strong> (0% Interés), el préstamo debe tener el interés del período (<strong>{formatMoney(interesMinimo)}</strong>) cubierto previamente. En este período se ha registrado <strong>{formatMoney(interesPagadoEnPeriodo)}</strong> de interés.
+                      </p>
+                      <p className="text-[11px] text-amber-700 font-medium pt-1">
+                        💡 Utiliza primero la opción <strong>Personalizado</strong> o <strong>Cuota</strong> para registrar el cobro de interés del período.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-purple-50 p-3.5 rounded-lg border border-purple-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                          <Zap className="h-4 w-4 text-purple-600" />
+                          Barrera Cumplida — Abono Directo a Capital
+                        </span>
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">
+                          0% Interés — 100% Capital
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-purple-700">
+                        El interés del período (<strong>{formatMoney(interesMinimo)}</strong>) ya fue cubierto. El 100% del dinero ingresado se descontará directamente del Capital Restante.
+                      </p>
+                      <div className="flex justify-between items-center text-xs pt-1 border-t border-purple-200">
+                        <span className="text-purple-800">Capital Restante Actual:</span>
+                        <span className="font-bold text-purple-950 text-sm">{formatMoney(capitalRestanteReal)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="montoExtraordinario" className="text-xs font-bold text-slate-800">
+                      Monto a Abonar al Capital ($)
+                    </Label>
+                    <Input
+                      id="montoExtraordinario"
+                      type="number"
+                      placeholder={yaPagoInteresPeriodo ? "Ej. 5000.00" : "Bloqueado (Cubre el interés primero)"}
+                      disabled={!yaPagoInteresPeriodo}
+                      value={montoExtraordinario}
+                      onChange={(e) => setMontoExtraordinario(e.target.value)}
+                      className={`text-lg font-bold bg-white ${!yaPagoInteresPeriodo ? 'opacity-60 cursor-not-allowed border-amber-300' : 'text-purple-900 border-purple-300 focus:border-purple-500'}`}
+                      min={0}
+                      step="0.01"
+                    />
+                  </div>
+
+                  {montoExtraordinarioNum > 0 && yaPagoInteresPeriodo && (
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 text-xs">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Capital Actual:</span>
+                        <span className="font-mono font-medium">{formatMoney(capitalRestanteReal)}</span>
+                      </div>
+                      <div className="flex justify-between text-purple-700 font-semibold">
+                        <span>- Abono Directo a Capital (100%):</span>
+                        <span className="font-mono">-{formatMoney(montoExtraordinarioNum)}</span>
+                      </div>
+                      <div className="flex justify-between pt-1.5 border-t border-slate-200 font-bold text-slate-900 text-sm">
+                        <span>Nuevo Capital Restante:</span>
+                        <span className="text-emerald-700">{formatMoney(nuevoCapitalPostExtraordinario)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {payMode === 'liquidar' && (
                 <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 space-y-3">
                   <div className="flex justify-between items-center text-xs text-orange-800 font-semibold border-b border-orange-200 pb-2">
@@ -749,41 +902,75 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                 </div>
               )}
 
-              {/* === CAMPOS COMUNES === */}
-              <div className="grid gap-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="metodo" className="text-right text-sm">Método</Label>
-                  <Select value={paymentType} onValueChange={setPaymentType}>
-                    <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Efectivo">Efectivo</SelectItem>
-                      <SelectItem value="Transferencia">Transferencia</SelectItem>
-                      <SelectItem value="Cheque">Cheque</SelectItem>
-                    </SelectContent>
-                  </Select>
+              {payMode === 'reenganche' && (
+                <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 space-y-3 text-xs">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                    <RefreshCw className="h-4 w-4 text-amber-700" />
+                    Reenganche de Préstamo
+                  </div>
+                  <p className="text-amber-800 leading-relaxed">
+                    Permite a <strong>{selectedPrestamo.clienteNombre}</strong> solicitar un nuevo préstamo por un monto mayor, liquidando automáticamente el saldo pendiente actual de <strong>{formatMoney(capitalRestanteReal)}</strong> y entregando en efectivo únicamente la diferencia neta.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setIsPayOpen(false);
+                      if (onReenganchar) onReenganchar(selectedPrestamo);
+                    }}
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold h-10 shadow-sm mt-1"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Abrir Formulario de Reenganche
+                  </Button>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="obs" className="text-right text-sm">Notas</Label>
-                  <Input id="obs" placeholder="Opcional..." className="col-span-3" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+              )}
+
+              {/* === CAMPOS COMUNES (MÉTODO Y NOTAS) === */}
+              {payMode !== 'reenganche' && (
+                <div className="grid gap-4 pt-1">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="metodo" className="text-right text-xs font-semibold">Método</Label>
+                    <Select value={paymentType} onValueChange={setPaymentType}>
+                      <SelectTrigger className="col-span-3 h-9 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Efectivo">Efectivo</SelectItem>
+                        <SelectItem value="Transferencia">Transferencia</SelectItem>
+                        <SelectItem value="Cheque">Cheque</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="obs" className="text-right text-xs font-semibold">Notas</Label>
+                    <Input id="obs" placeholder="Opcional..." className="col-span-3 h-9 text-xs" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPayOpen(false)}>Cancelar</Button>
-            <Button 
-              className={`text-white ${
-                payMode === 'cuota' ? 'bg-emerald-600 hover:bg-emerald-700' : 
-                payMode === 'personalizado' ? 'bg-blue-600 hover:bg-blue-700' : 
-                'bg-orange-600 hover:bg-orange-700'
-              }`}
-              onClick={handleConfirmarPago} 
-              disabled={isPaying || (payMode === 'personalizado' && !esMontoValido) || (payMode === 'liquidar' && !esMontoLiquidarValido)}
-            >
-              {isPaying && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {getBotonLabel()}
-            </Button>
+          <DialogFooter className="gap-2 pt-2 border-t">
+            <Button variant="outline" size="sm" onClick={() => setIsPayOpen(false)} disabled={isPaying}>Cancelar</Button>
+            {payMode !== 'reenganche' && (
+              <Button 
+                size="sm"
+                className={`text-white font-semibold text-xs ${
+                  payMode === 'cuota' ? 'bg-emerald-600 hover:bg-emerald-700' : 
+                  payMode === 'personalizado' ? 'bg-blue-600 hover:bg-blue-700' : 
+                  payMode === 'extraordinario' ? 'bg-purple-600 hover:bg-purple-700' :
+                  'bg-orange-600 hover:bg-orange-700'
+                }`}
+                onClick={handleConfirmarPago} 
+                disabled={
+                  isPaying || 
+                  (payMode === 'personalizado' && !esMontoValido) || 
+                  (payMode === 'liquidar' && !esMontoLiquidarValido) ||
+                  (payMode === 'extraordinario' && (!yaPagoInteresPeriodo || !montoExtraordinarioNum || montoExtraordinarioNum <= 0))
+                }
+              >
+                {isPaying && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {getBotonLabel()}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

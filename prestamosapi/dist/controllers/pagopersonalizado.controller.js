@@ -38,7 +38,8 @@ const asyncHandler_1 = require("../middlewares/asyncHandler");
 const pagoPersonalizadoService = __importStar(require("../services/pagopersonalizado.service"));
 const supabaseClient_1 = require("../config/supabaseClient");
 exports.createPagoPersonalizado = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
-    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion } = req.body;
+    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion, esAbonoExtraordinario, tipoPago } = req.body;
+    const isAbonoExtra = esAbonoExtraordinario === true || esAbonoExtraordinario === 'true' || tipoPago === 'Extraordinario';
     // 1. Validación básica
     if (!idPrestamo || !idConsolidacion || !montoPagado) {
         res.status(400);
@@ -66,8 +67,9 @@ exports.createPagoPersonalizado = (0, asyncHandler_1.asyncHandler)(async (req, r
         idConsolidacion,
         montoPagado,
         fechaPago: fechaPago || new Date().toISOString(),
-        concepto: concepto || (esLiquidacion ? "Liquidación de Préstamo" : "Pago Personalizado"),
-        esLiquidacion: !!esLiquidacion
+        concepto: concepto || (isAbonoExtra ? "Abono Extraordinario a Capital" : (esLiquidacion ? "Liquidación de Préstamo" : "Pago Personalizado")),
+        esLiquidacion: !!esLiquidacion,
+        esAbonoExtraordinario: isAbonoExtra
     });
     // 3. Respuesta exitosa
     res.status(201).json({

@@ -8,10 +8,13 @@ interface PagoPersonalizadoData {
     fechaPago: string;
     concepto: string;
     esLiquidacion?: boolean;
+    esAbonoExtraordinario?: boolean;
 }
 
 export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData) => {
-    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion } = data;
+    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion, esAbonoExtraordinario } = data;
+
+    logger.info(`🔥 [PagoPersonalizado] ENTRADA → idPrestamo=${idPrestamo}, monto=${montoPagado}, esAbonoExtraordinario=${esAbonoExtraordinario} (type: ${typeof esAbonoExtraordinario}), esLiquidacion=${esLiquidacion}`);
 
     // 1. Buscar el préstamo actual
     const { data: prestamo, error: errorPrestamo } = await supabase
@@ -38,23 +41,58 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
     const capitalRestanteActual = prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? prestamo.CapitalRestante : prestamo.MontoPrestado;
     const minimoLiquidacion = interesGenerado + (capitalRestanteActual * 0.5);
 
-    // 3. Validación de montos según la modalidad (Pago regular vs Liquidación)
-    if (esLiquidacion) {
+    // 2.5 Verificar si ya se cubrió el interés del período en la consolidación activa
+    const { data: consolidacion } = await supabase
+        .from("ConsolidacionCapital")
+        .select("FechaInicio, FechaFin")
+        .eq("IdConsolidacion", idConsolidacion)
+        .maybeSingle();
+
+    let interesPagadoEnPeriodo = 0;
+    if (consolidacion) {
+        const { data: pagosPeriodo } = await supabase
+            .from("Pago")
+            .select("MontoInteresPagado")
+            .eq("IdPrestamo", idPrestamo)
+            .gte("FechaPago", consolidacion.FechaInicio)
+            .lte("FechaPago", consolidacion.FechaFin);
+
+        if (pagosPeriodo) {
+            interesPagadoEnPeriodo = pagosPeriodo.reduce((sum, p) => sum + Number(p.MontoInteresPagado || 0), 0);
+        }
+    }
+
+    const yaPagoInteresPeriodo = interesPagadoEnPeriodo >= (interesGenerado - 0.01);
+
+    let abonoInteres = 0;
+    let abonoCapital = 0;
+
+    // 3. Validación y distribución de montos según la modalidad
+    if (esAbonoExtraordinario) {
+        if (!yaPagoInteresPeriodo) {
+            throw new Error(`El abono extraordinario a capital solo está permitido si ya se cubrió el interés del período (RD$${interesGenerado.toFixed(2)}). El interés acumulado en este período es RD$${interesPagadoEnPeriodo.toFixed(2)}.`);
+        }
+        if (montoPagado <= 0) {
+            throw new Error("El monto del abono extraordinario debe ser mayor a RD$0.00.");
+        }
+        abonoInteres = 0; // 0% al interés (100% Directo a Capital)
+        abonoCapital = Math.min(montoPagado, capitalRestanteActual);
+    } else if (esLiquidacion) {
         if (montoPagado < minimoLiquidacion) {
             throw new Error(`Para liquidar el préstamo se requiere el interés (RD$${interesGenerado.toFixed(2)}) más al menos el 50% del capital restante (Mínimo requerido: RD$${minimoLiquidacion.toFixed(2)}).`);
         }
+        abonoInteres = interesGenerado;
+        abonoCapital = montoPagado - interesGenerado;
     } else {
         if (montoPagado < interesGenerado) {
             throw new Error(`El pago (RD$${montoPagado}) no cubre el interés mínimo generado (RD$${interesGenerado.toFixed(2)}). Pago rechazado.`);
         }
+        abonoInteres = interesGenerado;
+        abonoCapital = montoPagado - interesGenerado;
     }
 
-    // 4. Distribuir el dinero
-    const abonoInteres = interesGenerado;
-    const abonoCapital = montoPagado - interesGenerado;
-
-    // Si es liquidación, el capital restante pasa a 0 y el préstamo queda Saldado/Pagado
-    const nuevoCapitalRestante = esLiquidacion ? 0 : Math.max(0, capitalRestanteActual - abonoCapital);
+    // Si es liquidación o el abono cubre todo el capital restante, el préstamo se marca como Pagado
+    const nuevoCapitalRestante = (esLiquidacion || (capitalRestanteActual - abonoCapital <= 0)) ? 0 : Math.max(0, capitalRestanteActual - abonoCapital);
     const estadoPrestamo = (esLiquidacion || nuevoCapitalRestante === 0) ? "Pagado" : prestamo.Estado;
 
     // 5. La magia del JSON (TablaPagos)
@@ -170,6 +208,13 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
 
         const nextNumeroEmpresa = ((maxPago?.NumeroEmpresa) || 0) + 1;
 
+        const tipoPagoFinal = esAbonoExtraordinario ? "Extraordinario" : (esLiquidacion ? "Liquidacion" : "Personalizado");
+        const descripcionConsolidacion = esAbonoExtraordinario 
+            ? `Abono Extraordinario a Capital - Préstamo #${idPrestamo} - ${concepto}`
+            : (esLiquidacion 
+                ? `Liquidación Total - Préstamo #${idPrestamo} - ${concepto}`
+                : `Pago Personalizado - Préstamo #${idPrestamo} - ${concepto}`);
+
         // 7. Crear el registro del Pago en la tabla general
         const { data: nuevoPago, error: errorPago } = await supabase
             .from("Pago")
@@ -177,7 +222,7 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
                 IdPrestamo: idPrestamo,
                 NumeroEmpresa: nextNumeroEmpresa,
                 FechaPago: fechaPago,
-                TipoPago: "Personalizado",
+                TipoPago: tipoPagoFinal,
                 MontoPagado: montoPagado,
                 MontoInteresPagado: abonoInteres,
                 MontoCapitalAbonado: abonoCapital,
@@ -198,7 +243,7 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
                 FechaRegistro: fechaPago,
                 TipoRegistro: "Ingreso",
                 Estado: "Depositado",
-                Descripcion: `Pago Personalizado - Préstamo #${idPrestamo} - ${concepto}`,
+                Descripcion: descripcionConsolidacion,
                 Monto: montoPagado
             }]);
 

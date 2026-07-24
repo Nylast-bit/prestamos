@@ -14,7 +14,8 @@ export interface CrearPagoPersonalizadoBody {
 }
 
 export const createPagoPersonalizado = asyncHandler(async (req: any, res: Response) => {
-    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion } = req.body;
+    const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion, esAbonoExtraordinario, tipoPago } = req.body;
+    const isAbonoExtra = esAbonoExtraordinario === true || esAbonoExtraordinario === 'true' || tipoPago === 'Extraordinario';
 
     // 1. Validación básica
     if (!idPrestamo || !idConsolidacion || !montoPagado) {
@@ -47,8 +48,9 @@ export const createPagoPersonalizado = asyncHandler(async (req: any, res: Respon
         idConsolidacion,
         montoPagado,
         fechaPago: fechaPago || new Date().toISOString(),
-        concepto: concepto || (esLiquidacion ? "Liquidación de Préstamo" : "Pago Personalizado"),
-        esLiquidacion: !!esLiquidacion
+        concepto: concepto || (isAbonoExtra ? "Abono Extraordinario a Capital" : (esLiquidacion ? "Liquidación de Préstamo" : "Pago Personalizado")),
+        esLiquidacion: !!esLiquidacion,
+        esAbonoExtraordinario: isAbonoExtra
     });
 
     // 3. Respuesta exitosa
