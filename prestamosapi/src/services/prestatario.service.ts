@@ -33,6 +33,10 @@ export const getAllPrestatariosService = async (idEmpresa: number) => {
       *,
       Prestamo (
         Estado
+      ),
+      Usuario:IdUsuario (
+        Estado,
+        Rol
       )
     `)
     .eq('IdEmpresa', idEmpresa)
@@ -45,10 +49,13 @@ export const getAllPrestatariosService = async (idEmpresa: number) => {
 
   const listaFormateada = data.map((prestatario: any) => {
     const prestamosActivos = prestatario.Prestamo?.filter((p: any) => p.Estado === 'Activo') || [];
+    const usuario = Array.isArray(prestatario.Usuario) ? prestatario.Usuario[0] : prestatario.Usuario;
 
     return {
       ...prestatario,
-      cantidadActivos: prestamosActivos.length
+      cantidadActivos: prestamosActivos.length,
+      estadoUsuario: usuario?.Estado || 'Sin cuenta',
+      rolUsuario: usuario?.Rol || null
     };
   });
 
@@ -110,33 +117,89 @@ export const updatePrestatarioService = async (id: number, idEmpresa: number, da
   return updated;
 };
 
-// --- ELIMINAR ---
+// --- SOFT DELETE (Desactivar usuario) ---
 export const deletePrestatarioService = async (id: number, idEmpresa: number) => {
+  // Buscar el Prestatario y su IdUsuario
   const { data: prestatario } = await supabase
     .from("Prestatario")
-    .select("Email")
+    .select("IdUsuario, Email")
     .eq("IdPrestatario", id)
     .eq("IdEmpresa", idEmpresa)
     .maybeSingle();
 
-  if (prestatario && prestatario.Email) {
+  if (!prestatario) {
+    throw new Error("Prestatario no encontrado.");
+  }
+
+  // Desactivar el Usuario vinculado
+  if (prestatario.IdUsuario) {
+    const { error } = await supabase
+      .from("Usuario")
+      .update({ Estado: 'Inactivo' })
+      .eq("IdUsuario", prestatario.IdUsuario);
+
+    if (error) {
+      logger.error("Error desactivando usuario:", error.message);
+      throw new Error("Error al desactivar el usuario: " + error.message);
+    }
+  } else if (prestatario.Email) {
+    // Fallback: buscar por email
     await supabase
       .from("Usuario")
-      .delete()
+      .update({ Estado: 'Inactivo' })
       .eq("Email", prestatario.Email)
       .eq("IdEmpresa", idEmpresa);
   }
 
-  const { error } = await supabase
-    .from("Prestatario")
-    .delete()
-    .eq("IdPrestatario", id)
-    .eq("IdEmpresa", idEmpresa);
+  return { message: "Usuario desactivado exitosamente" };
+};
 
-  if (error) {
-    logger.error("Error en deletePrestatarioService:", error.message);
-    throw new Error("No se puede eliminar: el prestamista tiene préstamos asociados.");
+// --- TOGGLE ESTADO ---
+export const toggleEstadoPrestatarioService = async (id: number, idEmpresa: number) => {
+  // Buscar el Prestatario y su Usuario vinculado
+  const { data: prestatario } = await supabase
+    .from("Prestatario")
+    .select("IdUsuario, Email")
+    .eq("IdPrestatario", id)
+    .eq("IdEmpresa", idEmpresa)
+    .maybeSingle();
+
+  if (!prestatario) {
+    throw new Error("Prestatario no encontrado.");
   }
 
-  return { message: "Prestatario eliminado" };
+  let idUsuario = prestatario.IdUsuario;
+  if (!idUsuario && prestatario.Email) {
+    const { data: usuario } = await supabase
+      .from("Usuario")
+      .select("IdUsuario, Estado")
+      .eq("Email", prestatario.Email)
+      .eq("IdEmpresa", idEmpresa)
+      .maybeSingle();
+    if (usuario) idUsuario = usuario.IdUsuario;
+  }
+
+  if (!idUsuario) {
+    throw new Error("No se encontró un usuario vinculado a este prestamista.");
+  }
+
+  // Obtener estado actual
+  const { data: usuario } = await supabase
+    .from("Usuario")
+    .select("Estado")
+    .eq("IdUsuario", idUsuario)
+    .single();
+
+  if (!usuario) throw new Error("Usuario no encontrado.");
+
+  const nuevoEstado = usuario.Estado === 'Activo' ? 'Inactivo' : 'Activo';
+
+  const { error } = await supabase
+    .from("Usuario")
+    .update({ Estado: nuevoEstado })
+    .eq("IdUsuario", idUsuario);
+
+  if (error) throw new Error("Error cambiando estado: " + error.message);
+
+  return { message: `Usuario ${nuevoEstado === 'Activo' ? 'activado' : 'desactivado'} exitosamente`, estado: nuevoEstado };
 };

@@ -11,32 +11,50 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Search, Edit, Trash2, Phone, Mail, User, Building, Lock, Loader2, KeyRound, ShieldCheck, CheckCircle2, Sparkles, Shield } from 'lucide-react'
+import { Plus, Search, Edit, Phone, Mail, User, Building, Lock, Loader2, Shield, UserCheck, UserX, Eye, EyeOff, Save } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { useAuthStore } from "@/store/authStore"
 
-// Interfaz actualizada para coincidir con el servicio
+// Interfaz actualizada
 interface Prestatario {
   IdPrestatario: number
   Nombre: string
   Telefono?: string | null
   Email?: string | null
   Clave: string
-  cantidadActivos?: number // <--- Campo nuevo que viene del backend
+  cantidadActivos?: number
+  estadoUsuario?: string
+  rolUsuario?: string | null
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
 export function PrestatariosContent() {
+  const { user } = useAuthStore()
   const [prestatarios, setPrestatarios] = useState<Prestatario[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingPrestatario, setEditingPrestatario] = useState<Prestatario | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [prestatarioToDelete, setPrestatarioToDelete] = useState<number | null>(null)
+  const [toggleDialogOpen, setToggleDialogOpen] = useState(false)
+  const [prestatarioToToggle, setPrestatarioToToggle] = useState<Prestatario | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  // Estado para Modal "Mi Perfil"
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileData, setProfileData] = useState({
+    Nombre: "",
+    Telefono: "",
+    Email: "",
+    claveActual: "",
+    claveNueva: "",
+    claveConfirmar: ""
+  })
+  const [showProfilePasswords, setShowProfilePasswords] = useState(false)
   
   const [formData, setFormData] = useState({
     Nombre: "",
@@ -45,79 +63,6 @@ export function PrestatariosContent() {
     Clave: "",
     Rol: "Prestamista"
   })
-
-  // Estados de Verificación OTP
-  const [isOtpSending, setIsOtpSending] = useState(false)
-  const [isOtpVerifying, setIsOtpVerifying] = useState(false)
-  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false)
-  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""])
-  const [otpVerified, setOtpVerified] = useState(false)
-  const [otpPreviewCode, setOtpPreviewCode] = useState("")
-
-  const handleSendOtp = async () => {
-    if (!formData.Email) {
-      toast.warning("Por favor ingresa un correo electrónico primero.");
-      return;
-    }
-    setIsOtpSending(true);
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL}/api/auth/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.Email })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error enviando código OTP");
-
-      setOtpPreviewCode(data.previewCode || "");
-      setOtpDigits(["", "", "", "", "", ""]);
-      setIsOtpModalOpen(true);
-      toast.success(`Código de verificación enviado a ${formData.Email}`);
-    } catch (err: any) {
-      toast.error(err.message || "Error al enviar código de verificación");
-    } finally {
-      setIsOtpSending(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    const code = otpDigits.join("");
-    if (code.length < 6) {
-      toast.warning("Ingresa los 6 dígitos del código de verificación.");
-      return;
-    }
-
-    setIsOtpVerifying(true);
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL}/api/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.Email, code })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Código incorrecto");
-
-      setOtpVerified(true);
-      setIsOtpModalOpen(false);
-      toast.success("¡Correo verificado con éxito con el código OTP!");
-    } catch (err: any) {
-      toast.error(err.message || "Error al verificar código");
-    } finally {
-      setIsOtpVerifying(false);
-    }
-  };
-
-  const handleDigitChange = (index: number, val: string) => {
-    if (!/^\d*$/.test(val)) return;
-    const newDigits = [...otpDigits];
-    newDigits[index] = val.slice(-1);
-    setOtpDigits(newDigits);
-
-    if (val && index < 5) {
-      const nextInput = document.getElementById(`otp-input-${index + 1}`);
-      if (nextInput) nextInput.focus();
-    }
-  };
 
   useEffect(() => {
     fetchPrestatarios()
@@ -130,7 +75,6 @@ export function PrestatariosContent() {
       const res = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios`)
       if (!res.ok) throw new Error('Error al cargar prestatarios')
       const data = await res.json()
-      // El backend ahora devuelve objetos con la propiedad 'cantidadActivos'
       setPrestatarios(data)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error desconocido')
@@ -145,22 +89,28 @@ export function PrestatariosContent() {
     (prestatario.Telefono && prestatario.Telefono.includes(searchTerm))
   )
 
+  const activePrestatarios = prestatarios.filter(p => p.estadoUsuario === 'Activo' || !p.estadoUsuario)
+
+  // --- HANDLERS ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting) return
     setSubmitting(true)
     
     try {
       const dataToSend: any = {
         Nombre: formData.Nombre,
-        Clave: formData.Clave,
         Rol: formData.Rol
+      }
+      
+      if (formData.Clave && formData.Clave.trim().length > 0) {
+        dataToSend.Clave = formData.Clave
       }
       
       if (formData.Telefono) dataToSend.Telefono = formData.Telefono
       if (formData.Email) dataToSend.Email = formData.Email
 
       if (editingPrestatario) {
-        // Actualizar
         const response = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios/${editingPrestatario.IdPrestatario}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -171,10 +121,8 @@ export function PrestatariosContent() {
           const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
           throw new Error(errorData.message || `Error ${response.status}`)
         }
-        
-        await fetchPrestatarios()
+        toast.success("Prestamista actualizado exitosamente")
       } else {
-        // Crear
         const response = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -185,15 +133,15 @@ export function PrestatariosContent() {
           const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
           throw new Error(errorData.message || errorData.error || `Error ${response.status}`)
         }
-        
-        await fetchPrestatarios()
+        toast.success("Prestamista creado exitosamente")
       }
       
+      await fetchPrestatarios()
       resetForm()
-      setIsDialogOpen(false) // Cerramos el modal explícitamente aquí por si acaso
+      setIsDialogOpen(false)
     } catch (error) {
       console.error('Error:', error)
-      alert(error instanceof Error ? error.message : 'Error en la operación')
+      toast.error(error instanceof Error ? error.message : 'Error en la operación')
     } finally {
       setSubmitting(false)
     }
@@ -209,8 +157,6 @@ export function PrestatariosContent() {
     })
     setEditingPrestatario(null)
     setShowPassword(false)
-    setOtpVerified(false)
-    setOtpPreviewCode("")
     setIsDialogOpen(false)
   }
 
@@ -220,38 +166,112 @@ export function PrestatariosContent() {
       Nombre: prestatario.Nombre,
       Telefono: prestatario.Telefono || "",
       Email: prestatario.Email || "",
-      Clave: prestatario.Clave || "",
-      Rol: "Prestamista"
+      Clave: "",
+      Rol: prestatario.rolUsuario || "Prestamista"
     })
-    setOtpVerified(true)
     setIsDialogOpen(true)
   }
 
-  const confirmDelete = (id: number) => {
-    setPrestatarioToDelete(id)
-    setDeleteDialogOpen(true)
+  const confirmToggle = (prestatario: Prestatario) => {
+    setPrestatarioToToggle(prestatario)
+    setToggleDialogOpen(true)
   }
 
-  const handleDelete = async () => {
-    if (!prestatarioToDelete) return
+  const handleToggleEstado = async () => {
+    if (!prestatarioToToggle) return
     
     try {
-      const response = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios/${prestatarioToDelete}`, {
-        method: 'DELETE',
+      const response = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios/${prestatarioToToggle.IdPrestatario}/toggle-estado`, {
+        method: 'PATCH',
       })
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }))
-        throw new Error(errorData.message || 'Error al eliminar')
+        throw new Error(errorData.message || errorData.error || 'Error al cambiar estado')
       }
       
+      const result = await response.json()
+      toast.success(result.message || "Estado actualizado")
       await fetchPrestatarios()
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error al eliminar')
+      toast.error(error instanceof Error ? error.message : 'Error al cambiar estado')
     } finally {
-      setDeleteDialogOpen(false)
-      setPrestatarioToDelete(null)
+      setToggleDialogOpen(false)
+      setPrestatarioToToggle(null)
     }
+  }
+
+  // --- PERFIL PROPIO ---
+  const handleOpenProfile = async () => {
+    setIsProfileOpen(true)
+    setProfileLoading(true)
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios/me`)
+      if (res.ok) {
+        const data = await res.json()
+        setProfileData({
+          Nombre: data.Nombre || data.usuario?.Nombre || "",
+          Telefono: data.Telefono || "",
+          Email: data.Email || data.usuario?.Email || "",
+          claveActual: "",
+          claveNueva: "",
+          claveConfirmar: ""
+        })
+      }
+    } catch (e) {
+      console.error("Error cargando perfil:", e)
+    } finally {
+      setProfileLoading(false)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (profileSaving) return
+    setProfileSaving(true)
+
+    try {
+      if (profileData.claveNueva && profileData.claveNueva !== profileData.claveConfirmar) {
+        throw new Error("Las contraseñas nuevas no coinciden.")
+      }
+      if (profileData.claveNueva && !profileData.claveActual) {
+        throw new Error("Debes ingresar tu contraseña actual para cambiarla.")
+      }
+      if (profileData.claveNueva && profileData.claveNueva.length < 6) {
+        throw new Error("La nueva contraseña debe tener al menos 6 caracteres.")
+      }
+
+      const payload: any = {
+        Nombre: profileData.Nombre,
+        Telefono: profileData.Telefono,
+        Email: profileData.Email
+      }
+
+      if (profileData.claveActual && profileData.claveNueva) {
+        payload.claveActual = profileData.claveActual
+        payload.claveNueva = profileData.claveNueva
+      }
+
+      const res = await fetchWithAuth(`${API_BASE_URL}/api/prestatarios/me`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Error actualizando perfil")
+
+      toast.success("Perfil actualizado exitosamente")
+      setIsProfileOpen(false)
+      await fetchPrestatarios()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error guardando perfil")
+    } finally {
+      setProfileSaving(false)
+    }
+  }
+
+  const isCurrentUser = (prestatario: Prestatario) => {
+    return user?.idPrestatario === prestatario.IdPrestatario
   }
 
   if (loading) return (
@@ -265,6 +285,47 @@ export function PrestatariosContent() {
 
   return (
     <div className="space-y-6">
+      {/* === BANNER MI PERFIL === */}
+      {user && (
+        <Card className="border-l-4 border-l-indigo-500 shadow-md bg-gradient-to-r from-indigo-50/80 to-slate-50">
+          <CardContent className="py-4 px-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                  {user.nombre?.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-800 text-base">{user.nombre}</h3>
+                    <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] font-semibold">
+                      {user.rol === 'admin_empresa' ? '🏢 Admin' : user.rol === 'Cajero' ? '💼 Cajero' : '🛡️ Prestamista'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <Mail className="h-3 w-3" /> {user.email}
+                    </span>
+                    <span className="text-xs text-slate-400">•</span>
+                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <Building className="h-3 w-3" /> {user.nombreEmpresa}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenProfile}
+                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 font-medium"
+              >
+                <Edit className="h-3.5 w-3.5 mr-1.5" />
+                Editar Mi Perfil
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header con estadísticas */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-l-4 border-l-[#213685] shadow-sm">
@@ -274,7 +335,7 @@ export function PrestatariosContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-[#213685]">{prestatarios.length}</div>
-            <p className="text-xs text-muted-foreground">Registrados en el sistema</p>
+            <p className="text-xs text-muted-foreground">{activePrestatarios.length} activos</p>
           </CardContent>
         </Card>
         
@@ -285,7 +346,6 @@ export function PrestatariosContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {/* Sumamos usando la nueva propiedad cantidadActivos */}
               {prestatarios.reduce((sum, p) => sum + (p.cantidadActivos || 0), 0)}
             </div>
             <p className="text-xs text-muted-foreground">Total en cartera viva</p>
@@ -299,8 +359,8 @@ export function PrestatariosContent() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {prestatarios.length > 0 
-                ? Math.round(prestatarios.reduce((sum, p) => sum + (p.cantidadActivos || 0), 0) / prestatarios.length)
+              {activePrestatarios.length > 0 
+                ? Math.round(prestatarios.reduce((sum, p) => sum + (p.cantidadActivos || 0), 0) / activePrestatarios.length)
                 : 0
               }
             </div>
@@ -363,13 +423,13 @@ export function PrestatariosContent() {
                         id="nombre"
                         value={formData.Nombre}
                         onChange={(e) => setFormData({...formData, Nombre: e.target.value})}
-                        placeholder="Ej: Juan Pérez Prestamista"
+                        placeholder="Ej: Juan Pérez"
                         required
                       />
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="rol">Rol de Usuario en Sistema *</Label>
+                      <Label htmlFor="rol">Rol de Usuario *</Label>
                       <Select 
                         value={formData.Rol} 
                         onValueChange={(val) => setFormData({...formData, Rol: val})}
@@ -387,15 +447,15 @@ export function PrestatariosContent() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="clave">Clave/Contraseña de Acceso *</Label>
+                    <Label htmlFor="clave">{editingPrestatario ? "Nueva Contraseña (dejar vacío para mantener)" : "Contraseña de Acceso *"}</Label>
                     <div className="relative">
                       <Input
                         id="clave"
                         type={showPassword ? "text" : "password"}
                         value={formData.Clave}
                         onChange={(e) => setFormData({...formData, Clave: e.target.value})}
-                        placeholder="Contraseña de acceso al sistema"
-                        required
+                        placeholder={editingPrestatario ? "Dejar vacío para mantener actual" : "Contraseña de acceso al sistema"}
+                        required={!editingPrestatario}
                       />
                       <Button
                         type="button"
@@ -404,7 +464,7 @@ export function PrestatariosContent() {
                         className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
                       >
-                        <Lock className="h-4 w-4 text-gray-500" />
+                        {showPassword ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
                       </Button>
                     </div>
                   </div>
@@ -421,38 +481,14 @@ export function PrestatariosContent() {
                       </div>
                       
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="email">Email</Label>
-                          {otpVerified && (
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Verificado OTP
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <Input
-                            id="email"
-                            type="email"
-                            value={formData.Email}
-                            onChange={(e) => {
-                              setFormData({...formData, Email: e.target.value});
-                              setOtpVerified(false);
-                            }}
-                            placeholder="correo@ejemplo.com"
-                          />
-                          {formData.Email && !otpVerified && !editingPrestatario && (
-                            <Button 
-                              type="button"
-                              size="sm"
-                              onClick={handleSendOtp}
-                              disabled={isOtpSending}
-                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 whitespace-nowrap shrink-0"
-                            >
-                              {isOtpSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5 mr-1" />}
-                              Validar OTP
-                            </Button>
-                          )}
-                        </div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.Email}
+                          onChange={(e) => setFormData({...formData, Email: e.target.value})}
+                          placeholder="correo@ejemplo.com"
+                        />
                       </div>
                   </div>
                   <p className="text-xs text-muted-foreground text-right">* Campos requeridos</p>
@@ -465,10 +501,10 @@ export function PrestatariosContent() {
                   <Button 
                     onClick={handleSubmit} 
                     className="bg-[#213685] hover:bg-[#213685]/90" 
-                    disabled={submitting || !formData.Nombre || !formData.Clave}
+                    disabled={submitting || !formData.Nombre || (!editingPrestatario && !formData.Clave)}
                   >
                     {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    {editingPrestatario ? "Actualizar" : "Crear Usuario Prestamista"}
+                    {editingPrestatario ? "Actualizar" : "Crear Prestamista"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -493,26 +529,44 @@ export function PrestatariosContent() {
                   <TableHead className="font-semibold text-gray-700">Prestamista</TableHead>
                   <TableHead className="font-semibold text-gray-700">Contacto</TableHead>
                   <TableHead className="font-semibold text-gray-700">Estado</TableHead>
+                  <TableHead className="font-semibold text-gray-700">Préstamos</TableHead>
                   <TableHead className="text-right font-semibold text-gray-700">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredPrestatarios.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       No se encontraron prestamistas
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPrestatarios.map((prestatario) => (
-                    <TableRow key={prestatario.IdPrestatario} className="hover:bg-gray-50/50">
+                  filteredPrestatarios.map((prestatario) => {
+                    const isInactive = prestatario.estadoUsuario === 'Inactivo'
+                    const isSelf = isCurrentUser(prestatario)
+                    return (
+                    <TableRow 
+                      key={prestatario.IdPrestatario} 
+                      className={`hover:bg-gray-50/50 ${isInactive ? 'opacity-50' : ''}`}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-3">
-                            <div className="h-9 w-9 rounded-full bg-[#213685]/10 flex items-center justify-center text-[#213685] font-bold">
+                            <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold ${
+                              isInactive 
+                                ? 'bg-gray-200 text-gray-500' 
+                                : isSelf 
+                                  ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300'
+                                  : 'bg-[#213685]/10 text-[#213685]'
+                            }`}>
                                 {prestatario.Nombre.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                                <div className="font-medium text-gray-900">{prestatario.Nombre}</div>
+                                <div className="font-medium text-gray-900 flex items-center gap-1.5">
+                                  {prestatario.Nombre}
+                                  {isSelf && (
+                                    <Badge className="bg-indigo-50 text-indigo-600 border-indigo-200 text-[9px] px-1.5 py-0">Tú</Badge>
+                                  )}
+                                </div>
                                 <div className="text-xs text-muted-foreground">ID: {prestatario.IdPrestatario}</div>
                             </div>
                         </div>
@@ -536,6 +590,16 @@ export function PrestatariosContent() {
                       </TableCell>
                       <TableCell>
                         <Badge 
+                          className={isInactive
+                            ? "bg-red-50 text-red-700 hover:bg-red-100 border-red-200" 
+                            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200"}
+                        >
+                          {isInactive ? <UserX className="h-3 w-3 mr-1" /> : <UserCheck className="h-3 w-3 mr-1" />}
+                          {isInactive ? 'Inactivo' : 'Activo'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
                           variant={prestatario.cantidadActivos && prestatario.cantidadActivos > 0 ? "default" : "secondary"}
                           className={prestatario.cantidadActivos && prestatario.cantidadActivos > 0 
                             ? "bg-green-100 text-green-700 hover:bg-green-200 border-green-200" 
@@ -551,21 +615,27 @@ export function PrestatariosContent() {
                             size="sm"
                             onClick={() => handleEdit(prestatario)}
                             className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600"
+                            title="Editar"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => confirmDelete(prestatario.IdPrestatario)}
-                            className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {!isSelf && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => confirmToggle(prestatario)}
+                              className={`h-8 w-8 p-0 ${isInactive 
+                                ? 'text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50' 
+                                : 'text-amber-500 hover:text-amber-700 hover:bg-amber-50'}`}
+                              title={isInactive ? "Reactivar usuario" : "Desactivar usuario"}
+                            >
+                              {isInactive ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
+                  )})
                 )}
               </TableBody>
             </Table>
@@ -573,89 +643,175 @@ export function PrestatariosContent() {
         </CardContent>
       </Card>
 
-      {/* Dialog de confirmación de eliminación */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      {/* Dialog de confirmación de toggle estado */}
+      <AlertDialog open={toggleDialogOpen} onOpenChange={setToggleDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {prestatarioToToggle?.estadoUsuario === 'Inactivo' 
+                ? '¿Reactivar este usuario?' 
+                : '¿Desactivar este usuario?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción eliminará al prestamista permanentemente.
-              <br/>
-              <span className="text-red-600 font-semibold text-xs mt-2 block">
-                Nota: Si el prestamista tiene préstamos activos, la eliminación podría fallar o dejar datos huérfanos.
-              </span>
+              {prestatarioToToggle?.estadoUsuario === 'Inactivo' ? (
+                <>
+                  El usuario <strong>{prestatarioToToggle?.Nombre}</strong> podrá volver a iniciar sesión y operar en el sistema.
+                </>
+              ) : (
+                <>
+                  El usuario <strong>{prestatarioToToggle?.Nombre}</strong> no podrá iniciar sesión.
+                  <br/>
+                  <span className="text-amber-600 font-semibold text-xs mt-2 block">
+                    Sus préstamos, pagos y transacciones se mantendrán intactos.
+                  </span>
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPrestatarioToDelete(null)}>
+            <AlertDialogCancel onClick={() => setPrestatarioToToggle(null)}>
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700"
+              onClick={handleToggleEstado}
+              className={prestatarioToToggle?.estadoUsuario === 'Inactivo'
+                ? "bg-emerald-600 hover:bg-emerald-700"
+                : "bg-amber-600 hover:bg-amber-700"}
             >
-              Eliminar
+              {prestatarioToToggle?.estadoUsuario === 'Inactivo' ? 'Reactivar' : 'Desactivar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {/* --- MODAL ELEGANTE DE VERIFICACIÓN OTP --- */}
-      <Dialog open={isOtpModalOpen} onOpenChange={setIsOtpModalOpen}>
-        <DialogContent className="sm:max-w-[420px] text-center space-y-4">
+
+      {/* === MODAL EDITAR MI PERFIL === */}
+      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <div className="mx-auto w-12 h-12 rounded-full bg-blue-50 text-[#213685] flex items-center justify-center mb-1 border border-blue-100 shadow-inner">
-              <KeyRound className="h-6 w-6" />
+            <div className="flex items-center gap-3 mb-1">
+              <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold shadow">
+                {user?.nombre?.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <DialogTitle className="text-lg">Editar Mi Perfil</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Modifica tu información personal y contraseña
+                </DialogDescription>
+              </div>
             </div>
-            <DialogTitle className="text-xl font-bold text-slate-800">
-              Verificación de Correo (OTP)
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Hemos enviado un código de 6 dígitos para validar el correo:
-              <br />
-              <strong className="text-slate-800">{formData.Email}</strong>
-            </DialogDescription>
           </DialogHeader>
 
-          {otpPreviewCode && (
-            <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-lg text-xs text-amber-800 font-medium flex items-center justify-between">
-              <span>Código OTP de prueba:</span>
-              <span className="font-mono font-bold text-base tracking-wider bg-amber-200/80 px-2.5 py-0.5 rounded text-amber-950">
-                {otpPreviewCode}
-              </span>
+          {profileLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+            </div>
+          ) : (
+            <div className="grid gap-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="profile-nombre" className="text-xs font-semibold">Nombre</Label>
+                <Input
+                  id="profile-nombre"
+                  value={profileData.Nombre}
+                  onChange={(e) => setProfileData({...profileData, Nombre: e.target.value})}
+                  className="h-9"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="profile-telefono" className="text-xs font-semibold">Teléfono</Label>
+                  <Input
+                    id="profile-telefono"
+                    value={profileData.Telefono}
+                    onChange={(e) => setProfileData({...profileData, Telefono: e.target.value})}
+                    placeholder="809-000-0000"
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-email" className="text-xs font-semibold">Email</Label>
+                  <Input
+                    id="profile-email"
+                    type="email"
+                    value={profileData.Email}
+                    onChange={(e) => setProfileData({...profileData, Email: e.target.value})}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+
+              <div className="border-t pt-3 mt-1">
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5" /> Cambiar Contraseña
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowProfilePasswords(!showProfilePasswords)}
+                    className="text-xs h-7 px-2 text-slate-500"
+                  >
+                    {showProfilePasswords ? <EyeOff className="h-3.5 w-3.5 mr-1" /> : <Eye className="h-3.5 w-3.5 mr-1" />}
+                    {showProfilePasswords ? "Ocultar" : "Mostrar"}
+                  </Button>
+                </div>
+                <div className="grid gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="clave-actual" className="text-[11px] text-slate-500">Contraseña Actual</Label>
+                    <Input
+                      id="clave-actual"
+                      type={showProfilePasswords ? "text" : "password"}
+                      value={profileData.claveActual}
+                      onChange={(e) => setProfileData({...profileData, claveActual: e.target.value})}
+                      placeholder="Tu contraseña actual"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="clave-nueva" className="text-[11px] text-slate-500">Nueva Contraseña</Label>
+                      <Input
+                        id="clave-nueva"
+                        type={showProfilePasswords ? "text" : "password"}
+                        value={profileData.claveNueva}
+                        onChange={(e) => setProfileData({...profileData, claveNueva: e.target.value})}
+                        placeholder="Mínimo 6 caracteres"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="clave-confirmar" className="text-[11px] text-slate-500">Confirmar Nueva</Label>
+                      <Input
+                        id="clave-confirmar"
+                        type={showProfilePasswords ? "text" : "password"}
+                        value={profileData.claveConfirmar}
+                        onChange={(e) => setProfileData({...profileData, claveConfirmar: e.target.value})}
+                        placeholder="Repetir nueva contraseña"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                  {profileData.claveNueva && profileData.claveConfirmar && profileData.claveNueva !== profileData.claveConfirmar && (
+                    <p className="text-xs text-red-500 font-medium">⚠️ Las contraseñas no coinciden</p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="flex justify-center gap-2 py-2">
-            {otpDigits.map((digit, idx) => (
-              <Input
-                key={idx}
-                id={`otp-input-${idx}`}
-                type="text"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleDigitChange(idx, e.target.value)}
-                className="w-11 h-12 text-center text-xl font-bold font-mono border-2 border-slate-200 focus:border-[#213685] focus:ring-0 rounded-lg shadow-sm"
-              />
-            ))}
-          </div>
-
-          <DialogFooter className="flex flex-col gap-2">
-            <Button
-              onClick={handleVerifyOtp}
-              disabled={isOtpVerifying || otpDigits.join("").length < 6}
-              className="w-full bg-[#213685] hover:bg-[#213685]/90 text-white font-semibold h-10 text-sm shadow-md"
-            >
-              {isOtpVerifying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
-              Verificar Código OTP
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setIsProfileOpen(false)} disabled={profileSaving}>
+              Cancelar
             </Button>
             <Button
-              variant="ghost"
               size="sm"
-              onClick={handleSendOtp}
-              disabled={isOtpSending}
-              className="text-xs text-slate-500 hover:text-slate-700"
+              onClick={handleSaveProfile}
+              disabled={profileSaving || !profileData.Nombre}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
-              ¿No recibiste el código? Reenviar OTP
+              {profileSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+              Guardar Cambios
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -7,6 +7,8 @@ import {
   updateConsolidacionCapital,
   deleteConsolidacionCapital,
   getResumenConsolidacionActiva,
+  auditarConsolidacion,
+  getHistorialAuditoria,
 } from "../controllers/consolidacioncapital.controller";
 import { validate } from "../middlewares/validate";
 import { consolidacionCapitalSchema } from "../validators/consolidacioncapital.validator";
@@ -18,6 +20,8 @@ router.use(requireAuth);
 
 router.get("/", getAllConsolidacionesCapital);
 router.get("/activa", getResumenConsolidacionActiva);
+router.get("/:id/auditorias", getHistorialAuditoria);
+router.post("/:id/auditar", auditarConsolidacion);
 router.get("/:id", getConsolidacionCapitalById);
 router.post("/", validate(consolidacionCapitalSchema), createConsolidacionCapital);
 router.put("/:id", validate(consolidacionCapitalSchema), updateConsolidacionCapital);

@@ -317,20 +317,27 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
     try { tablaProyeccion = JSON.parse(selectedPrestamo.TablaPagos); } 
     catch (e) { return []; }
 
+    // Crear copia del historial para ir consumiendo matches (evitar duplicados)
+    const pagosDisponibles = [...historialPagos];
+
     return tablaProyeccion.map((cuotaProyectada: any) => {
-        // Si la entrada ya viene marcada como pagada desde el backend (pago personalizado)
         if (cuotaProyectada.pagado) {
-            const pagoReal = historialPagos.find((p: any) => p.NumeroCuota === cuotaProyectada.numeroCuota);
+            // Intentar match por NumeroCuota primero
+            let pagoIdx = pagosDisponibles.findIndex((p: any) => p.NumeroCuota === cuotaProyectada.numeroCuota);
+            // Si no hay match por NumeroCuota, intentar match por monto
+            if (pagoIdx === -1) {
+                pagoIdx = pagosDisponibles.findIndex((p: any) => Math.abs(Number(p.MontoPagado) - cuotaProyectada.cuota) < 0.01);
+            }
+            const pagoReal = pagoIdx !== -1 ? pagosDisponibles.splice(pagoIdx, 1)[0] : null;
             return {
                 ...cuotaProyectada,
                 estado: 'Pagado',
-                fechaPagoReal: pagoReal ? pagoReal.FechaPago : null,
-                metodoPago: pagoReal ? pagoReal.TipoPago : (cuotaProyectada.tipo === 'personalizado' ? 'Personalizado' : null),
+                fechaPagoReal: pagoReal ? pagoReal.FechaPago : (cuotaProyectada.fechaPago || null),
+                metodoPago: pagoReal ? pagoReal.TipoPago : (cuotaProyectada.tipo === 'extraordinario' ? 'Extraordinario' : cuotaProyectada.tipo === 'personalizado' ? 'Personalizado' : null),
                 idPago: pagoReal ? pagoReal.IdPago : null
             };
         }
-        // Si no, buscamos en el historial de pagos por NumeroCuota
-        const pagoReal = historialPagos.find((p: any) => p.NumeroCuota === cuotaProyectada.numeroCuota);
+        const pagoReal = pagosDisponibles.find((p: any) => p.NumeroCuota === cuotaProyectada.numeroCuota);
         return {
             ...cuotaProyectada,
             estado: pagoReal ? 'Pagado' : 'Pendiente',

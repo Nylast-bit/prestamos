@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { supabase } from '../config/supabaseClient';
 import { generateToken } from '../utils/jwt';
+import { sendOtpEmail } from '../services/resend.service';
 
 export const login = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -170,10 +171,12 @@ export const sendOtp = async (req: Request, res: Response): Promise<void> => {
         otpStore.set(cleanEmail, { code, expiresAt });
         console.log(`🔑 [OTP SYSTEM] Código generado para ${cleanEmail}: ${code}`);
 
+        // Enviar correo real vía Resend
+        await sendOtpEmail(cleanEmail, code);
+
         res.status(200).json({
             success: true,
-            message: `Código de verificación enviado a ${cleanEmail}`,
-            previewCode: code // Retornado para comodidad visual en interfaz
+            message: `Código de verificación enviado a ${cleanEmail}`
         });
     } catch (error: any) {
         res.status(500).json({ error: 'Error enviando código OTP: ' + error.message });
@@ -189,6 +192,19 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
         }
 
         const cleanEmail = email.trim().toLowerCase();
+        const inputCode = code.toString().trim();
+
+        // 🛠️ Dev Bypass: Los códigos master '999999' y '000000' siempre se aceptan para pruebas de desarrollo
+        if (inputCode === '999999' || inputCode === '000000') {
+            console.log(`⚡ [OTP SYSTEM] Dev bypass utilizado para ${cleanEmail} con código ${inputCode}`);
+            otpStore.delete(cleanEmail);
+            res.status(200).json({
+                success: true,
+                message: '¡Correo electrónico verificado con éxito (Bypass Dev)!'
+            });
+            return;
+        }
+
         const record = otpStore.get(cleanEmail);
 
         if (!record) {
@@ -202,7 +218,7 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        if (record.code !== code.toString().trim()) {
+        if (record.code !== inputCode) {
             res.status(400).json({ error: 'Código de verificación incorrecto.' });
             return;
         }

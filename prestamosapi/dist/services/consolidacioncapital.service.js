@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getBalanceDisponibleActivoService = exports.getResumenConsolidacionActivaService = exports.deleteConsolidacionCapitalService = exports.updateConsolidacionCapitalService = exports.getConsolidacionCapitalByIdService = exports.getAllConsolidacionesCapitalService = exports.crearConsolidacionAutomatica = exports.createConsolidacionCapitalService = exports.getConsolidacionActivaId = void 0;
+exports.getBalanceDisponibleActivoService = exports.getResumenConsolidacionActivaService = exports.deleteConsolidacionCapitalService = exports.updateConsolidacionCapitalService = exports.getConsolidacionCapitalByIdService = exports.getHistorialAuditoriaService = exports.auditarConsolidacionService = exports.getAllConsolidacionesCapitalService = exports.crearConsolidacionAutomatica = exports.createConsolidacionCapitalService = exports.getConsolidacionActivaId = void 0;
 const logger_1 = require("../utils/logger");
 // src/services/consolidacionCapital.service.ts
 const supabaseClient_1 = require("../config/supabaseClient");
@@ -224,9 +224,171 @@ const getAllConsolidacionesCapitalService = async (idEmpresa) => {
         logger_1.logger.error("Error en getAllConsolidacionesCapitalService:", error.message);
         throw new Error(`Error obteniendo consolidaciones: ${error.message}`);
     }
+    // Obtener la última auditoría de cada consolidación
+    if (lista && lista.length > 0) {
+        const ids = lista.map((c) => c.IdConsolidacion);
+        const { data: auditorias } = await supabaseClient_1.supabase
+            .from("RegistroConsolidacion")
+            .select("IdRegistro, IdConsolidacion, FechaRegistro, Descripcion, Monto")
+            .in("IdConsolidacion", ids)
+            .eq("TipoRegistro", "Auditoria")
+            .order("FechaRegistro", { ascending: false });
+        if (auditorias) {
+            const auditMap = new Map();
+            for (const a of auditorias) {
+                if (!auditMap.has(a.IdConsolidacion)) {
+                    let meta = {};
+                    try {
+                        meta = JSON.parse(a.Descripcion);
+                    }
+                    catch (e) {
+                        meta = { observaciones: a.Descripcion };
+                    }
+                    auditMap.set(a.IdConsolidacion, {
+                        idRegistro: a.IdRegistro,
+                        fechaAuditoria: a.FechaRegistro,
+                        nombreUsuario: meta.nombreUsuario || "Administrador",
+                        observaciones: meta.observaciones || "Marcada como buena y válida",
+                        capitalEntrante: meta.capitalEntrante ?? 0,
+                        capitalSaliente: meta.capitalSaliente ?? 0,
+                        balanceNeto: meta.balanceNeto ?? Number(a.Monto || 0),
+                        cantidadRegistros: meta.cantidadRegistros ?? 0
+                    });
+                }
+            }
+            lista.forEach((c) => {
+                c.ultimaAuditoria = auditMap.get(c.IdConsolidacion) || null;
+            });
+        }
+    }
     return lista;
 };
 exports.getAllConsolidacionesCapitalService = getAllConsolidacionesCapitalService;
+// --- AUDITORÍA DE CONSOLIDACIÓN (Marcar como Buena y Válida + Historial) ---
+const auditarConsolidacionService = async (idConsolidacion, idEmpresa, usuario, observaciones) => {
+    // 1. Verificar existencia de la consolidación
+    const { data: consolidacion, error: errC } = await supabaseClient_1.supabase
+        .from("ConsolidacionCapital")
+        .select("IdConsolidacion, FechaInicio, FechaFin")
+        .eq("IdConsolidacion", idConsolidacion)
+        .eq("IdEmpresa", idEmpresa)
+        .single();
+    if (errC || !consolidacion) {
+        throw new Error("Consolidación de capital no encontrada.");
+    }
+    // 2. Obtener todos los registros actuales de esta consolidación para congelar la foto del cuadre
+    const { data: registros, error: errR } = await supabaseClient_1.supabase
+        .from("RegistroConsolidacion")
+        .select("Monto, TipoRegistro")
+        .eq("IdConsolidacion", idConsolidacion);
+    if (errR) {
+        throw new Error(`Error obteniendo registros para auditoría: ${errR.message}`);
+    }
+    let capitalEntrante = 0;
+    let capitalSaliente = 0;
+    let cantidadRegistros = 0;
+    if (registros) {
+        for (const r of registros) {
+            const tipo = (r.TipoRegistro || "").toLowerCase().trim();
+            if (tipo === "auditoria")
+                continue; // Excluir otros registros de auditoría del cálculo
+            const monto = Number(r.Monto || 0);
+            if (tipo === "ingreso") {
+                capitalEntrante += monto;
+                cantidadRegistros++;
+            }
+            else if (tipo === "egreso") {
+                capitalSaliente += monto;
+                cantidadRegistros++;
+            }
+        }
+    }
+    const balanceNeto = capitalEntrante - capitalSaliente;
+    const fechaIso = new Date().toISOString();
+    const nombreAuditor = usuario.Nombre || usuario.Email || "Administrador";
+    const payloadAuditoria = {
+        tipo: "AUDITORIA_BUENA_VALIDA",
+        idUsuario: usuario.IdUsuario || null,
+        nombreUsuario: nombreAuditor,
+        observaciones: observaciones?.trim() || "Consolidación marcada como buena y válida.",
+        capitalEntrante,
+        capitalSaliente,
+        balanceNeto,
+        cantidadRegistros,
+        fechaFormateada: fechaIso
+    };
+    // 3. Insertar el registro de auditoría
+    const { data: nuevoRegistro, error: errInsert } = await supabaseClient_1.supabase
+        .from("RegistroConsolidacion")
+        .insert([{
+            IdConsolidacion: idConsolidacion,
+            FechaRegistro: fechaIso,
+            TipoRegistro: "Auditoria",
+            Estado: "Depositado",
+            Descripcion: JSON.stringify(payloadAuditoria),
+            Monto: balanceNeto
+        }])
+        .select()
+        .single();
+    if (errInsert) {
+        logger_1.logger.error("Error insertando registro de auditoría:", errInsert.message);
+        throw new Error(`Error registrando auditoría: ${errInsert.message}`);
+    }
+    return {
+        idRegistro: nuevoRegistro.IdRegistro,
+        idConsolidacion,
+        fechaAuditoria: fechaIso,
+        nombreUsuario: nombreAuditor,
+        observaciones: payloadAuditoria.observaciones,
+        capitalEntrante,
+        capitalSaliente,
+        balanceNeto,
+        cantidadRegistros
+    };
+};
+exports.auditarConsolidacionService = auditarConsolidacionService;
+const getHistorialAuditoriaService = async (idConsolidacion, idEmpresa) => {
+    const { data: consolidacion } = await supabaseClient_1.supabase
+        .from("ConsolidacionCapital")
+        .select("IdConsolidacion")
+        .eq("IdConsolidacion", idConsolidacion)
+        .eq("IdEmpresa", idEmpresa)
+        .single();
+    if (!consolidacion) {
+        throw new Error("Consolidación no encontrada.");
+    }
+    const { data: registros, error } = await supabaseClient_1.supabase
+        .from("RegistroConsolidacion")
+        .select("IdRegistro, FechaRegistro, Descripcion, Monto")
+        .eq("IdConsolidacion", idConsolidacion)
+        .eq("TipoRegistro", "Auditoria")
+        .order("FechaRegistro", { ascending: false });
+    if (error) {
+        logger_1.logger.error("Error en getHistorialAuditoriaService:", error.message);
+        throw new Error(`Error obteniendo historial de auditoría: ${error.message}`);
+    }
+    const historial = (registros || []).map((r) => {
+        let meta = {};
+        try {
+            meta = JSON.parse(r.Descripcion);
+        }
+        catch (e) {
+            meta = { observaciones: r.Descripcion };
+        }
+        return {
+            idRegistro: r.IdRegistro,
+            fechaAuditoria: r.FechaRegistro,
+            nombreUsuario: meta.nombreUsuario || "Administrador",
+            observaciones: meta.observaciones || "Marcada como buena y válida",
+            capitalEntrante: meta.capitalEntrante ?? 0,
+            capitalSaliente: meta.capitalSaliente ?? 0,
+            balanceNeto: meta.balanceNeto ?? Number(r.Monto || 0),
+            cantidadRegistros: meta.cantidadRegistros ?? 0
+        };
+    });
+    return historial;
+};
+exports.getHistorialAuditoriaService = getHistorialAuditoriaService;
 // --- OBTENER POR ID ---
 const getConsolidacionCapitalByIdService = async (id, idEmpresa) => {
     // Traducción de findUnique con include: Registros

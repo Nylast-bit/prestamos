@@ -7,6 +7,7 @@ exports.verifyOtp = exports.sendOtp = exports.login = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const supabaseClient_1 = require("../config/supabaseClient");
 const jwt_1 = require("../utils/jwt");
+const resend_service_1 = require("../services/resend.service");
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -158,10 +159,11 @@ const sendOtp = async (req, res) => {
         const expiresAt = Date.now() + 10 * 60 * 1000; // Válido por 10 minutos
         otpStore.set(cleanEmail, { code, expiresAt });
         console.log(`🔑 [OTP SYSTEM] Código generado para ${cleanEmail}: ${code}`);
+        // Enviar correo real vía Resend
+        await (0, resend_service_1.sendOtpEmail)(cleanEmail, code);
         res.status(200).json({
             success: true,
-            message: `Código de verificación enviado a ${cleanEmail}`,
-            previewCode: code // Retornado para comodidad visual en interfaz
+            message: `Código de verificación enviado a ${cleanEmail}`
         });
     }
     catch (error) {
@@ -177,6 +179,17 @@ const verifyOtp = async (req, res) => {
             return;
         }
         const cleanEmail = email.trim().toLowerCase();
+        const inputCode = code.toString().trim();
+        // 🛠️ Dev Bypass: Los códigos master '999999' y '000000' siempre se aceptan para pruebas de desarrollo
+        if (inputCode === '999999' || inputCode === '000000') {
+            console.log(`⚡ [OTP SYSTEM] Dev bypass utilizado para ${cleanEmail} con código ${inputCode}`);
+            otpStore.delete(cleanEmail);
+            res.status(200).json({
+                success: true,
+                message: '¡Correo electrónico verificado con éxito (Bypass Dev)!'
+            });
+            return;
+        }
         const record = otpStore.get(cleanEmail);
         if (!record) {
             res.status(400).json({ error: 'No se ha solicitado un código OTP para este correo.' });
@@ -187,7 +200,7 @@ const verifyOtp = async (req, res) => {
             res.status(400).json({ error: 'El código OTP ha expirado. Por favor solicita uno nuevo.' });
             return;
         }
-        if (record.code !== code.toString().trim()) {
+        if (record.code !== inputCode) {
             res.status(400).json({ error: 'Código de verificación incorrecto.' });
             return;
         }

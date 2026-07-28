@@ -11,14 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Search } from 'lucide-react'
 
-import { ConsolidacionStats } from "@/components/consolidacion/ConsolidacionStats"
+import { ConsolidacionStats, AuditMeta } from "@/components/consolidacion/ConsolidacionStats"
 import { ConsolidacionTable } from "@/components/consolidacion/ConsolidacionTable"
+import { MarcarAuditoriaModal } from "@/components/consolidacion/MarcarAuditoriaModal"
+import { HistorialAuditoriaModal } from "@/components/consolidacion/HistorialAuditoriaModal"
 
 export interface RegistroConsolidacion {
   IdRegistro: number;
   IdConsolidacion: number; 
   FechaRegistro: string;
-  TipoRegistro: "Ingreso" | "Egreso";
+  TipoRegistro: "Ingreso" | "Egreso" | "Auditoria";
   Estado: "Pendiente" | "Depositado" | "Pagado" | "Prestado";
   Descripcion: string;
   Monto: number;
@@ -32,6 +34,7 @@ interface ConsolidacionCapital {
   CapitalSaliente: number
   Observaciones: string
   FechaGeneracion: string
+  ultimaAuditoria?: AuditMeta | null
 }
 
 const getTodayLocal = () => {
@@ -54,7 +57,7 @@ export function ConsolidacionContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
   
-  // Estados Modal
+  // Estados Modales de Registro
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRegistro, setEditingRegistro] = useState<RegistroConsolidacion | null>(null);
   const [formData, setFormData] = useState({
@@ -64,6 +67,10 @@ export function ConsolidacionContent() {
     Descripcion: "",
     Monto: ""
   });
+
+  // Estados Modales de Auditoría / Marcado
+  const [isAuditarModalOpen, setIsAuditarModalOpen] = useState(false);
+  const [isHistorialModalOpen, setIsHistorialModalOpen] = useState(false);
 
   // --- UTILS ---
   const formatDate = (isoString: string): string => {
@@ -76,14 +83,16 @@ export function ConsolidacionContent() {
     }
   };
 
-  // --- FETCH LOGIC (Carga Bajo Demanda) ---
+  // --- FETCH LOGIC ---
   const fetchRegistros = useCallback(async (idConsolidacion: number) => {
     setLoadingRegistros(true);
     try {
         const resR = await fetchWithAuth(`${API_BASE_URL}/api/registroconsolidacion?idConsolidacion=${idConsolidacion}`);
         if (!resR.ok) throw new Error("Fallo al obtener los registros de esta consolidación.");
         const data: RegistroConsolidacion[] = await resR.json();
-        setRegistros(data);
+        // Filtrar registros de auditoría para no mostrarlos en la tabla regular de movimientos
+        const registrosRegulares = data.filter(r => r.TipoRegistro !== "Auditoria");
+        setRegistros(registrosRegulares);
     } catch (e: any) {
         console.error('Error fetching registros:', e);
         setError(e.message || 'Error al cargar registros.');
@@ -125,7 +134,7 @@ export function ConsolidacionContent() {
   }, [fetchAllConsolidaciones]);
 
   const handleConsolidacionChange = (idString: string) => {
-    const id = parseInt(idString);
+    const id = parseInt(idString, 10);
     const newConsolidacion = allConsolidaciones.find(c => c.IdConsolidacion === id);
     if (newConsolidacion) {
         setConsolidacion(newConsolidacion);
@@ -185,7 +194,6 @@ export function ConsolidacionContent() {
       
       await fetchRegistros(consolidacion.IdConsolidacion); 
       await fetchAllConsolidaciones(); 
-      alert(`Registro ${editingRegistro ? "actualizado" : "creado"} exitosamente`)
       resetForm()
 
     } catch (e: any) {
@@ -199,7 +207,7 @@ export function ConsolidacionContent() {
     setEditingRegistro(registro)
     setFormData({
       FechaRegistro: registro.FechaRegistro.split('T')[0],
-      TipoRegistro: registro.TipoRegistro,
+      TipoRegistro: registro.TipoRegistro === "Auditoria" ? "Ingreso" : registro.TipoRegistro,
       Estado: registro.Estado,
       Descripcion: registro.Descripcion,
       Monto: registro.Monto.toString()
@@ -216,7 +224,6 @@ export function ConsolidacionContent() {
         
         await fetchRegistros(consolidacion.IdConsolidacion);
         await fetchAllConsolidaciones();
-        alert("Registro eliminado exitosamente.");
     } catch (e: any) {
         alert(`Fallo al eliminar: ${e.message}`);
     }
@@ -239,6 +246,8 @@ export function ConsolidacionContent() {
         totalesPorEstado={totalesPorEstado}
         onConsolidacionChange={handleConsolidacionChange}
         formatDate={formatDate}
+        onOpenAuditarModal={() => setIsAuditarModalOpen(true)}
+        onOpenHistorialModal={() => setIsHistorialModalOpen(true)}
       />
 
       {/* 🌟 2. ZONA DE TABLA Y MODAL */}
@@ -360,6 +369,30 @@ export function ConsolidacionContent() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 🌟 3. MODALES DE AUDITORÍA */}
+      <MarcarAuditoriaModal
+        isOpen={isAuditarModalOpen}
+        onClose={() => setIsAuditarModalOpen(false)}
+        consolidacionId={consolidacion.IdConsolidacion}
+        fechaInicio={consolidacion.FechaInicio}
+        fechaFin={consolidacion.FechaFin}
+        capitalEntrante={ingresosTotales}
+        capitalSaliente={gastosTotales}
+        balanceNeto={balanceNeto}
+        totalRegistros={registros.length}
+        formatDate={formatDate}
+        onSuccess={fetchAllConsolidaciones}
+      />
+
+      <HistorialAuditoriaModal
+        isOpen={isHistorialModalOpen}
+        onClose={() => setIsHistorialModalOpen(false)}
+        consolidacionId={consolidacion.IdConsolidacion}
+        fechaInicio={consolidacion.FechaInicio}
+        fechaFin={consolidacion.FechaFin}
+        formatDate={formatDate}
+      />
     </div>
   )
 }

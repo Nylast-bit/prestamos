@@ -68,7 +68,9 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
     let abonoCapital = 0;
 
     // 3. Validación y distribución de montos según la modalidad
+    logger.info(`🔥 [PagoPersonalizado] DECISIÓN → esAbonoExtraordinario=${esAbonoExtraordinario}, yaPagoInteresPeriodo=${yaPagoInteresPeriodo}, interesGenerado=${interesGenerado}, interesPagadoEnPeriodo=${interesPagadoEnPeriodo}`);
     if (esAbonoExtraordinario) {
+        logger.info(`🔥 [PagoPersonalizado] ✅ ENTRÓ en rama EXTRAORDINARIO — abonoInteres=0, abonoCapital=${Math.min(montoPagado, capitalRestanteActual)}`);
         if (!yaPagoInteresPeriodo) {
             throw new Error(`El abono extraordinario a capital solo está permitido si ya se cubrió el interés del período (RD$${interesGenerado.toFixed(2)}). El interés acumulado en este período es RD$${interesPagadoEnPeriodo.toFixed(2)}.`);
         }
@@ -111,11 +113,13 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
         capital: abonoCapital,
         saldo: nuevoCapitalRestante,
         pagado: true,
-        tipo: esLiquidacion ? 'liquidar' : 'personalizado'
+        tipo: esAbonoExtraordinario ? 'extraordinario' : (esLiquidacion ? 'liquidar' : 'personalizado'),
+        fechaPago: fechaPago
     };
 
-    // Insertar al frente del arreglo
-    cuotasActualizadas.unshift(entradaPagoRealizado);
+    // Insertar el pago ANTES de las cuotas pendientes pero DESPUÉS de las ya pagadas (orden cronológico)
+    const lastPaidIndex = cuotasActualizadas.reduce((lastIdx: number, c: any, i: number) => c.pagado ? i : lastIdx, -1);
+    cuotasActualizadas.splice(lastPaidIndex + 1, 0, entradaPagoRealizado);
 
     if (esLiquidacion || nuevoCapitalRestante === 0) {
         // Al liquidar o saldar, eliminamos todas las cuotas pendientes futuras

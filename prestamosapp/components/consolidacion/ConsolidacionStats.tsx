@@ -1,7 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DollarSign, TrendingUp, TrendingDown, Calendar, AlertCircle } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, Calendar, AlertCircle, ShieldCheck, History, CheckCircle2 } from 'lucide-react'
+
+export interface AuditMeta {
+  idRegistro: number
+  fechaAuditoria: string
+  nombreUsuario: string
+  observaciones: string
+  capitalEntrante: number
+  capitalSaliente: number
+  balanceNeto: number
+  cantidadRegistros: number
+}
 
 interface ConsolidacionCapital {
   IdConsolidacion: number
@@ -9,6 +21,7 @@ interface ConsolidacionCapital {
   FechaFin: string
   CapitalEntrante: number
   CapitalSaliente: number
+  ultimaAuditoria?: AuditMeta | null
 }
 
 interface ConsolidacionStatsProps {
@@ -24,6 +37,8 @@ interface ConsolidacionStatsProps {
   };
   onConsolidacionChange: (idString: string) => void;
   formatDate: (isoString: string) => string;
+  onOpenAuditarModal?: () => void;
+  onOpenHistorialModal?: () => void;
 }
 
 export function ConsolidacionStats({
@@ -33,17 +48,31 @@ export function ConsolidacionStats({
   totalRegistros,
   totalesPorEstado,
   onConsolidacionChange,
-  formatDate
+  formatDate,
+  onOpenAuditarModal,
+  onOpenHistorialModal
 }: ConsolidacionStatsProps) {
-  
+
+  const formatShortTime = (iso?: string) => {
+    if (!iso) return ''
+    try {
+      const d = new Date(iso)
+      return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true })
+    } catch (e) {
+      return iso
+    }
+  }
+
+  const ultimaAud = consolidacion?.ultimaAuditoria
+
   return (
     <div className="space-y-6">
       {/* TARJETA AZUL PRINCIPAL (Selector y Totales Macro) */}
-      <Card className="border-l-4 border-l-[#213685]">
-        <CardHeader>
-          <div className="flex items-center justify-between">
+      <Card className="border-l-4 border-l-[#213685] shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex flex-col gap-1">
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Calendar className="h-5 w-5 text-[#213685]" />
                 Consolidación de Capital
               </CardTitle>
@@ -51,7 +80,7 @@ export function ConsolidacionStats({
                 value={consolidacion.IdConsolidacion.toString()} 
                 onValueChange={onConsolidacionChange}
               >
-                <SelectTrigger className="w-[340px] mt-1 bg-white border-slate-300 font-semibold shadow-sm">
+                <SelectTrigger className="w-[340px] mt-1 bg-white border-slate-300 font-semibold shadow-sm text-xs h-9">
                   <SelectValue placeholder="Seleccionar Período" />
                 </SelectTrigger>
                 <SelectContent>
@@ -73,28 +102,62 @@ export function ConsolidacionStats({
                 </SelectContent>
               </Select>
             </div>
-            <Badge className="bg-[#213685] text-white">Seleccionada</Badge>
+
+            {/* BOTONES DE AUDITORÍA & BADGE DE ESTADO */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {ultimaAud ? (
+                <Badge className="bg-emerald-50 text-emerald-800 border-emerald-300 text-xs py-1 px-2.5 flex items-center gap-1.5 shadow-sm">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span>Buena y Válida ({formatShortTime(ultimaAud.fechaAuditoria)})</span>
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-300 text-xs py-1 px-2.5 flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <span>Sin Verificar</span>
+                </Badge>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenHistorialModal}
+                className="h-8 text-xs border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+              >
+                <History className="h-3.5 w-3.5 mr-1 text-[#213685]" />
+                Historial
+              </Button>
+
+              <Button
+                size="sm"
+                onClick={onOpenAuditarModal}
+                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                Marcar Buena y Válida
+              </Button>
+            </div>
           </div>
         </CardHeader>
+
         <CardContent>
           <div className="grid gap-4 md:grid-cols-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-100">
               <div className="text-2xl font-bold text-green-600">RD${consolidacion.CapitalEntrante.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">Capital Entrante</div>
+              <div className="text-sm text-muted-foreground font-medium">Capital Entrante</div>
             </div>
-            <div className="text-center p-4 bg-red-50 rounded-lg">
+            <div className="text-center p-4 bg-red-50 rounded-lg border border-red-100">
               <div className="text-2xl font-bold text-red-600">-RD${consolidacion.CapitalSaliente.toLocaleString()}</div>
-              <div className="text-sm text-muted-foreground">Capital Saliente</div>
+              <div className="text-sm text-muted-foreground font-medium">Capital Saliente</div>
             </div>
-            <div className="text-center p-4 bg-[#213685]/10 rounded-lg">
+            <div className="text-center p-4 bg-[#213685]/10 rounded-lg border border-[#213685]/20">
               <div className={`text-2xl font-bold ${balanceNeto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 RD${balanceNeto.toLocaleString()}
               </div>
-              <div className="text-sm text-muted-foreground">Balance Neto</div>
+              <div className="text-sm text-muted-foreground font-medium">Balance Neto</div>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
               <div className="text-2xl font-bold text-gray-600">{totalRegistros}</div>
-              <div className="text-sm text-muted-foreground">Total Registros</div>
+              <div className="text-sm text-muted-foreground font-medium">Total Registros</div>
             </div>
           </div>
         </CardContent>
@@ -102,7 +165,7 @@ export function ConsolidacionStats({
 
       {/* TARJETAS DE ESTADOS MICRO */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-l-4 border-l-green-500">
+        <Card className="border-l-4 border-l-green-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Depositado</CardTitle>
             <DollarSign className="h-4 w-4 text-green-500" />
@@ -112,7 +175,7 @@ export function ConsolidacionStats({
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-orange-500">
+        <Card className="border-l-4 border-l-orange-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pend. por Depositar</CardTitle>
             <AlertCircle className="h-4 w-4 text-orange-500" />
@@ -122,7 +185,7 @@ export function ConsolidacionStats({
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-[#213685]">
+        <Card className="border-l-4 border-l-[#213685] shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Prestado</CardTitle>
             <TrendingUp className="h-4 w-4 text-[#213685]" />
@@ -132,7 +195,7 @@ export function ConsolidacionStats({
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pagado/Gastado</CardTitle>
             <TrendingDown className="h-4 w-4 text-blue-500" />

@@ -8,19 +8,23 @@ export const prestatarioSchema = z.object({
 
   Telefono: z
     .string()
-    .regex(/^[0-9]{10}$/, { message: "El teléfono debe tener 10 dígitos" })
     .optional()
-    .nullable(),
+    .nullable()
+    .or(z.literal('')),
 
   Email: z
     .string()
     .email({ message: "Debe ser un correo válido" })
     .optional()
-    .nullable(),
+    .nullable()
+    .or(z.literal('')),
 
   Clave: z
     .string()
-    .min(6, { message: "La clave debe tener mínimo 6 caracteres" }),
+    .min(6, { message: "La clave debe tener mínimo 6 caracteres" })
+    .optional()
+    .nullable()
+    .or(z.literal('')),
 });
 
 export type PrestatarioSchema = z.infer<typeof prestatarioSchema>;

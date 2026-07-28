@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getResumenConsolidacionActiva = exports.deleteConsolidacionCapital = exports.updateConsolidacionCapital = exports.getConsolidacionCapitalById = exports.getAllConsolidacionesCapital = exports.createConsolidacionCapital = void 0;
+exports.getHistorialAuditoria = exports.auditarConsolidacion = exports.getResumenConsolidacionActiva = exports.deleteConsolidacionCapital = exports.updateConsolidacionCapital = exports.getConsolidacionCapitalById = exports.getAllConsolidacionesCapital = exports.createConsolidacionCapital = void 0;
 const asyncHandler_1 = require("../middlewares/asyncHandler");
 const consolidacionService = __importStar(require("../services/consolidacioncapital.service")); // Asumo que importarás el servicio
 const checkAdminRole = (req, res) => {
@@ -95,3 +95,25 @@ const getResumenConsolidacionActiva = async (req, res) => {
     }
 };
 exports.getResumenConsolidacionActiva = getResumenConsolidacionActiva;
+// Marcar consolidación como Buena y Válida
+exports.auditarConsolidacion = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
+    const id = Number(req.params.id);
+    const { observaciones } = req.body;
+    const usuario = {
+        IdUsuario: req.user.IdUsuario,
+        Nombre: req.user.Nombre || req.user.nombre,
+        Email: req.user.Email || req.user.email
+    };
+    const resultado = await consolidacionService.auditarConsolidacionService(id, req.user.IdEmpresa, usuario, observaciones);
+    res.status(201).json(resultado);
+});
+// Obtener historial de auditoría de una consolidación
+exports.getHistorialAuditoria = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (!checkAdminRole(req, res))
+        return;
+    const id = Number(req.params.id);
+    const historial = await consolidacionService.getHistorialAuditoriaService(id, req.user.IdEmpresa);
+    res.json(historial);
+});

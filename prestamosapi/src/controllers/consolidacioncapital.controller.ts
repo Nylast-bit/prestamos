@@ -61,3 +61,31 @@ export const getResumenConsolidacionActiva = async (req: any, res: Response) => 
     });
   }
 };
+
+// Marcar consolidación como Buena y Válida
+export const auditarConsolidacion = asyncHandler(async (req: any, res: Response) => {
+  if (!checkAdminRole(req, res)) return;
+  const id = Number(req.params.id);
+  const { observaciones } = req.body;
+  const usuario = {
+    IdUsuario: req.user.IdUsuario,
+    Nombre: req.user.Nombre || req.user.nombre,
+    Email: req.user.Email || req.user.email
+  };
+
+  const resultado = await consolidacionService.auditarConsolidacionService(
+    id,
+    req.user.IdEmpresa,
+    usuario,
+    observaciones
+  );
+  res.status(201).json(resultado);
+});
+
+// Obtener historial de auditoría de una consolidación
+export const getHistorialAuditoria = asyncHandler(async (req: any, res: Response) => {
+  if (!checkAdminRole(req, res)) return;
+  const id = Number(req.params.id);
+  const historial = await consolidacionService.getHistorialAuditoriaService(id, req.user.IdEmpresa);
+  res.json(historial);
+});

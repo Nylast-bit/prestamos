@@ -5,6 +5,7 @@ const logger_1 = require("../utils/logger");
 const supabaseClient_1 = require("../config/supabaseClient");
 const createPagoPersonalizadoService = async (data) => {
     const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion, esAbonoExtraordinario } = data;
+    logger_1.logger.info(`🔥 [PagoPersonalizado] ENTRADA → idPrestamo=${idPrestamo}, monto=${montoPagado}, esAbonoExtraordinario=${esAbonoExtraordinario} (type: ${typeof esAbonoExtraordinario}), esLiquidacion=${esLiquidacion}`);
     // 1. Buscar el préstamo actual
     const { data: prestamo, error: errorPrestamo } = await supabaseClient_1.supabase
         .from("Prestamo")
@@ -47,7 +48,9 @@ const createPagoPersonalizadoService = async (data) => {
     let abonoInteres = 0;
     let abonoCapital = 0;
     // 3. Validación y distribución de montos según la modalidad
+    logger_1.logger.info(`🔥 [PagoPersonalizado] DECISIÓN → esAbonoExtraordinario=${esAbonoExtraordinario}, yaPagoInteresPeriodo=${yaPagoInteresPeriodo}, interesGenerado=${interesGenerado}, interesPagadoEnPeriodo=${interesPagadoEnPeriodo}`);
     if (esAbonoExtraordinario) {
+        logger_1.logger.info(`🔥 [PagoPersonalizado] ✅ ENTRÓ en rama EXTRAORDINARIO — abonoInteres=0, abonoCapital=${Math.min(montoPagado, capitalRestanteActual)}`);
         if (!yaPagoInteresPeriodo) {
             throw new Error(`El abono extraordinario a capital solo está permitido si ya se cubrió el interés del período (RD$${interesGenerado.toFixed(2)}). El interés acumulado en este período es RD$${interesPagadoEnPeriodo.toFixed(2)}.`);
         }
@@ -90,10 +93,12 @@ const createPagoPersonalizadoService = async (data) => {
         capital: abonoCapital,
         saldo: nuevoCapitalRestante,
         pagado: true,
-        tipo: esLiquidacion ? 'liquidar' : 'personalizado'
+        tipo: esAbonoExtraordinario ? 'extraordinario' : (esLiquidacion ? 'liquidar' : 'personalizado'),
+        fechaPago: fechaPago
     };
-    // Insertar al frente del arreglo
-    cuotasActualizadas.unshift(entradaPagoRealizado);
+    // Insertar el pago ANTES de las cuotas pendientes pero DESPUÉS de las ya pagadas (orden cronológico)
+    const lastPaidIndex = cuotasActualizadas.reduce((lastIdx, c, i) => c.pagado ? i : lastIdx, -1);
+    cuotasActualizadas.splice(lastPaidIndex + 1, 0, entradaPagoRealizado);
     if (esLiquidacion || nuevoCapitalRestante === 0) {
         // Al liquidar o saldar, eliminamos todas las cuotas pendientes futuras
         cuotasActualizadas = cuotasActualizadas.filter((c) => c.pagado);
