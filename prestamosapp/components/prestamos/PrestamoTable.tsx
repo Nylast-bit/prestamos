@@ -419,7 +419,10 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                   const progreso = cuotasTotales > 0 ? (cuotasPagadas / cuotasTotales) * 100 : 0;
                   
                   const capRestante = prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? Number(prestamo.CapitalRestante) : Number(prestamo.MontoPrestado);
-                  const interesActual = capRestante * (prestamo.InteresPorcentaje / 100);
+                  const tipoCalcRow = (prestamo.TipoCalculo || '').toLowerCase();
+                  const esVariable = tipoCalcRow.includes('amortiza') || tipoCalcRow.includes('solo_interes') || tipoCalcRow.includes('solo');
+                  const baseInteresRow = esVariable ? capRestante : Number(prestamo.MontoPrestado);
+                  const interesActual = baseInteresRow * (Number(prestamo.InteresPorcentaje) / 100);
                   const restanteAPagar = prestamo.TipoCalculo === "solo_interes"
                     ? (capRestante + (capRestante * (Number(prestamo.InteresPorcentaje) / 100)))
                     : (prestamo.MontoCuota * (prestamo.CuotasRestantes || 0));

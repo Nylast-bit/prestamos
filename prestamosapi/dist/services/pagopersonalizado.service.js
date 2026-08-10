@@ -21,7 +21,7 @@ const createPagoPersonalizadoService = async (data) => {
     // 2. Calcular la "Barrera del Interés" según el tipo de cálculo
     const tipoCalculo = (prestamo.TipoCalculo || '').toLowerCase();
     const baseInteres = (tipoCalculo.includes('amortiza') || tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo'))
-        ? (prestamo.CapitalRestante || prestamo.MontoPrestado)
+        ? (prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? prestamo.CapitalRestante : prestamo.MontoPrestado)
         : prestamo.MontoPrestado;
     const interesGenerado = baseInteres * (prestamo.InteresPorcentaje / 100);
     const capitalRestanteActual = prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? prestamo.CapitalRestante : prestamo.MontoPrestado;
@@ -159,15 +159,19 @@ const createPagoPersonalizadoService = async (data) => {
         CuotasRestantes: prestamo.CuotasRestantes
     };
     // 6. Actualizar el Préstamo (Primer disparo)
-    const { error: errorUpdatePrestamo } = await supabaseClient_1.supabase
-        .from("Prestamo")
-        .update({
+    const updatePayload = {
         CapitalRestante: nuevoCapitalRestante,
         Estado: estadoPrestamo,
         TablaPagos: tablaPagosString,
         CuotasRestantes: cuotasPendientes,
         FechaUltimoPago: fechaPago
-    })
+    };
+    if (tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) {
+        updatePayload.MontoCuota = nuevoCapitalRestante * (prestamo.InteresPorcentaje / 100);
+    }
+    const { error: errorUpdatePrestamo } = await supabaseClient_1.supabase
+        .from("Prestamo")
+        .update(updatePayload)
         .eq("IdPrestamo", idPrestamo);
     if (errorUpdatePrestamo)
         throw new Error(`Fallo al actualizar el préstamo: ${errorUpdatePrestamo.message}`);

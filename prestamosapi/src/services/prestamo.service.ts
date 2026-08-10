@@ -130,7 +130,7 @@ export const createPrestamoService = async (data: CreatePrestamoData, idEmpresa:
 export const getPrestamosService = async (idEmpresa: number) => {
   const { data, error } = await supabase
     .from("Prestamo")
-    .select(`*, Cliente(Nombre), Prestatario(Nombre), Pago(FechaPago, NumeroCuota)`)
+    .select(`*, Cliente(Nombre, Telefono), Prestatario(Nombre), Pago(FechaPago, NumeroCuota)`)
     .eq("IdEmpresa", idEmpresa)
     .order("IdPrestamo", { ascending: false });
 
@@ -215,6 +215,7 @@ export const getPrestamosService = async (idEmpresa: number) => {
       CuotasRestantes: cuotasRestantes,
       FechaUltimoPago: fechaUltimoPago,
       clienteNombre: p.Cliente?.Nombre || 'N/A',
+      clienteTelefono: p.Cliente?.Telefono || null,
       prestatarioNombre: p.Prestatario?.Nombre || 'N/A'
     };
   }));
@@ -529,21 +530,28 @@ export const countPrestamosActivosByPrestatarioService = async (idPrestatario: n
 };
 
 export const calcularSaldoPendientePrestamo = (prestamo: any): number => {
+  const capRestante = Number(prestamo.CapitalRestante ?? prestamo.MontoPrestado ?? 0);
+
   if (prestamo.TipoCalculo === 'solo_interes') {
-    return Number(prestamo.CapitalRestante ?? prestamo.MontoPrestado ?? 0);
+    return capRestante;
   }
-  
+
+  let interesPeriodo = 0;
   if (prestamo.TablaPagos) {
     try {
       const tabla = JSON.parse(prestamo.TablaPagos);
-      const pendientes = tabla.filter((c: any) => !c.pagado);
-      if (pendientes.length > 0) {
-        return pendientes.reduce((sum: number, c: any) => sum + Number(c.cuota || 0), 0);
+      const primeraPendiente = tabla.find((c: any) => !c.pagado);
+      if (primeraPendiente) {
+        interesPeriodo = Number(primeraPendiente.interes || 0);
       }
     } catch (e) {}
+  } else {
+    const tipoCalc = (prestamo.TipoCalculo || '').toLowerCase();
+    const baseInt = tipoCalc.includes('amortiza') ? capRestante : Number(prestamo.MontoPrestado || 0);
+    interesPeriodo = baseInt * (Number(prestamo.InteresPorcentaje || 0) / 100);
   }
-  
-  return Number(prestamo.CuotasRestantes || 0) * Number(prestamo.MontoCuota || 0);
+
+  return capRestante + interesPeriodo;
 };
 
 export const reengancharPrestamoService = async (

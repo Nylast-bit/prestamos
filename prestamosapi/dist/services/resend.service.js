@@ -3,8 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendOtpEmail = void 0;
 const resend_1 = require("resend");
 const logger_1 = require("../utils/logger");
-const resendApiKey = process.env.RESEND_API_KEY 
-const resendFromEmail = process.env.RESEND_FROM_EMAIL 
+const resendApiKey = process.env.RESEND_API_KEY;
+const resendFromEmail = process.env.RESEND_FROM_EMAIL;
 const resend = new resend_1.Resend(resendApiKey);
 const sendOtpEmail = async (email, code) => {
     try {

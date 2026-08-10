@@ -41,7 +41,7 @@ const authLimiter = rateLimit({
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100 // límite de peticiones
+  max: 2000 // límite de peticiones
 });
 const allowedOrigins = [
   'https://prestamos.easywagps.com',

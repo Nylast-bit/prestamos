@@ -35,22 +35,31 @@ export function ReengancheModal({
   const [idPrestatario, setIdPrestatario] = useState<string>("")
   const [observaciones, setObservaciones] = useState<string>("")
 
-  // Calcular el saldo pendiente del préstamo actual
+  // Calcular el saldo pendiente a liquidar del préstamo actual (Capital Restante + Interés de período actual)
   const calcularSaldoPendiente = (p: any): number => {
     if (!p) return 0;
+    const capRestante = Number(p.CapitalRestante ?? p.MontoPrestado ?? 0);
+
     if (p.TipoCalculo === 'solo_interes') {
-      return Number(p.CapitalRestante ?? p.MontoPrestado ?? 0);
+      return capRestante;
     }
+
+    let interesPeriodo = 0;
     if (p.TablaPagos) {
       try {
         const tabla = JSON.parse(p.TablaPagos);
-        const pendientes = tabla.filter((c: any) => !c.pagado);
-        if (pendientes.length > 0) {
-          return pendientes.reduce((sum: number, c: any) => sum + Number(c.cuota || 0), 0);
+        const primeraPendiente = tabla.find((c: any) => !c.pagado);
+        if (primeraPendiente) {
+          interesPeriodo = Number(primeraPendiente.interes || 0);
         }
       } catch (e) {}
+    } else {
+      const tipoCalc = (p.TipoCalculo || '').toLowerCase();
+      const baseInt = tipoCalc.includes('amortiza') ? capRestante : Number(p.MontoPrestado || 0);
+      interesPeriodo = baseInt * (Number(p.InteresPorcentaje || 0) / 100);
     }
-    return Number(p.CuotasRestantes || 0) * Number(p.MontoCuota || 0);
+
+    return capRestante + interesPeriodo;
   };
 
   const saldoPendiente = calcularSaldoPendiente(prestamo);

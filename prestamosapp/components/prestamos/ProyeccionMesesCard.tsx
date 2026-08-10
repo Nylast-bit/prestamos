@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart3 } from 'lucide-react'
+import { Card, CardContent } from "@/components/ui/card"
+import { TrendingUp, ArrowRight } from 'lucide-react'
 
 interface Prestamo {
   MontoPrestado: number
@@ -15,26 +15,26 @@ interface ProyeccionesCardProps {
 }
 
 const getMonthName = (date: Date) => {
-  return date.toLocaleString('es-DO', { month: 'short', year: 'numeric' })
+  return date.toLocaleString('es-DO', { month: 'long' }).replace('.', '')
 }
 
+const formatMoney = (amount: number) =>
+  new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP', maximumFractionDigits: 0 }).format(amount);
+
 export function ProyeccionesCard({ prestamos }: ProyeccionesCardProps) {
-  // Filtramos solo los activos
   const activos = prestamos.filter(p => p.Estado === "Activo")
 
-  // Generamos los nombres de los próximos 3 meses
   const hoy = new Date()
   const meses = Array.from({ length: 3 }).map((_, i) => {
     const fn = new Date(hoy.getFullYear(), hoy.getMonth() + i, 1)
     return {
-      nombre: getMonthName(fn).replace('.', ''),
+      nombre: getMonthName(fn),
       capital: 0,
       interes: 0,
       total: 0
     }
   })
 
-  // Calculamos la proyección
   activos.forEach(p => {
     let cuotasRestantes = Number(p.CuotasRestantes) || 0
     if (cuotasRestantes <= 0) return
@@ -51,70 +51,84 @@ export function ProyeccionesCard({ prestamos }: ProyeccionesCardProps) {
 
     for (let i = 0; i < 3; i++) {
       if (cuotasRestantes <= 0) break
-
       const cuotasEsteMes = Math.min(cuotasPorMes, cuotasRestantes)
-      
       meses[i].capital += cuotasEsteMes * capitalPorCuota
       meses[i].interes += cuotasEsteMes * interesPorCuota
       meses[i].total += cuotasEsteMes * (capitalPorCuota + interesPorCuota)
-
       cuotasRestantes -= cuotasEsteMes
     }
   })
 
   const maxTotal = Math.max(...meses.map(m => m.total), 1)
+  const totalProyectado = meses.reduce((s, m) => s + m.total, 0)
+
+  const mesColors = [
+    { bar: 'from-[#213685] to-[#3a5bc7]', bg: 'bg-[#213685]/5', text: 'text-[#213685]', ring: 'ring-[#213685]/20' },
+    { bar: 'from-violet-500 to-violet-600', bg: 'bg-violet-50', text: 'text-violet-700', ring: 'ring-violet-200' },
+    { bar: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-200' }
+  ]
 
   return (
-    <Card className="shadow-sm flex flex-col h-full border-l-4 border-l-[#213685]">
-      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Proyección (3 Meses)</CardTitle>
-        <BarChart3 className="h-4 w-4 text-[#213685]" />
-      </CardHeader>
-      <CardContent className="flex-1 pb-4">
-        <div className="space-y-4">
+    <Card className="shadow-md flex flex-col h-full border-0 overflow-hidden">
+      {/* Header oscuro */}
+      <div className="bg-gradient-to-r from-[#213685] to-[#3a5bc7] rounded-t-lg px-5 pt-4 pb-4 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-blue-200" />
+            <h3 className="text-white font-bold text-base">Proyección 3 Meses</h3>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-blue-200 uppercase tracking-wider font-semibold">Total Proyectado</p>
+            <p className="text-white font-bold text-lg leading-tight">{formatMoney(totalProyectado)}</p>
+          </div>
+        </div>
+      </div>
+
+      <CardContent className="flex-1 p-5">
+        <div className="space-y-5">
           {meses.map((mes, idx) => {
-            const capitalPorc = (mes.capital / mes.total) * 100 || 0
-            const interesPorc = (mes.interes / mes.total) * 100 || 0
-            const anchoTotalBarra = (mes.total / maxTotal) * 100
+            const barWidth = mes.total > 0 ? (mes.total / maxTotal) * 100 : 0
+            const capitalPorc = mes.total > 0 ? (mes.capital / mes.total) * 100 : 0
+            const colors = mesColors[idx]
 
             return (
-              <div key={idx} className="space-y-1.5">
-                <div className="flex justify-between items-end text-sm">
-                  <span className="font-medium text-slate-600 capitalize truncate w-20">{mes.nombre}</span>
-                  <span className="font-bold text-slate-800">
-                    ${mes.total.toLocaleString('es-DO', { maximumFractionDigits: 0 })}
-                  </span>
+              <div key={idx} className="space-y-2">
+                {/* Month name + total */}
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-sm text-slate-800 capitalize">{mes.nombre}</span>
+                  <span className="font-bold text-sm text-slate-900">{formatMoney(mes.total)}</span>
                 </div>
 
-                {/* Barra apilada */}
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex relative">
-                  {mes.total > 0 ? (
-                    <div className="h-full flex" style={{ width: `${anchoTotalBarra}%`, minWidth: '5%' }}>
-                      {/* Porción Capital */}
-                      <div 
-                        className="h-full bg-slate-300 transition-all duration-500"
+                {/* Stacked bar */}
+                <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                  {mes.total > 0 && (
+                    <div
+                      className="h-full flex rounded-full overflow-hidden transition-all duration-700"
+                      style={{ width: `${Math.max(barWidth, 8)}%` }}
+                    >
+                      <div
+                        className={`h-full bg-gradient-to-r ${colors.bar} transition-all duration-500`}
                         style={{ width: `${capitalPorc}%` }}
-                        title={`Capital: $${mes.capital.toFixed(2)}`}
                       />
-                      {/* Porción Interés */}
-                      <div 
-                        className="h-full bg-[#213685] transition-all duration-500"
-                        style={{ width: `${interesPorc}%` }}
-                        title={`Interés: $${mes.interes.toFixed(2)}`}
+                      <div
+                        className="h-full bg-slate-300 transition-all duration-500"
+                        style={{ width: `${100 - capitalPorc}%` }}
                       />
                     </div>
-                  ) : (
-                    <div className="h-full w-full bg-slate-50" />
                   )}
                 </div>
 
-                {/* Leyenda pequeña */}
-                {mes.total > 0 && (
-                  <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>C: ${mes.capital.toLocaleString('es-DO', { maximumFractionDigits: 0 })}</span>
-                    <span>I: ${mes.interes.toLocaleString('es-DO', { maximumFractionDigits: 0 })}</span>
+                {/* Legend */}
+                <div className="flex justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${colors.bar}`} />
+                    <span className="text-slate-500">Capital: {formatMoney(mes.capital)}</span>
                   </div>
-                )}
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-slate-300" />
+                    <span className="text-slate-500">Interés: {formatMoney(mes.interes)}</span>
+                  </div>
+                </div>
               </div>
             )
           })}

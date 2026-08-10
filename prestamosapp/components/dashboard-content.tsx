@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
-import { DollarSign, TrendingUp, Calendar, AlertTriangle, Users, CreditCard, PiggyBank, FileText, Clock, CheckCircle, ImportIcon } from 'lucide-react'
+import { DollarSign, TrendingUp, Calendar, AlertTriangle, Users, CreditCard, PiggyBank, FileText, Clock, CheckCircle, LayoutDashboard, Filter } from 'lucide-react'
 import { DashboardStats } from "@/components/dashboard/DashboardStats"
 import { DashboardResumen } from "@/components/dashboard/DashboardResumen"
 import { DashboardConsolidacion } from "@/components/dashboard/DashboardConsolidacion"
@@ -39,15 +39,13 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
   // 2. Fetch de datos reales
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true); // Aseguramos que muestre cargando mientras busca
+      setLoading(true);
       try {
-        // 🚨 OJO AL ORDEN AQUÍ: Tienen que ser exactamente 5 peticiones
-        const [resPrestamos, resClientes, resPrestatarios, resConsolidacion, resSolicitudes] = await Promise.all([
+        const [resPrestamos, resClientes, resPrestatarios, resConsolidacion] = await Promise.all([
           fetchWithAuth(`${API_BASE_URL}/api/prestamos`),
           fetchWithAuth(`${API_BASE_URL}/api/clientes`),
           fetchWithAuth(`${API_BASE_URL}/api/prestatarios`),
           fetchWithAuth(`${API_BASE_URL}/api/consolidacioncapital/activa`),
-          fetchWithAuth(`${API_BASE_URL}/api/solicitudesprestamo`) // <--- RUTA CORRECTA
         ]);
 
         if (resPrestamos.ok) setPrestamos(await resPrestamos.json());
@@ -64,16 +62,16 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
           });
         }
 
-        // 👇 DEBUG: Vamos a ver si esto da OK y trae tu array
-        if (resSolicitudes.ok) {
-          const dataSolicitudes = await resSolicitudes.json();
-          setSolicitudes(dataSolicitudes);
-        } else {
-          console.error("❌ Falló el fetch de solicitudes. Status:", resSolicitudes.status);
-        }
+        // Solicitudes se cargan con delay para evitar rate limiting (429)
+        try {
+          const resSolicitudes = await fetchWithAuth(`${API_BASE_URL}/api/solicitudesprestamo`);
+          if (resSolicitudes.ok) {
+            setSolicitudes(await resSolicitudes.json());
+          }
+        } catch { /* solicitudes no son críticas */ }
 
       } catch (error) {
-        console.error("💥 Error general cargando datos del dashboard:", error);
+        console.error("Error cargando datos del dashboard:", error);
       } finally {
         setLoading(false);
       }
@@ -89,6 +87,7 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
 
   const prestamosActivos = prestamosFiltrados.filter(p => p.Estado === "Activo" || p.Estado === "En Mora");
   const prestamosEnMora = prestamosFiltrados.filter(p => p.Estado === "En Mora");
+  const prestamosPagados = prestamosFiltrados.filter(p => p.Estado === "Pagado");
 
   // 4. CÁLCULOS MATEMÁTICOS PARA LAS STAT CARDS (Suma exacta de la columna Saldo Restante)
   const getSaldoRestante = (p: any) => {
@@ -99,41 +98,67 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
   };
 
   const capitalEnCalle = prestamosActivos.reduce((sum, p) => sum + getSaldoRestante(p), 0);
-  const interesEsperado = prestamosActivos.reduce((sum, p) => sum + (Number(p.MontoPrestado) * (Number(p.InteresPorcentaje) / 100)), 0);
+  const interesEsperado = prestamosActivos.reduce((sum, p) => {
+    const tipoCalc = (p.TipoCalculo || '').toLowerCase();
+    const esVariable = tipoCalc.includes('amortiza') || tipoCalc.includes('solo_interes') || tipoCalc.includes('solo');
+    const base = esVariable 
+      ? (p.CapitalRestante !== undefined && p.CapitalRestante !== null ? Number(p.CapitalRestante) : Number(p.MontoPrestado))
+      : Number(p.MontoPrestado);
+    return sum + (base * (Number(p.InteresPorcentaje) / 100));
+  }, 0);
   const totalCuotasActivas = prestamosActivos.reduce((sum, p) => sum + Number(p.MontoCuota), 0);
   const dineroEnMora = prestamosEnMora.reduce((sum, p) => sum + getSaldoRestante(p), 0);
 
-  if (loading) return <div>Cargando dashboard...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full border-4 border-slate-200 border-t-[#213685] animate-spin" />
+          </div>
+          <p className="text-sm text-slate-500 font-medium animate-pulse">Cargando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header con selector de prestatario */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">
-            {filtroPrestatario === "todos"
-              ? "Dashboard General"
-              : `Dashboard: ${prestatarios.find(p => p.IdPrestatario.toString() === filtroPrestatario)?.Nombre || ''}`}
-          </h2>
-          <p className="text-muted-foreground">
-            {filtroPrestatario === "todos"
-              ? "Resumen completo de la plataforma de préstamos"
-              : "Resumen de préstamos del prestatario seleccionado"}
-          </p>
-
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#213685] to-[#3a5bc7] shadow-lg shadow-[#213685]/20">
+            <LayoutDashboard className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+              {filtroPrestatario === "todos"
+                ? "Dashboard General"
+                : `${prestatarios.find(p => p.IdPrestatario.toString() === filtroPrestatario)?.Nombre || ''}`}
+            </h2>
+            <p className="text-sm text-slate-500">
+              {filtroPrestatario === "todos"
+                ? "Resumen completo de operaciones"
+                : "Resumen del prestatario seleccionado"}
+            </p>
+          </div>
         </div>
-        <Select value={filtroPrestatario} onValueChange={setFiltroPrestatario}>
-          <SelectTrigger className="w-[200px] border-[#213685]/20 focus:ring-[#213685]">
-            <SelectValue placeholder="Seleccionar prestatario" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos los prestatarios</SelectItem>
-            {prestatarios.map((p) => (
-              <SelectItem key={p.IdPrestatario} value={p.IdPrestatario.toString()}>
-                {p.Nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-slate-400" />
+          <Select value={filtroPrestatario} onValueChange={setFiltroPrestatario}>
+            <SelectTrigger className="w-[220px] border-slate-200 bg-white shadow-sm focus:ring-[#213685] text-sm">
+              <SelectValue placeholder="Seleccionar prestatario" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los prestatarios</SelectItem>
+              {prestatarios.map((p) => (
+                <SelectItem key={p.IdPrestatario} value={p.IdPrestatario.toString()}>
+                  {p.Nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Métricas principales */}
@@ -144,13 +169,14 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
         pagosPendientes={dineroEnMora}
       />
 
-      {/* Sección de alertas y próximos vencimientos */}
-      <div className="grid gap-4 md:grid-cols-2 items-start">
-
-        <ProyeccionesCard prestamos={prestamosFiltrados} />
+      {/* Radar de cobros + Proyecciones */}
+      <div className="grid gap-5 md:grid-cols-2 items-start">
         <DashboardProximosVencer prestamos={prestamosFiltrados} />
+        <ProyeccionesCard prestamos={prestamosFiltrados} />
+      </div>
 
-
+      {/* Resumen + Cobros por frecuencia */}
+      <div className="grid gap-5 md:grid-cols-2 items-start">
         <DashboardResumen
           prestamosActivos={prestamosActivos.length}
           clientesTotales={filtroPrestatario === "todos"
@@ -158,19 +184,15 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
             : new Set(prestamosFiltrados.map(p => p.IdCliente)).size}
           prestatariosTotales={filtroPrestatario === "todos" ? prestatarios.length : 1}
         />
-
         <DashboardCobrosFrecuencia prestamos={prestamosFiltrados} />
       </div>
 
-      {/* Solicitudes futuras y consolidación */}
-      <div className="grid gap-4 md:grid-cols-2">
-
-        {/* 🌟 NUEVO COMPONENTE DE SOLICITUDES */}
+      {/* Solicitudes + Consolidación */}
+      <div className="grid gap-5 md:grid-cols-2">
         <DashboardSolicitudes
           solicitudes={solicitudes}
           onNavigate={onNavigate}
         />
-
         <DashboardConsolidacion
           ingresos={resumenConsolidacion.ingresos}
           egresos={resumenConsolidacion.egresos}
@@ -181,7 +203,6 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
       </div>
 
       {/* Acciones rápidas */}
-
       <DashboardAcciones onNavigate={onNavigate} />
     </div>
   )

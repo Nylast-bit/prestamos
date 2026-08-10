@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar } from 'lucide-react'
+import { Calendar, Phone } from 'lucide-react'
 
 // Definimos las props que recibirá
 interface DashboardSolicitudesProps {
@@ -53,6 +53,16 @@ export function DashboardSolicitudes({ solicitudes, onNavigate }: DashboardSolic
                   <div>
                     {/* Como la API devuelve el objeto Cliente anidado, lo leemos así */}
                     <p className="font-medium text-slate-800">{solicitud.Cliente?.Nombre || 'Cliente'}</p>
+                    {solicitud.Cliente?.Telefono && (
+                      <a
+                        href={`tel:${solicitud.Cliente.Telefono}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        <Phone className="h-3 w-3" />
+                        {solicitud.Cliente.Telefono}
+                      </a>
+                    )}
                     <p className="text-sm text-slate-500">
                       <span className="font-bold text-[#213685]">{formatMoney(solicitud.MontoSolicitado)}</span> 
                       <span className="mx-1">•</span> 

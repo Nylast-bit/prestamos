@@ -1,117 +1,230 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useState } from "react"
-import { ChevronDown, ChevronUp, Users, Wallet } from 'lucide-react'
-import { ScrollArea } from "@/components/ui/scroll-area"
+"use client"
 
-interface Prestamo {
+import React, { useState, useMemo } from 'react'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
+import {
+  Phone,
+  ChevronDown,
+  ChevronUp,
+  Wallet,
+  Sun,
+  Calendar,
+  CalendarDays,
+  CalendarRange
+} from 'lucide-react'
+
+export interface Prestamo {
   IdPrestamo: number
   clienteNombre?: string
+  clienteTelefono?: string | null
   MontoCuota: number
   ModalidadPago: string
   Estado: string
 }
 
-interface DashboardCobrosFrecuenciaProps {
+interface Props {
   prestamos: Prestamo[]
 }
 
-type Frecuencia = 'diario' | 'semanal' | 'quincenal' | 'mensual'
+const FREQUENCY_CONFIG = {
+  diario: {
+    label: 'Cobros Diarios',
+    icon: Sun,
+    colors: {
+      border: 'border-amber-500',
+      bg: 'bg-amber-500/10',
+      text: 'text-amber-600',
+      badge: 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+    }
+  },
+  semanal: {
+    label: 'Cobros Semanales',
+    icon: CalendarDays,
+    colors: {
+      border: 'border-blue-500',
+      bg: 'bg-blue-500/10',
+      text: 'text-blue-600',
+      badge: 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+    }
+  },
+  quincenal: {
+    label: 'Cobros Quincenales',
+    icon: Calendar,
+    colors: {
+      border: 'border-violet-500',
+      bg: 'bg-violet-500/10',
+      text: 'text-violet-600',
+      badge: 'bg-violet-100 text-violet-700 hover:bg-violet-200'
+    }
+  },
+  mensual: {
+    label: 'Cobros Mensuales',
+    icon: CalendarRange,
+    colors: {
+      border: 'border-emerald-500',
+      bg: 'bg-emerald-500/10',
+      text: 'text-emerald-600',
+      badge: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+    }
+  }
+} as const
 
-const MAPPING_FRECUENCIA: Record<Frecuencia, { label: string, desc: string }> = {
-  diario: { label: "Hoy (Diario)", desc: "Entran hoy" },
-  semanal: { label: "Esta Semana", desc: "Entran semanalmente" },
-  quincenal: { label: "Esta Quincena", desc: "Entran por quincena" },
-  mensual: { label: "Este Mes", desc: "Entran mensualmente" },
+type FrequencyKey = keyof typeof FREQUENCY_CONFIG
+const FREQUENCY_ORDER: FrequencyKey[] = ['diario', 'semanal', 'quincenal', 'mensual']
+
+function formatMoney(amount: number) {
+  return `$${amount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`
 }
 
-export function DashboardCobrosFrecuencia({ prestamos }: DashboardCobrosFrecuenciaProps) {
-  const [expanded, setExpanded] = useState<Frecuencia | null>(null)
+export function DashboardCobrosFrecuencia({ prestamos }: Props) {
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
 
-  // Filtrar activos y en mora
-  const prestamosValidos = prestamos.filter(p => p.Estado === "Activo" || p.Estado === "En Mora")
-
-  // Agrupar
-  const grupos = prestamosValidos.reduce((acc, p) => {
-    const freq = (p.ModalidadPago?.toLowerCase() || 'mensual') as Frecuencia
-    if (!acc[freq]) {
-      acc[freq] = { total: 0, clientes: [] }
-    }
-    acc[freq].total += Number(p.MontoCuota) || 0
-    acc[freq].clientes.push({
-      nombre: p.clienteNombre || `Préstamo #${p.IdPrestamo}`,
-      monto: Number(p.MontoCuota) || 0
-    })
-    return acc
-  }, {} as Record<Frecuencia, { total: number, clientes: { nombre: string, monto: number }[] }>)
-
-  // Asegurar que existan todos los grupos para mostrarlos en orden
-  const orden: Frecuencia[] = ['diario', 'semanal', 'quincenal', 'mensual']
-
-  const toggleExpand = (f: Frecuencia) => {
-    setExpanded(expanded === f ? null : f)
+  const toggleGroup = (freq: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [freq]: !prev[freq]
+    }))
   }
 
+  const { groups, grandTotal } = useMemo(() => {
+    const validPrestamos = prestamos.filter(
+      p => p.Estado === 'Activo' || p.Estado === 'En Mora'
+    )
+
+    const grouped = validPrestamos.reduce((acc, prestamo) => {
+      const modal = prestamo.ModalidadPago.toLowerCase() as FrequencyKey
+      if (!acc[modal]) {
+        acc[modal] = { items: [], total: 0 }
+      }
+      acc[modal].items.push(prestamo)
+      acc[modal].total += prestamo.MontoCuota
+      return acc
+    }, {} as Record<FrequencyKey, { items: Prestamo[]; total: number }>)
+
+    let grand = 0
+
+    const orderedGroups = FREQUENCY_ORDER.map(key => {
+      const groupData = grouped[key] || { items: [], total: 0 }
+      grand += groupData.total
+      return {
+        key,
+        ...groupData
+      }
+    })
+
+    return { groups: orderedGroups, grandTotal: grand }
+  }, [prestamos])
+
   return (
-    <Card className="shadow-sm border-l-4 border-l-[#213685] flex flex-col h-fit">
-      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-        <CardTitle className="text-sm font-medium text-slate-800">Entradas por Frecuencia</CardTitle>
-        <Wallet className="h-4 w-4 text-[#213685]" />
-      </CardHeader>
-      <CardContent className="pt-2">
-        <div className="space-y-3">
-          {orden.map(freq => {
-            const data = grupos[freq] || { total: 0, clientes: [] }
-            const config = MAPPING_FRECUENCIA[freq]
-            const isExpanded = expanded === freq
-
-            return (
-              <div key={freq} className="border rounded-md overflow-hidden bg-white">
-                <button
-                  onClick={() => toggleExpand(freq)}
-                  className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
-                >
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-slate-700">{config.label}</span>
-                    <span className="text-[10px] text-slate-500">{data.clientes.length} clientes</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-[#213685]">
-                      ${data.total.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
-                    </span>
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-slate-400" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-slate-400" />
-                    )}
-                  </div>
-                </button>
-
-                {isExpanded && (
-                  <div className="bg-white border-t border-slate-100">
-                    <ScrollArea className="max-h-[150px] overflow-y-auto p-2">
-                      {data.clientes.length > 0 ? (
-                        <ul className="space-y-1">
-                          {data.clientes.map((c, idx) => (
-                            <li key={idx} className="flex justify-between items-center text-xs p-1.5 hover:bg-slate-50 rounded">
-                              <span className="text-slate-600 truncate max-w-[120px] font-medium" title={c.nombre}>
-                                {c.nombre}
-                              </span>
-                              <span className="text-slate-800 font-semibold">
-                                ${c.monto.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-xs text-center text-slate-400 py-2">No hay cobros en esta frecuencia</p>
-                      )}
-                    </ScrollArea>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+    <Card className="w-full shadow-md border-border/60">
+      <CardHeader className="flex flex-row items-center justify-between pb-4">
+        <CardTitle className="text-xl font-bold flex items-center gap-2">
+          <Wallet className="w-5 h-5 text-primary" />
+          Cobros por Frecuencia
+        </CardTitle>
+        <div className="flex flex-col items-end">
+          <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+            Total Proyectado
+          </span>
+          <span className="text-xl font-bold text-primary">
+            {formatMoney(grandTotal)}
+          </span>
         </div>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {groups.map(group => {
+          if (group.items.length === 0) return null
+
+          const isExpanded = !!expandedGroups[group.key]
+          const config = FREQUENCY_CONFIG[group.key]
+          const Icon = config.icon
+
+          return (
+            <div
+              key={group.key}
+              className={`rounded-lg border bg-card transition-all duration-200 overflow-hidden ${
+                isExpanded ? 'ring-1 ring-ring/20 shadow-sm' : 'hover:border-border hover:bg-accent/30'
+              }`}
+            >
+              {/* Group Header */}
+              <button
+                onClick={() => toggleGroup(group.key)}
+                className={`w-full flex items-center justify-between p-4 border-l-4 ${config.colors.border} transition-colors`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-md ${config.colors.bg} ${config.colors.text}`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div className="text-left flex flex-col">
+                    <span className="font-semibold text-foreground">
+                      {config.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {group.items.length} cliente{group.items.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <Badge variant="secondary" className={`font-semibold ${config.colors.badge}`}>
+                    {formatMoney(group.total)}
+                  </Badge>
+                  <div className="text-muted-foreground">
+                    {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                  </div>
+                </div>
+              </button>
+
+              {/* Expanded Content */}
+              {isExpanded && (
+                <div className="bg-muted/30 border-t border-border/50">
+                  <ScrollArea className="max-h-[180px]">
+                    <div className="p-2">
+                      {group.items.map((prestamo, idx) => (
+                        <div
+                          key={`${prestamo.IdPrestamo}-${idx}`}
+                          className="flex items-center justify-between py-2 px-3 hover:bg-accent/50 rounded-md transition-colors"
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground">
+                              {prestamo.clienteNombre || 'Cliente Desconocido'}
+                            </span>
+                            {prestamo.clienteTelefono && (
+                              <a
+                                href={`tel:${prestamo.clienteTelefono}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center mt-0.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                              >
+                                <Phone className="w-3 h-3 mr-1" />
+                                {prestamo.clienteTelefono}
+                              </a>
+                            )}
+                          </div>
+                          <span className="text-sm font-semibold text-foreground">
+                            {formatMoney(prestamo.MontoCuota)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+          )
+        })}
+
+        {groups.every(g => g.items.length === 0) && (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            No hay cobros activos o en mora para mostrar.
+          </div>
+        )}
       </CardContent>
     </Card>
   )
