@@ -15,7 +15,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Plus, Search, Edit, Trash2, Phone, Mail, MapPin, User, Loader2, ArrowRight, CreditCard } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Map, MapControls } from "@/components/ui/map"
+import { Info } from 'lucide-react'
 
 // Actualizamos la interfaz para coincidir con el servicio del backend
 interface Cliente {
@@ -33,11 +36,31 @@ interface Cliente {
 
 const getScoreBadge = (score: number | null | undefined) => {
   const s = score ?? 500;
-  if (s >= 850) return { label: `Excelente (${s})`, bg: 'bg-green-100 text-green-800' };
-  if (s >= 700) return { label: `Bueno (${s})`, bg: 'bg-blue-100 text-blue-800' };
-  if (s >= 500) return { label: `Regular (${s})`, bg: 'bg-yellow-100 text-yellow-800' };
-  if (s >= 300) return { label: `Bajo (${s})`, bg: 'bg-orange-100 text-orange-800' };
-  return { label: `Crítico (${s})`, bg: 'bg-red-100 text-red-800' };
+  if (s >= 850) return { 
+    label: `Excelente (${s})`, 
+    bg: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800/60',
+    desc: 'Perfil de muy bajo riesgo. Cumplimiento impecable o excelentes ingresos.'
+  };
+  if (s >= 700) return { 
+    label: `Bueno (${s})`, 
+    bg: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800/60',
+    desc: 'Perfil confiable. Buen historial de pagos y comportamiento estable.'
+  };
+  if (s >= 500) return { 
+    label: `Regular (${s})`, 
+    bg: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800/60',
+    desc: 'Perfil promedio. Puede presentar algunos retrasos menores o poco historial.'
+  };
+  if (s >= 300) return { 
+    label: `Bajo (${s})`, 
+    bg: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800/60',
+    desc: 'Perfil de riesgo. Historial con retrasos frecuentes o alta carga de deudas.'
+  };
+  return { 
+    label: `Crítico (${s})`, 
+    bg: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800/60',
+    desc: 'Alto riesgo de impago. Historial con morosidad severa o sin capacidad de pago demostrada.'
+  };
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
@@ -68,7 +91,7 @@ export function ClientesContent() {
   
   // Paginacion
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const itemsPerPage = 5
   
   // Mapa
   const [mapOpen, setMapOpen] = useState(false)
@@ -438,7 +461,31 @@ export function ClientesContent() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <CardTitle>Gestión de Clientes</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>Gestión de Clientes</CardTitle>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-muted-foreground hover:text-primary">
+                      <Info className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-4" align="start">
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-sm border-b pb-2">Leyenda de Score Crediticio</h4>
+                      <div className="grid gap-2 text-xs">
+                        <div className="flex items-center justify-between"><span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500"></div>Excelente</span><span className="font-mono">850+</span></div>
+                        <div className="flex items-center justify-between"><span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"></div>Bueno</span><span className="font-mono">700 - 849</span></div>
+                        <div className="flex items-center justify-between"><span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-yellow-500"></div>Regular</span><span className="font-mono">500 - 699</span></div>
+                        <div className="flex items-center justify-between"><span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-orange-500"></div>Bajo</span><span className="font-mono">300 - 499</span></div>
+                        <div className="flex items-center justify-between"><span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500"></div>Crítico</span><span className="font-mono">0 - 299</span></div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground pt-2 border-t mt-2 leading-relaxed">
+                        El puntaje evalúa el nivel de riesgo del cliente basado en su historial y capacidad de pago.
+                      </p>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <CardDescription>
                 Administra la información de todos los clientes
               </CardDescription>
@@ -601,9 +648,20 @@ export function ClientesContent() {
                             <div>
                             <div className="font-medium text-foreground flex items-center gap-2">
                               {cliente.Nombre}
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${getScoreBadge(cliente.PuntajeCredito).bg}`}>
-                                {getScoreBadge(cliente.PuntajeCredito).label}
-                              </span>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm tracking-wide cursor-help ${getScoreBadge(cliente.PuntajeCredito).bg}`}>
+                                      {getScoreBadge(cliente.PuntajeCredito).label}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    <p className="w-[220px] text-xs text-center leading-relaxed">
+                                      {getScoreBadge(cliente.PuntajeCredito).desc}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                 <MapPin className="h-3 w-3" />
