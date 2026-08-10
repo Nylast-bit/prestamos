@@ -209,7 +209,7 @@ export function GastoFijoContent() {
                         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                             <DialogTrigger asChild>
                                 <Button 
-                                    className="bg-[#213685] hover:bg-[#213685]/90"
+                                    className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90"
                                     onClick={resetForm}
                                 >
                                     <Plus className="h-4 w-4 mr-2" />
@@ -299,7 +299,7 @@ export function GastoFijoContent() {
                                                 type="checkbox"
                                                 checked={formData.Activo}
                                                 onChange={(e) => setFormData({...formData, Activo: e.target.checked})}
-                                                className="h-4 w-4 rounded border-gray-300 text-[#213685] focus:ring-[#213685]"
+                                                className="h-4 w-4 rounded border-border text-[#213685] focus:ring-[#213685]"
                                             />
                                             <Label htmlFor="activo">Gasto Activo (Se incluye en la automatización)</Label>
                                         </div>
@@ -308,7 +308,7 @@ export function GastoFijoContent() {
                                         <Button type="button" variant="outline" onClick={resetForm}>
                                             Cancelar
                                         </Button>
-                                        <Button type="submit" className="bg-[#213685] hover:bg-[#213685]/90">
+                                        <Button type="submit" className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90">
                                             {editingGasto ? "Actualizar" : "Crear"} Gasto
                                         </Button>
                                     </DialogFooter>
@@ -321,7 +321,7 @@ export function GastoFijoContent() {
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
-                                <TableRow className="bg-gray-50">
+                                <TableRow className="bg-muted">
                                     <TableHead className="font-bold w-[30%]">NOMBRE</TableHead>
                                     <TableHead className="font-bold w-[15%]">MONTO</TableHead>
                                     <TableHead className="font-bold w-[35%]">FRECUENCIA</TableHead>
@@ -343,7 +343,7 @@ export function GastoFijoContent() {
                                             <TableCell>RD${gasto.Monto.toLocaleString('es-DO', { minimumFractionDigits: 2 })}</TableCell>
                                             <TableCell>{getFrecuenciaDisplay(gasto.Frecuencia, gasto.Dia1, gasto.Dia2)}</TableCell>
                                             <TableCell className="text-center">
-                                                <Badge variant="default" className={gasto.Activo ? "bg-green-600" : "bg-red-600"}>
+                                                <Badge variant="default" className={gasto.Activo ? "bg-green-600" : "bg-red-600 text-white dark:text-white"}>
                                                     {gasto.Activo ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
                                                 </Badge>
                                             </TableCell>
@@ -353,7 +353,7 @@ export function GastoFijoContent() {
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() => handleEdit(gasto)}
-                                                        className="hover:bg-[#213685]/10"
+                                                        className="hover:bg-[#213685] text-white dark:text-white/10"
                                                     >
                                                         <Edit className="h-4 w-4" />
                                                     </Button>

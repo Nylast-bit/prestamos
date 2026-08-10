@@ -21,6 +21,8 @@ import pagopersonalizadoRoutes from "./routes/pagopersonalizado.routes";
 import planRoutes from "./routes/plan.routes";
 import suscripcionRoutes from "./routes/suscripcion.routes";
 import importRoutes from "./routes/import.routes";
+import scoreRoutes from "./routes/score.routes";
+import moraRoutes from "./routes/mora.routes";
 // 👇 importa el job
 import { startCapitalJob } from "./jobs/capitalJob";
 
@@ -112,6 +114,8 @@ app.use("/api/pagospersonalizados", pagopersonalizadoRoutes);
 app.use("/api/planes", planRoutes);
 app.use("/api/suscripciones", suscripcionRoutes);
 app.use("/api/import", importRoutes);
+app.use("/api/score", scoreRoutes);
+app.use("/api/mora", moraRoutes);
 
 // 8. Manejo Global de Errores (Debe ser SIEMPRE el último middleware)
 app.use(errorHandler);

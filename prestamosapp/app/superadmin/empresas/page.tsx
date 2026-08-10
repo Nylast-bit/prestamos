@@ -121,9 +121,9 @@ export default function EmpresasPage() {
         </Button>
       </div>
       
-      <div className="rounded-md border bg-white">
+      <div className="rounded-md border bg-background">
         <table className="w-full text-sm text-left">
-          <thead className="bg-slate-50 border-b">
+          <thead className="bg-muted border-b">
             <tr>
               <th className="p-4 font-medium">Nombre</th>
               <th className="p-4 font-medium">Documento</th>
@@ -134,9 +134,9 @@ export default function EmpresasPage() {
           </thead>
           <tbody>
             {empresas.map(emp => (
-              <tr key={emp.IdEmpresa} className={`border-b last:border-0 hover:bg-slate-50 ${emp.Estado === 'Inactiva' ? 'opacity-60' : ''}`}>
+              <tr key={emp.IdEmpresa} className={`border-b last:border-0 hover:bg-muted ${emp.Estado === 'Inactiva' ? 'opacity-60' : ''}`}>
                 <td className="p-4 font-medium flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-slate-400" />
+                  <Building2 className="w-4 h-4 text-muted-foreground" />
                   {emp.Nombre} {emp.Estado === 'Inactiva' && <span className="text-xs ml-2 text-red-500 font-bold">(Inactiva)</span>}
                 </td>
                 <td className="p-4">{emp.Documento || '--'}</td>
@@ -149,7 +149,7 @@ export default function EmpresasPage() {
                       <span className="text-blue-600 hover:text-blue-800 cursor-pointer flex items-center gap-1" onClick={() => viewUsuarios(emp)}>
                           <Users className="w-4 h-4" /> Usuarios
                       </span>
-                      <span className="text-slate-600 hover:text-slate-800 cursor-pointer flex items-center gap-1" onClick={() => openEditModal(emp)}>
+                      <span className="text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1" onClick={() => openEditModal(emp)}>
                           <Edit className="w-4 h-4" /> Editar
                       </span>
                       <span className="text-red-500 hover:text-red-700 cursor-pointer flex items-center gap-1" onClick={() => handleDelete(emp.IdEmpresa)}>
@@ -191,7 +191,7 @@ export default function EmpresasPage() {
             {editingEmpresa && (
                 <div className="space-y-2">
                     <Label>Estado Platform</Label>
-                    <select className="w-full border rounded-md p-2 outline-none text-sm bg-slate-50"
+                    <select className="w-full border rounded-md p-2 outline-none text-sm bg-muted"
                         value={formData.estado || 'Activa'} onChange={e => setFormData({...formData, estado: e.target.value})}>
                         <option value="Activa">Activa</option>
                         <option value="Inactiva">Inactiva (Acceso Restringido)</option>
@@ -215,20 +215,20 @@ export default function EmpresasPage() {
             <DialogDescription>Listado actual frente al límite de su Plan.</DialogDescription>
           </DialogHeader>
           
-          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-md border">
+          <div className="flex justify-between items-center bg-muted p-4 rounded-md border">
               <div>
-                  <p className="text-sm text-slate-500">Usuarios actuales</p>
+                  <p className="text-sm text-muted-foreground">Usuarios actuales</p>
                   <p className="text-xl font-bold">{empresaUsers.filter(u => u.Rol !== 'admin_empresa').length}</p>
               </div>
               <div className="text-right">
-                  <p className="text-sm text-slate-500">Límite del Plan</p>
+                  <p className="text-sm text-muted-foreground">Límite del Plan</p>
                   <p className="text-xl font-bold">{getLimiteUsuarios(selectedEmpresa?.IdEmpresa) || 'N/A'}</p>
               </div>
           </div>
 
           <div className="max-h-60 overflow-y-auto mt-4 rounded-md border">
               <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-100">
+                  <thead className="bg-accent">
                     <tr>
                         <th className="p-2">Nombre</th>
                         <th className="p-2">Rol</th>
@@ -243,12 +243,12 @@ export default function EmpresasPage() {
                               <td className="p-2 font-medium">
                                   {u.Rol === 'admin_empresa' ? <span className="text-orange-600 font-bold">Admin Empresa</span> : u.Rol}
                               </td>
-                              <td className="p-2 text-slate-500">{u.Email}</td>
+                              <td className="p-2 text-muted-foreground">{u.Email}</td>
                               <td className="p-2"><span className="text-green-600 bg-green-50 px-2 py-1 rounded-sm text-xs">{u.Estado}</span></td>
                           </tr>
                       ))}
                       {empresaUsers.length === 0 && (
-                          <tr><td colSpan={4} className="p-4 text-center text-slate-500">No hay usuarios bajo esta empresa</td></tr>
+                          <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No hay usuarios bajo esta empresa</td></tr>
                       )}
                   </tbody>
               </table>

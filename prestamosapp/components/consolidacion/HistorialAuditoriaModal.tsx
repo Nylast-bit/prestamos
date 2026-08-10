@@ -88,7 +88,7 @@ export function HistorialAuditoriaModal({
               <History className="h-5 w-5 text-[#213685]" />
             </div>
             <div>
-              <DialogTitle className="text-lg text-slate-900 flex items-center gap-2">
+              <DialogTitle className="text-lg text-foreground flex items-center gap-2">
                 Historial de Verificaciones
               </DialogTitle>
               <DialogDescription className="text-xs">
@@ -99,12 +99,12 @@ export function HistorialAuditoriaModal({
         </DialogHeader>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-10 text-slate-500">
+          <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin mb-2 text-[#213685]" />
             <p className="text-xs">Cargando historial de marcados...</p>
           </div>
         ) : historial.length === 0 ? (
-          <div className="text-center py-8 text-slate-500 bg-slate-50 rounded-lg border text-xs">
+          <div className="text-center py-8 text-muted-foreground bg-muted rounded-lg border text-xs">
             No hay registros de auditoría para esta consolidación.
           </div>
         ) : (
@@ -117,7 +117,7 @@ export function HistorialAuditoriaModal({
                 <div
                   key={entry.idRegistro}
                   className={`border rounded-lg p-3 transition-all ${
-                    isLatest ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50/70 border-slate-200'
+                    isLatest ? 'bg-emerald-50/50 border-emerald-200' : 'bg-muted/70 border-border'
                   }`}
                 >
                   <div
@@ -125,13 +125,13 @@ export function HistorialAuditoriaModal({
                     onClick={() => setExpandedId(isExpanded ? null : entry.idRegistro)}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className={`p-1.5 rounded-full ${isLatest ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                      <div className={`p-1.5 rounded-full ${isLatest ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-muted-foreground'}`}>
                         <ShieldCheck className="h-4 w-4" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-xs text-slate-800 flex items-center gap-1">
-                            <User className="h-3 w-3 text-slate-400" />
+                          <span className="font-semibold text-xs text-foreground flex items-center gap-1">
+                            <User className="h-3 w-3 text-muted-foreground" />
                             {entry.nombreUsuario}
                           </span>
                           {isLatest && (
@@ -140,37 +140,37 @@ export function HistorialAuditoriaModal({
                             </Badge>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                          <Clock className="h-3 w-3 text-slate-400" />
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
                           {formatDateTime(entry.fechaAuditoria)}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] font-mono bg-white">
+                      <Badge variant="outline" className="text-[10px] font-mono bg-background">
                         RD${entry.balanceNeto.toLocaleString()}
                       </Badge>
-                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-400">
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground">
                         {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </Button>
                     </div>
                   </div>
 
                   {isExpanded && (
-                    <div className="mt-3 pt-2.5 border-t border-slate-200/80 text-xs space-y-2">
+                    <div className="mt-3 pt-2.5 border-t border-border/80 text-xs space-y-2">
                       {entry.observaciones && (
-                        <div className="bg-white p-2 rounded border text-slate-700 flex items-start gap-1.5">
-                          <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                        <div className="bg-background p-2 rounded border text-card-foreground flex items-start gap-1.5">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
                           <span className="italic">{entry.observaciones}</span>
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-2 text-[11px] bg-white p-2 rounded border text-slate-600 font-mono">
+                      <div className="grid grid-cols-2 gap-2 text-[11px] bg-background p-2 rounded border text-muted-foreground font-mono">
                         <div>Entrante: <span className="text-emerald-700 font-semibold">RD${entry.capitalEntrante.toLocaleString()}</span></div>
                         <div>Saliente: <span className="text-rose-700 font-semibold">RD${entry.capitalSaliente.toLocaleString()}</span></div>
                         <div>Balance: <span className={`font-semibold ${entry.balanceNeto >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>RD${entry.balanceNeto.toLocaleString()}</span></div>
-                        <div># Registros: <span className="text-slate-800 font-semibold">{entry.cantidadRegistros}</span></div>
+                        <div># Registros: <span className="text-foreground font-semibold">{entry.cantidadRegistros}</span></div>
                       </div>
                     </div>
                   )}

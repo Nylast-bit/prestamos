@@ -287,26 +287,26 @@ export function PrestatariosContent() {
     <div className="space-y-6">
       {/* === BANNER MI PERFIL === */}
       {user && (
-        <Card className="border-l-4 border-l-indigo-500 shadow-md bg-gradient-to-r from-indigo-50/80 to-slate-50">
+        <Card className="border-l-4 border-l-indigo-500 shadow-md bg-gradient-to-r from-indigo-50/80 dark:from-indigo-950/30 to-slate-50 dark:to-slate-900">
           <CardContent className="py-4 px-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                <div className="h-12 w-12 rounded-full bg-indigo-600 text-white dark:text-white flex items-center justify-center text-white font-bold text-lg shadow-md">
                   {user.nombre?.charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-800 text-base">{user.nombre}</h3>
-                    <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] font-semibold">
+                    <h3 className="font-bold text-foreground text-base">{user.nombre}</h3>
+                    <Badge className="bg-indigo-100 text-indigo-700 dark:text-indigo-300 border-indigo-200 text-[10px] font-semibold">
                       {user.rol === 'admin_empresa' ? '🏢 Admin' : user.rol === 'Cajero' ? '💼 Cajero' : '🛡️ Prestamista'}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Mail className="h-3 w-3" /> {user.email}
                     </span>
-                    <span className="text-xs text-slate-400">•</span>
-                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Building className="h-3 w-3" /> {user.nombreEmpresa}
                     </span>
                   </div>
@@ -316,7 +316,7 @@ export function PrestatariosContent() {
                 variant="outline"
                 size="sm"
                 onClick={handleOpenProfile}
-                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 font-medium"
+                className="border-indigo-200 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 hover:border-indigo-300 font-medium"
               >
                 <Edit className="h-3.5 w-3.5 mr-1.5" />
                 Editar Mi Perfil
@@ -397,7 +397,7 @@ export function PrestatariosContent() {
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-[#213685] hover:bg-[#213685]/90 w-full sm:w-auto">
+                <Button className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Nuevo Prestamista
                 </Button>
@@ -464,7 +464,7 @@ export function PrestatariosContent() {
                         className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4 text-gray-500" /> : <Eye className="h-4 w-4 text-gray-500" />}
+                        {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                       </Button>
                     </div>
                   </div>
@@ -500,7 +500,7 @@ export function PrestatariosContent() {
                   </Button>
                   <Button 
                     onClick={handleSubmit} 
-                    className="bg-[#213685] hover:bg-[#213685]/90" 
+                    className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90" 
                     disabled={submitting || !formData.Nombre || (!editingPrestatario && !formData.Clave)}
                   >
                     {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -512,7 +512,7 @@ export function PrestatariosContent() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2 mb-4 bg-gray-50 p-2 rounded-md border">
+          <div className="flex items-center space-x-2 mb-4 bg-muted p-2 rounded-md border">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nombre, teléfono o email..."
@@ -525,12 +525,12 @@ export function PrestatariosContent() {
           <div className="rounded-md border">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead className="font-semibold text-gray-700">Prestamista</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Contacto</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Estado</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Préstamos</TableHead>
-                  <TableHead className="text-right font-semibold text-gray-700">Acciones</TableHead>
+                <TableRow className="bg-muted">
+                  <TableHead className="font-semibold text-card-foreground">Prestamista</TableHead>
+                  <TableHead className="font-semibold text-card-foreground">Contacto</TableHead>
+                  <TableHead className="font-semibold text-card-foreground">Estado</TableHead>
+                  <TableHead className="font-semibold text-card-foreground">Préstamos</TableHead>
+                  <TableHead className="text-right font-semibold text-card-foreground">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -547,21 +547,21 @@ export function PrestatariosContent() {
                     return (
                     <TableRow 
                       key={prestatario.IdPrestatario} 
-                      className={`hover:bg-gray-50/50 ${isInactive ? 'opacity-50' : ''}`}
+                      className={`hover:bg-muted/50 ${isInactive ? 'opacity-50' : ''}`}
                     >
                       <TableCell>
                         <div className="flex items-center gap-3">
                             <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold ${
                               isInactive 
-                                ? 'bg-gray-200 text-gray-500' 
+                                ? 'bg-gray-200 text-muted-foreground' 
                                 : isSelf 
-                                  ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300'
-                                  : 'bg-[#213685]/10 text-[#213685]'
+                                  ? 'bg-indigo-100 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-300'
+                                  : 'bg-[#213685] text-white dark:text-white/10 text-[#213685]'
                             }`}>
                                 {prestatario.Nombre.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                                <div className="font-medium text-gray-900 flex items-center gap-1.5">
+                                <div className="font-medium text-foreground flex items-center gap-1.5">
                                   {prestatario.Nombre}
                                   {isSelf && (
                                     <Badge className="bg-indigo-50 text-indigo-600 border-indigo-200 text-[9px] px-1.5 py-0">Tú</Badge>
@@ -574,18 +574,18 @@ export function PrestatariosContent() {
                       <TableCell>
                          <div className="space-y-1">
                             {prestatario.Telefono ? (
-                              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                <Phone className="h-3.5 w-3.5 text-gray-400" />
+                              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                                 {prestatario.Telefono}
                               </div>
                             ) : null}
                             {prestatario.Email ? (
-                              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                <Mail className="h-3.5 w-3.5 text-gray-400" />
+                              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                                 {prestatario.Email}
                               </div>
                             ) : null}
-                            {!prestatario.Telefono && !prestatario.Email && <span className="text-xs text-gray-400">Sin contacto</span>}
+                            {!prestatario.Telefono && !prestatario.Email && <span className="text-xs text-muted-foreground">Sin contacto</span>}
                          </div>
                       </TableCell>
                       <TableCell>
@@ -603,7 +603,7 @@ export function PrestatariosContent() {
                           variant={prestatario.cantidadActivos && prestatario.cantidadActivos > 0 ? "default" : "secondary"}
                           className={prestatario.cantidadActivos && prestatario.cantidadActivos > 0 
                             ? "bg-green-100 text-green-700 hover:bg-green-200 border-green-200" 
-                            : "bg-gray-100 text-gray-500 hover:bg-gray-200 border-gray-200"}
+                            : "bg-accent text-muted-foreground hover:bg-gray-200 border-border"}
                         >
                           {prestatario.cantidadActivos || 0} Activos
                         </Badge>
@@ -614,7 +614,7 @@ export function PrestatariosContent() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(prestatario)}
-                            className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-600"
                             title="Editar"
                           >
                             <Edit className="h-4 w-4" />
@@ -675,8 +675,8 @@ export function PrestatariosContent() {
             <AlertDialogAction
               onClick={handleToggleEstado}
               className={prestatarioToToggle?.estadoUsuario === 'Inactivo'
-                ? "bg-emerald-600 hover:bg-emerald-700"
-                : "bg-amber-600 hover:bg-amber-700"}
+                ? "bg-emerald-600 text-white dark:text-white hover:bg-emerald-700"
+                : "bg-amber-600 text-white dark:text-white hover:bg-amber-700"}
             >
               {prestatarioToToggle?.estadoUsuario === 'Inactivo' ? 'Reactivar' : 'Desactivar'}
             </AlertDialogAction>
@@ -689,7 +689,7 @@ export function PrestatariosContent() {
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-1">
-              <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold shadow">
+              <div className="h-10 w-10 rounded-full bg-indigo-600 text-white dark:text-white flex items-center justify-center text-white font-bold shadow">
                 {user?.nombre?.charAt(0).toUpperCase()}
               </div>
               <div>
@@ -742,7 +742,7 @@ export function PrestatariosContent() {
 
               <div className="border-t pt-3 mt-1">
                 <div className="flex items-center justify-between mb-3">
-                  <Label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Label className="text-xs font-bold text-card-foreground flex items-center gap-1.5">
                     <Lock className="h-3.5 w-3.5" /> Cambiar Contraseña
                   </Label>
                   <Button
@@ -750,7 +750,7 @@ export function PrestatariosContent() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowProfilePasswords(!showProfilePasswords)}
-                    className="text-xs h-7 px-2 text-slate-500"
+                    className="text-xs h-7 px-2 text-muted-foreground"
                   >
                     {showProfilePasswords ? <EyeOff className="h-3.5 w-3.5 mr-1" /> : <Eye className="h-3.5 w-3.5 mr-1" />}
                     {showProfilePasswords ? "Ocultar" : "Mostrar"}
@@ -758,7 +758,7 @@ export function PrestatariosContent() {
                 </div>
                 <div className="grid gap-3">
                   <div className="space-y-1">
-                    <Label htmlFor="clave-actual" className="text-[11px] text-slate-500">Contraseña Actual</Label>
+                    <Label htmlFor="clave-actual" className="text-[11px] text-muted-foreground">Contraseña Actual</Label>
                     <Input
                       id="clave-actual"
                       type={showProfilePasswords ? "text" : "password"}
@@ -770,7 +770,7 @@ export function PrestatariosContent() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor="clave-nueva" className="text-[11px] text-slate-500">Nueva Contraseña</Label>
+                      <Label htmlFor="clave-nueva" className="text-[11px] text-muted-foreground">Nueva Contraseña</Label>
                       <Input
                         id="clave-nueva"
                         type={showProfilePasswords ? "text" : "password"}
@@ -781,7 +781,7 @@ export function PrestatariosContent() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="clave-confirmar" className="text-[11px] text-slate-500">Confirmar Nueva</Label>
+                      <Label htmlFor="clave-confirmar" className="text-[11px] text-muted-foreground">Confirmar Nueva</Label>
                       <Input
                         id="clave-confirmar"
                         type={showProfilePasswords ? "text" : "password"}
@@ -808,7 +808,7 @@ export function PrestatariosContent() {
               size="sm"
               onClick={handleSaveProfile}
               disabled={profileSaving || !profileData.Nombre}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="bg-indigo-600 text-white dark:text-white hover:bg-indigo-700 text-white"
             >
               {profileSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
               Guardar Cambios

@@ -16,6 +16,9 @@ import {
 
 import { requireAuth } from "../middlewares/auth.middleware";
 
+import { validate } from "../middlewares/validate";
+import { prestamoSchema } from "../validators/prestamo.validator";
+
 const router = Router();
 
 router.use(requireAuth);
@@ -29,7 +32,7 @@ router.post("/rango-cuotas", obtenerRangoCuotas);
 // ✅ CRUD GENERAL
 router.get("/", getPrestamos);
 router.get("/conteo-activos/:idPrestatario", getPrestamosActivosCount);
-router.post("/", createPrestamo);
+router.post("/", validate(prestamoSchema), createPrestamo);
 
 // ✅ RUTAS DINÁMICAS (VAN AL FINAL)
 router.post("/:id/reenganchar", reengancharPrestamo);

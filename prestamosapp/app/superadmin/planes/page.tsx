@@ -75,21 +75,21 @@ export default function PlanesPage() {
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {planes.map(plan => (
-          <div key={plan.IdPlan} className={`rounded-xl border p-6 shadow-sm ${plan.Activo ? 'bg-white' : 'bg-slate-50 opacity-70'}`}>
+          <div key={plan.IdPlan} className={`rounded-xl border p-6 shadow-sm ${plan.Activo ? 'bg-background' : 'bg-muted opacity-70'}`}>
             <div className="flex items-center gap-3 mb-4">
-              <div className={`p-2 rounded-lg ${plan.Activo ? 'bg-orange-100 text-orange-600' : 'bg-slate-200 text-slate-500'}`}>
+              <div className={`p-2 rounded-lg ${plan.Activo ? 'bg-orange-100 text-orange-600' : 'bg-slate-200 text-muted-foreground'}`}>
                 <List className="w-5 h-5" />
               </div>
               <h3 className="font-semibold text-lg">{plan.Nombre}</h3>
             </div>
-            <div className="space-y-2 text-sm text-slate-600">
-              <p className="flex justify-between"><span>Precio:</span> <span className="font-medium text-slate-900">${plan.Precio}</span></p>
-              <p className="flex justify-between"><span>Límite Usuarios:</span> <span className="font-medium text-slate-900">{plan.LimiteUsuarios}</span></p>
-              <p className="flex justify-between"><span>Límite Préstamos:</span> <span className="font-medium text-slate-900">{plan.LimitePrestamos}</span></p>
-              <p className="flex justify-between"><span>Estado:</span> <span className={`font-medium ${plan.Activo ? 'text-green-600' : 'text-slate-500'}`}>{plan.Activo ? 'Activo' : 'Inactivo'}</span></p>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p className="flex justify-between"><span>Precio:</span> <span className="font-medium text-foreground">${plan.Precio}</span></p>
+              <p className="flex justify-between"><span>Límite Usuarios:</span> <span className="font-medium text-foreground">{plan.LimiteUsuarios}</span></p>
+              <p className="flex justify-between"><span>Límite Préstamos:</span> <span className="font-medium text-foreground">{plan.LimitePrestamos}</span></p>
+              <p className="flex justify-between"><span>Estado:</span> <span className={`font-medium ${plan.Activo ? 'text-green-600' : 'text-muted-foreground'}`}>{plan.Activo ? 'Activo' : 'Inactivo'}</span></p>
             </div>
             <div className="mt-6">
-               <button onClick={() => openEditModal(plan)} className="w-full border py-2 rounded-md hover:bg-slate-50 transition-colors">Editar Plan</button>
+               <button onClick={() => openEditModal(plan)} className="w-full border py-2 rounded-md hover:bg-muted transition-colors">Editar Plan</button>
             </div>
           </div>
         ))}

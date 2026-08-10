@@ -58,6 +58,21 @@ export const createPrestamoService = async (data: CreatePrestamoData, idEmpresa:
     }
   }
 
+  // 0.5 Verificar si el cliente tiene mora pendiente
+  const { data: moraCliente, error: errMora } = await supabase
+    .from('Prestamo')
+    .select('MontoMoraAcumulado, MoraPerdonada')
+    .eq('IdCliente', data.IdCliente)
+    .eq('IdEmpresa', idEmpresa)
+    .gt('MontoMoraAcumulado', 0);
+
+  if (!errMora && moraCliente && moraCliente.length > 0) {
+    const totalMora = moraCliente.reduce((acc, curr) => acc + (curr.MoraPerdonada ? 0 : Number(curr.MontoMoraAcumulado)), 0);
+    if (totalMora > 0) {
+      throw new Error(`El cliente tiene mora pendiente de $${totalMora.toFixed(2)}. Debe ser pagada o perdonada antes de otorgar un nuevo préstamo.`);
+    }
+  }
+
   const hoy = new Date().toISOString();
   const fechaValidacion = data.FechaInicio ? new Date(data.FechaInicio).toISOString() : hoy;
 
@@ -214,6 +229,9 @@ export const getPrestamosService = async (idEmpresa: number) => {
       Estado: estado,
       CuotasRestantes: cuotasRestantes,
       FechaUltimoPago: fechaUltimoPago,
+      moraAcumulada: Number(p.MontoMoraAcumulado || 0),
+      cuotasEnMora: p.CuotasEnMora || 0,
+      moraCongelada: p.MoraCongelada || false,
       clienteNombre: p.Cliente?.Nombre || 'N/A',
       clienteTelefono: p.Cliente?.Telefono || null,
       prestatarioNombre: p.Prestatario?.Nombre || 'N/A'
@@ -297,6 +315,11 @@ export const simularPrestamoService = (params: {
   cuotaDeseada?: number;
 }) => {
   const { monto, tasaInteres, numeroCuotas, tipoCalculo, cuotaDeseada } = params;
+
+  if (monto <= 0) throw new Error('El monto debe ser mayor a 0');
+  if (numeroCuotas <= 0) throw new Error('La cantidad de cuotas debe ser mayor a 0');
+  if (tasaInteres < 0) throw new Error('La tasa de interés no puede ser negativa');
+
   let cuotas = [];
   let montoCuota = 0;
   let totalInteres = 0;

@@ -4,6 +4,7 @@ import { supabase } from "../config/supabaseClient";
 
 // Asegúrate de importar el servicio de consolidación desde la ruta correcta
 import { createRegistroConsolidacionService } from "./registroconsolidacion.service";
+import { actualizarScoreService } from "./score.service";
 
 
 export const createPagoService = async (data: any, idEmpresa: number) => {
@@ -16,6 +17,11 @@ export const createPagoService = async (data: any, idEmpresa: number) => {
     MontoCapitalAbonado,
     NumeroCuota
   } = data;
+
+  const totalDistribuido = Number(MontoCapitalAbonado || 0) + Number(MontoInteresPagado || 0);
+  if (Math.abs(totalDistribuido - Number(MontoPagado)) > 0.01) {
+    throw new Error(`La distribución del pago es incorrecta. Capital (${MontoCapitalAbonado}) + Interés (${MontoInteresPagado}) debe ser igual al monto pagado (${MontoPagado}).`);
+  }
 
   logger.info("--- INICIANDO SERVICIO DE PAGO ---");
 
@@ -167,6 +173,100 @@ export const createPagoService = async (data: any, idEmpresa: number) => {
     logger.error("⚠️ Alerta consolidación:", errorConsolidacion.message);
   }
 
+  // 7. INTEGRACIÓN CON SISTEMA DE SCORE
+  if (prestamo.IdCliente) {
+    try {
+      let cuotaPagada = null;
+      if (tablaPagosString) {
+        const tabla = JSON.parse(tablaPagosString);
+        // Buscar la cuota recién pagada
+        cuotaPagada = tabla.find((c: any) => c.numeroCuota === numeroCuotaReal) || tabla.find((c: any) => c.fechaPago === nowISO);
+      }
+
+      let puntajeCambio = 0;
+      let motivo = '';
+      
+      let fechaVenc = null;
+      if (cuotaPagada) {
+        if (cuotaPagada.fechaVencimiento) {
+          fechaVenc = new Date(cuotaPagada.fechaVencimiento);
+        } else if (prestamo.FechaInicio && prestamo.ModalidadPago) {
+          const date = new Date(prestamo.FechaInicio);
+          date.setUTCHours(12, 0, 0, 0);
+          const modalidad = prestamo.ModalidadPago.toLowerCase();
+          const n = Number(cuotaPagada.numeroCuota || numeroCuotaReal || 1);
+          
+          if (modalidad === 'diario') date.setDate(date.getDate() + n);
+          else if (modalidad === 'semanal') date.setDate(date.getDate() + (n * 7));
+          else if (modalidad === 'quincenal') date.setDate(date.getDate() + (n * 15));
+          else if (modalidad === 'mensual') date.setMonth(date.getMonth() + n);
+          else if (modalidad === 'anual') date.setFullYear(date.getFullYear() + n);
+          else date.setMonth(date.getMonth() + n);
+          
+          fechaVenc = date;
+        }
+      }
+      
+      if (fechaVenc) {
+        const hoy = new Date();
+        fechaVenc.setUTCHours(0,0,0,0);
+        hoy.setUTCHours(0,0,0,0);
+        
+        const diffTime = hoy.getTime() - fechaVenc.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
+        
+        if (diffDays <= 0) {
+          puntajeCambio = diffDays < 0 ? 20 : 15;
+          motivo = diffDays < 0 ? 'Pago anticipado' : 'Pago a tiempo';
+        }
+      }
+
+      if (puntajeCambio > 0) {
+        await actualizarScoreService(prestamo.IdCliente.toString(), idEmpresa, puntajeCambio, motivo, `Pago cuota #${numeroCuotaReal}`, prestamo.IdPrestamo);
+        
+        const { data: cliente } = await supabase.from('Cliente').select('TotalCuotasATiempo').eq('IdCliente', prestamo.IdCliente).single();
+        if (cliente) {
+          await supabase.from('Cliente').update({
+            TotalCuotasATiempo: (cliente.TotalCuotasATiempo || 0) + 1
+          }).eq('IdCliente', prestamo.IdCliente);
+        }
+      }
+
+      if (nuevoEstado === 'Pagado') {
+        const moraAcumulada = prestamo.MontoMoraAcumulado || 0;
+        
+        const { data: cliente } = await supabase.from('Cliente').select('TotalPrestamosCompletados, RachaPositiva').eq('IdCliente', prestamo.IdCliente).single();
+        
+        if (moraAcumulada === 0) {
+          await actualizarScoreService(prestamo.IdCliente.toString(), idEmpresa, 50, 'Préstamo sin mora', 'Préstamo completado sin atrasos', prestamo.IdPrestamo);
+          
+          if (cliente) {
+            let nuevaRacha = (cliente.RachaPositiva || 0) + 1;
+            
+            if (nuevaRacha >= 3) {
+              await actualizarScoreService(prestamo.IdCliente.toString(), idEmpresa, 100, 'Racha positiva', 'Completó 3 o más préstamos consecutivos sin mora', prestamo.IdPrestamo);
+              nuevaRacha = 0;
+            }
+            
+            await supabase.from('Cliente').update({
+              TotalPrestamosCompletados: (cliente.TotalPrestamosCompletados || 0) + 1,
+              RachaPositiva: nuevaRacha
+            }).eq('IdCliente', prestamo.IdCliente);
+          }
+        } else {
+          if (cliente) {
+            await supabase.from('Cliente').update({
+              TotalPrestamosCompletados: (cliente.TotalPrestamosCompletados || 0) + 1,
+              RachaPositiva: 0
+            }).eq('IdCliente', prestamo.IdCliente);
+          }
+        }
+      }
+    } catch (errorScore: any) {
+      logger.error("⚠️ Error en sistema de score:", errorScore.message);
+    }
+  }
+
   return { pago: pagoRegistrado, nuevoEstado };
 };
 
@@ -249,7 +349,7 @@ export const deletePagoService = async (idPago: number, idEmpresa: number) => {
   // 1. OBTENER DATOS DEL PAGO ANTES DE BORRARLO
   const { data: pago, error: errorPago } = await supabase
     .from("Pago")
-    .select("IdPrestamo, MontoPagado")
+    .select("IdPrestamo, MontoPagado, MontoCapitalAbonado, NumeroCuota")
     .eq("IdPago", idPago)
     .single();
 
@@ -260,7 +360,7 @@ export const deletePagoService = async (idPago: number, idEmpresa: number) => {
   // 2. OBTENER EL PRÉSTAMO ACTUAL
   const { data: prestamo, error: errorPrestamo } = await supabase
     .from("Prestamo")
-    .select("CuotasRestantes, Estado")
+    .select("CuotasRestantes, Estado, CapitalRestante, MontoPrestado, TablaPagos")
     .eq("IdPrestamo", pago.IdPrestamo)
     .single();
 
@@ -274,16 +374,41 @@ export const deletePagoService = async (idPago: number, idEmpresa: number) => {
   // Si estaba "Pagado", lo revivimos a "Activo"
   const nuevoEstado = prestamo.Estado === 'Pagado' ? 'Activo' : prestamo.Estado;
 
+  // Restaurar CapitalRestante
+  let nuevoCapitalRestante = (prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? prestamo.CapitalRestante : prestamo.MontoPrestado) + Number(pago.MontoCapitalAbonado || 0);
+  if (nuevoCapitalRestante > prestamo.MontoPrestado) nuevoCapitalRestante = prestamo.MontoPrestado;
+
+  // Revertir TablaPagos
+  let nuevaTablaPagosString = prestamo.TablaPagos;
+  if (nuevaTablaPagosString) {
+    try {
+      const tabla = JSON.parse(nuevaTablaPagosString);
+      const cuotaIndex = tabla.findIndex((c: any) => c.numeroCuota === pago.NumeroCuota && c.pagado);
+      if (cuotaIndex !== -1) {
+        tabla[cuotaIndex].pagado = false;
+        delete tabla[cuotaIndex].fechaPago;
+      }
+      nuevaTablaPagosString = JSON.stringify(tabla);
+    } catch (e) {
+      logger.error("Error parseando TablaPagos en deletePagoService:", e);
+    }
+  }
+
   logger.info(`Revertiendo Préstamo #${pago.IdPrestamo}: Cuotas subirán a ${nuevasCuotas}, Estado será ${nuevoEstado}`);
 
   // 4. ACTUALIZAR EL PRÉSTAMO
+  const updatePayload: any = {
+    CuotasRestantes: nuevasCuotas,
+    Estado: nuevoEstado,
+    CapitalRestante: nuevoCapitalRestante,
+  };
+  if (nuevaTablaPagosString) {
+    updatePayload.TablaPagos = nuevaTablaPagosString;
+  }
+
   const { error: errorUpdate } = await supabase
     .from("Prestamo")
-    .update({
-      CuotasRestantes: nuevasCuotas,
-      Estado: nuevoEstado
-      // Opcional: podrías poner la FechaUltimoPago en null, pero mejor dejarla quieta
-    })
+    .update(updatePayload)
     .eq("IdPrestamo", pago.IdPrestamo);
 
   if (errorUpdate) {

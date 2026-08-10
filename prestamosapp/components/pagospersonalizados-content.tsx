@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Trash2, Banknote, TrendingUp, Loader2, ArrowDownLeft, Printer } from 'lucide-react'
+import { Search, Trash2, Banknote, TrendingUp, Loader2, ArrowDownLeft, Printer, Clipboard } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
 import { VolantePago } from "@/components/VolantePagoPDF"
+import { useAuthStore } from "@/store/authStore"
 
 interface PagoPersonalizado {
   IdPago: number;
@@ -49,6 +50,7 @@ const formatMoney = (amount: number) => {
 }
 
 export function PagosPersonalizadosContent() {
+  const user = useAuthStore((state) => state.user)
   const [pagos, setPagos] = useState<PagoPersonalizado[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -58,8 +60,9 @@ export function PagosPersonalizadosContent() {
   const [pagoToDelete, setPagoToDelete] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // --- LÓGICA DE IMPRESIÓN ---
+  // --- LÓGICA DE IMPRESIÓN Y COPIA DE RECIBO ---
   const [pagoParaImprimir, setPagoParaImprimir] = useState<any>(null)
+  const [copiandoPagoId, setCopiandoPagoId] = useState<number | null>(null)
   const componentRef = useRef<HTMLDivElement>(null)
 
   const handlePrint = useReactToPrint({
@@ -67,11 +70,8 @@ export function PagosPersonalizadosContent() {
     documentTitle: `Recibo-${pagoParaImprimir?.IdPago || 'Generico'}`,
   })
 
-  const prepararImpresion = (pago: PagoPersonalizado) => {
-    
+  const obtenerDatosVolante = (pago: PagoPersonalizado) => {
     const esSoloInteres = pago.Prestamo?.TipoCalculo === "solo_interes";
-
-    // Si el pago es personalizado, mostramos el abono directamente en la fila Pago Capital para evitar confusiones
     const capitalRegular = Number(pago.MontoCapitalAbonado || 0);
     const capitalExtra = 0;
 
@@ -95,41 +95,86 @@ export function PagosPersonalizadosContent() {
       montoPendienteCalculado = Number(pago.Prestamo.CapitalRestante);
     }
 
-    // 1. Mapeamos los datos usando la interfaz que espera el VolantePago
-    const datosVolante = {
-        IdPago: pago.IdPago,
-        FechaPago: pago.FechaPago, // Efectividad
-        MontoPagado: Number(pago.MontoPagado),
-        // Aquí hacemos el cambio clave: Buscamos en Prestatario en lugar de Cliente
-        Cliente: pago.Prestamo?.Prestatario?.Nombre || "Cliente Desconocido",
-        IdPrestamo: pago.IdPrestamo,
-        NumeroCuota: pago.NumeroCuota,
-        Observaciones: pago.Observaciones || "",
-        TipoPago: pago.TipoPago,
-        
-        // Desglose
-        PagoCapital: capitalRegular,
-        PagoInteres: Number(pago.MontoInteresPagado),
-        PagoAbono: capitalExtra,
-        PagoMora: 0, // Como aún no manejamos mora, lo pasamos en 0
-        
-        // Datos del Préstamo 
-        InicioPrestamo: pago.Prestamo?.FechaInicio || "",
-        TerminoPrestamo: pago.Prestamo?.FechaFinEstimada || "",
-        MontoPendiente: montoPendienteCalculado,
-        CuotasTotales: cuotasTotales,
-        CuotasRestantes: cuotasRestantes,
-        MontoCuota: montoCuota
-    }
-
-    setPagoParaImprimir(datosVolante)
-
-    // 2. Esperamos a que React asigne el estado y renderice el div oculto
-    setTimeout(() => {
-        handlePrint()
-    }, 150)
+    return {
+      IdPago: pago.IdPago,
+      FechaPago: pago.FechaPago,
+      MontoPagado: Number(pago.MontoPagado),
+      Cliente: pago.Prestamo?.Prestatario?.Nombre || "Cliente Desconocido",
+      IdPrestamo: pago.IdPrestamo,
+      NumeroCuota: pago.NumeroCuota,
+      Observaciones: pago.Observaciones || "",
+      TipoPago: pago.TipoPago,
+      PagoCapital: capitalRegular,
+      PagoInteres: Number(pago.MontoInteresPagado),
+      PagoAbono: capitalExtra,
+      PagoMora: 0,
+      InicioPrestamo: pago.Prestamo?.FechaInicio || "",
+      TerminoPrestamo: pago.Prestamo?.FechaFinEstimada || "",
+      MontoPendiente: montoPendienteCalculado,
+      CuotasTotales: cuotasTotales,
+      CuotasRestantes: cuotasRestantes,
+      MontoCuota: montoCuota,
+      NombrePrestamista: user?.nombre || "Firma Autorizada",
+      NombreEmpresa: user?.nombreEmpresa || "Credit Way"
+    };
   }
-  // ---------------------------
+
+  const prepararImpresion = (pago: PagoPersonalizado) => {
+    const datosVolante = obtenerDatosVolante(pago);
+    setPagoParaImprimir(datosVolante);
+
+    setTimeout(() => {
+      handlePrint();
+    }, 150);
+  }
+
+  const copiarReciboComoImagen = async (pago: PagoPersonalizado) => {
+    setCopiandoPagoId(pago.IdPago);
+    const toastId = toast.loading("Generando imagen del recibo...");
+
+    try {
+      const datosVolante = obtenerDatosVolante(pago);
+      setPagoParaImprimir(datosVolante);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      if (!componentRef.current) {
+        throw new Error("No se pudo acceder al formato del recibo");
+      }
+
+      const { toBlob } = await import("html-to-image");
+      const blob = await toBlob(componentRef.current, {
+        quality: 0.95,
+        backgroundColor: "#ffffff",
+        pixelRatio: 2,
+        cacheBust: true,
+        skipFonts: true,
+      });
+
+      if (!blob) {
+        throw new Error("Error al convertir el recibo a imagen");
+      }
+
+      if (navigator.clipboard && typeof ClipboardItem !== "undefined") {
+        const item = new ClipboardItem({ "image/png": blob });
+        await navigator.clipboard.write([item]);
+        toast.success("¡Recibo copiado al portapapeles como imagen!", { id: toastId });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Recibo-${datosVolante.IdPago}.png`;
+        link.click();
+        URL.revokeObjectURL(url);
+        toast.success("Recibo descargado como imagen.", { id: toastId });
+      }
+    } catch (error: any) {
+      console.error("Error al copiar imagen del recibo:", error);
+      toast.error(`Error: ${error.message || "No se pudo copiar la imagen"}`, { id: toastId });
+    } finally {
+      setCopiandoPagoId(null);
+    }
+  }
 
   useEffect(() => {
     fetchPagos()
@@ -211,8 +256,8 @@ export function PagosPersonalizadosContent() {
   return (
     <div className="space-y-6">
       
-      {/* --- COMPONENTE OCULTO PARA IMPRESIÓN --- */}
-      <div style={{ display: "none" }}>
+      {/* --- COMPONENTE OCULTO PARA IMPRESIÓN Y COPIA DE RECIBO --- */}
+      <div style={{ position: "fixed", left: "-9999px", top: "-9999px", width: "800px", zIndex: -100, opacity: 0, pointerEvents: "none" }}>
         <VolantePago ref={componentRef} data={pagoParaImprimir} />
       </div>
 
@@ -264,7 +309,7 @@ export function PagosPersonalizadosContent() {
         </CardHeader>
         <CardContent>
           {/* Buscador */}
-          <div className="flex items-center space-x-2 mb-4 bg-gray-50 p-2 rounded-md border">
+          <div className="flex items-center space-x-2 mb-4 bg-muted p-2 rounded-md border">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por cliente, ID de pago o préstamo..."
@@ -277,13 +322,13 @@ export function PagosPersonalizadosContent() {
           <div className="rounded-md border auto-scroll overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead className="font-bold text-gray-700"># Recibo</TableHead>
-                  <TableHead className="font-bold text-gray-700">Fecha</TableHead>
-                  <TableHead className="font-bold text-gray-700">Prestatario / Préstamo</TableHead>
-                  <TableHead className="text-right font-bold text-gray-700">Monto Total</TableHead>
-                  <TableHead className="text-right font-bold text-gray-700">Desglose</TableHead>
-                  <TableHead className="text-center font-bold text-gray-700">Acciones</TableHead>
+                <TableRow className="bg-muted">
+                  <TableHead className="font-bold text-card-foreground"># Recibo</TableHead>
+                  <TableHead className="font-bold text-card-foreground">Fecha</TableHead>
+                  <TableHead className="font-bold text-card-foreground">Prestatario / Préstamo</TableHead>
+                  <TableHead className="text-right font-bold text-card-foreground">Monto Total</TableHead>
+                  <TableHead className="text-right font-bold text-card-foreground">Desglose</TableHead>
+                  <TableHead className="text-center font-bold text-card-foreground">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -295,17 +340,17 @@ export function PagosPersonalizadosContent() {
                   </TableRow>
                 ) : (
                   filteredPagos.map((pago) => (
-                    <TableRow key={pago.IdPago} className="hover:bg-gray-50/50">
-                      <TableCell className="font-mono text-xs font-medium text-gray-500">
+                    <TableRow key={pago.IdPago} className="hover:bg-muted/50">
+                      <TableCell className="font-mono text-xs font-medium text-muted-foreground">
                         #{pago.IdPago.toString().padStart(4, '0')}
                       </TableCell>
                       
                       <TableCell>
                         <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-700">
+                            <span className="text-sm font-medium text-card-foreground">
                                 {new Date(pago.FechaPago).toLocaleDateString()}
                             </span>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-muted-foreground">
                                 {new Date(pago.FechaPago).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                             </span>
                         </div>
@@ -332,20 +377,36 @@ export function PagosPersonalizadosContent() {
 
                       <TableCell className="text-right">
                          <div className="flex flex-col text-xs">
-                            <span className="text-gray-600">Cap: <b>{formatMoney(pago.MontoCapitalAbonado)}</b></span>
-                            <span className="text-gray-400">Int: {formatMoney(pago.MontoInteresPagado)}</span>
+                            <span className="text-muted-foreground">Cap: <b>{formatMoney(pago.MontoCapitalAbonado)}</b></span>
+                            <span className="text-muted-foreground">Int: {formatMoney(pago.MontoInteresPagado)}</span>
                          </div>
                       </TableCell>
 
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
+                            {/* BOTÓN COPIAR IMAGEN (A LA IZQUIERDA) */}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={copiandoPagoId === pago.IdPago}
+                                onClick={() => copiarReciboComoImagen(pago)}
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50"
+                                title="Copiar Recibo como Imagen (JPG/PNG)"
+                            >
+                                {copiandoPagoId === pago.IdPago ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+                                ) : (
+                                    <Clipboard className="h-4 w-4" />
+                                )}
+                            </Button>
+
                             {/* BOTÓN IMPRIMIR */}
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => prepararImpresion(pago)}
-                                className="h-8 w-8 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                                title="Imprimir Recibo"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
+                                title="Imprimir Recibo PDF"
                             >
                                 <Printer className="h-4 w-4" />
                             </Button>
@@ -355,7 +416,7 @@ export function PagosPersonalizadosContent() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => confirmDelete(pago.IdPago)}
-                                className="h-8 w-8 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600 hover:bg-red-50"
                                 title="Revertir Pago"
                             >
                                 <Trash2 className="h-4 w-4" />
@@ -382,7 +443,7 @@ export function PagosPersonalizadosContent() {
             <AlertDialogDescription>
               Estás a punto de eliminar el registro de pago.
               <br/><br/>
-              <span className="font-semibold text-gray-700">Acciones que se tomarán:</span>
+              <span className="font-semibold text-card-foreground">Acciones que se tomarán:</span>
               <ul className="list-disc list-inside text-xs mt-1 space-y-1">
                   <li>Se eliminará el registro de pago personalizado #{pagoToDelete}.</li>
                   <li>Se debería revertir el saldo del préstamo.</li>
@@ -396,7 +457,7 @@ export function PagosPersonalizadosContent() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-red-600 text-white dark:text-white hover:bg-red-700 text-white"
               disabled={isDeleting}
             >
               {isDeleting ? "Revirtiendo..." : "Confirmar Reversión"}

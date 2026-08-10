@@ -236,25 +236,25 @@ export function SolicitudesContent() {
               <CardTitle>Solicitudes de Préstamo</CardTitle>
               <CardDescription>Gestiona las peticiones de crédito de tus clientes</CardDescription>
             </div>
-            <Button onClick={handleNew} className="bg-[#213685] hover:bg-[#213685]/90">
+            <Button onClick={handleNew} className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90">
               <Plus className="h-4 w-4 mr-2" /> Nueva Solicitud
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 flex flex-col md:flex-row gap-3 items-center">
+          <div className="bg-muted p-3 rounded-lg border border-border mb-4 flex flex-col md:flex-row gap-3 items-center">
             <div className="relative flex-1 w-full">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por cliente..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-white"
+                className="pl-9 bg-background"
               />
             </div>
             <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-                <SelectTrigger className="w-full md:w-[180px] bg-white">
+                <SelectTrigger className="w-full md:w-[180px] bg-background">
                     <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -268,14 +268,14 @@ export function SolicitudesContent() {
 
           <div className="rounded-md border">
             <Table>
-              <TableHeader className="bg-slate-50">
+              <TableHeader className="bg-muted">
                 <TableRow>
-                  <TableHead className="font-bold text-slate-700">FECHA SOLICITUD</TableHead>
-                  <TableHead className="font-bold text-slate-700">CLIENTE</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">MONTO SOLICITADO</TableHead>
-                  <TableHead className="font-bold text-slate-700">FECHA DESEADA</TableHead>
-                  <TableHead className="font-bold text-slate-700">ESTADO</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">ACCIONES</TableHead>
+                  <TableHead className="font-bold text-card-foreground">FECHA SOLICITUD</TableHead>
+                  <TableHead className="font-bold text-card-foreground">CLIENTE</TableHead>
+                  <TableHead className="text-right font-bold text-card-foreground">MONTO SOLICITADO</TableHead>
+                  <TableHead className="font-bold text-card-foreground">FECHA DESEADA</TableHead>
+                  <TableHead className="font-bold text-card-foreground">ESTADO</TableHead>
+                  <TableHead className="text-right font-bold text-card-foreground">ACCIONES</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -287,17 +287,17 @@ export function SolicitudesContent() {
                   </TableRow>
                 ) : (
                   filteredSolicitudes.map((s) => (
-                    <TableRow key={s.IdSolicitud} className="hover:bg-slate-50/50">
-                      <TableCell className="text-slate-600">
+                    <TableRow key={s.IdSolicitud} className="hover:bg-muted/50">
+                      <TableCell className="text-muted-foreground">
                         {formatDate(s.FechaCreacion)}
                       </TableCell>
-                      <TableCell className="font-semibold text-gray-900">
+                      <TableCell className="font-semibold text-foreground">
                         {s.Cliente?.Nombre || "Cliente Desconocido"}
                       </TableCell>
                       <TableCell className="text-right font-bold text-[#213685]">
                         {formatMoney(s.MontoSolicitado)}
                       </TableCell>
-                      <TableCell className="text-slate-600">
+                      <TableCell className="text-muted-foreground">
                         {formatDate(s.FechaDeseada)}
                       </TableCell>
                       <TableCell>
@@ -316,7 +316,7 @@ export function SolicitudesContent() {
                           {s.Estado.toLowerCase() === "aprobada" && (
                               <Button 
                                 variant="default" size="sm" 
-                                className="bg-[#213685] hover:bg-[#213685]/90 text-white h-8 w-8 p-0"
+                                className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 text-white h-8 w-8 p-0"
                                 onClick={() => handleQuickCreatePrestamo(s)}
                                 title="Convertir a Préstamo"
                               >
@@ -325,14 +325,14 @@ export function SolicitudesContent() {
                           )}
 
                           <Button 
-                            variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-300"
+                            variant="outline" size="sm" className="h-8 w-8 p-0 border-border"
                             onClick={() => handleEdit(s)}
                             title="Editar Solicitud"
                           >
-                            <Edit className="h-4 w-4 text-slate-600" />
+                            <Edit className="h-4 w-4 text-muted-foreground" />
                           </Button>
                           <Button 
-                            variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-300 hover:bg-red-50 hover:border-red-200"
+                            variant="outline" size="sm" className="h-8 w-8 p-0 border-border hover:bg-red-50 hover:border-red-200"
                             onClick={() => { setSolicitudToDelete(s.IdSolicitud); setDeleteDialogOpen(true); }}
                             title="Eliminar Solicitud"
                           >
@@ -372,7 +372,7 @@ export function SolicitudesContent() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600">Eliminar</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 text-white dark:text-white">Eliminar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

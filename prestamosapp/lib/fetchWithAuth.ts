@@ -16,7 +16,11 @@ export const fetchWithAuth = async (input: RequestInfo | URL, init?: RequestInit
         headers.set("x-idempotency-key", idempotencyKey);
     }
 
-    const config = { ...init, headers };
+    const config: RequestInit = { 
+        cache: 'no-store',
+        ...init, 
+        headers 
+    };
 
     const response = await fetch(input, config);
 

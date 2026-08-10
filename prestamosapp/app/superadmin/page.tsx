@@ -22,10 +22,10 @@ export default function SuperAdminDashboard() {
       <h2 className="text-2xl font-bold tracking-tight">Métricas Globales SaaS</h2>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border bg-white text-card-foreground shadow-sm">
+        <div className="rounded-xl border bg-background text-card-foreground shadow-sm">
           <div className="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="tracking-tight text-sm font-medium text-slate-600">Empresas Registradas</h3>
-            <Building2 className="w-4 h-4 text-slate-400" />
+            <h3 className="tracking-tight text-sm font-medium text-muted-foreground">Empresas Registradas</h3>
+            <Building2 className="w-4 h-4 text-muted-foreground" />
           </div>
           <div className="p-6 pt-0">
             <div className="text-3xl font-bold">{stats.empresas}</div>
@@ -33,9 +33,9 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
 
-        <div className="rounded-xl border bg-white text-card-foreground shadow-sm">
+        <div className="rounded-xl border bg-background text-card-foreground shadow-sm">
           <div className="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="tracking-tight text-sm font-medium text-slate-600">Planes Ofertados</h3>
+            <h3 className="tracking-tight text-sm font-medium text-muted-foreground">Planes Ofertados</h3>
             <List className="w-4 h-4 text-blue-500" />
           </div>
           <div className="p-6 pt-0">

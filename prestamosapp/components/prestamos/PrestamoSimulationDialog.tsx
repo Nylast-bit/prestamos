@@ -55,10 +55,10 @@ export function PrestamoSimulationDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[900px] max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         
-        <DialogHeader className="px-6 py-4 border-b bg-white">
+        <DialogHeader className="px-6 py-4 border-b bg-background">
             <div className="flex items-center justify-between">
                 <div>
-                    <DialogTitle className="text-xl font-bold flex items-center gap-2 text-[#213685]">
+                    <DialogTitle className="text-xl font-bold flex items-center gap-2 text-[#213685] dark:text-blue-300">
                         <Calculator className="h-5 w-5" />
                         Simulación de Préstamo
                     </DialogTitle>
@@ -72,7 +72,7 @@ export function PrestamoSimulationDialog({
             </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-muted/30">
             
             {/* KPI CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -80,7 +80,7 @@ export function PrestamoSimulationDialog({
                     <CardContent className="p-4 flex items-center justify-between">
                         <div>
                             <p className="text-xs font-medium text-muted-foreground uppercase">Monto Prestado</p>
-                            <p className="text-xl font-bold text-gray-900 mt-1">
+                            <p className="text-xl font-bold text-foreground mt-1">
                                 {formatMoney(resumen.montoSolicitado)}
                             </p>
                         </div>
@@ -131,7 +131,7 @@ export function PrestamoSimulationDialog({
                         <CalendarClock className="h-5 w-5" />
                     </div>
                     <div>
-                        <h4 className="font-semibold text-sm text-gray-900 capitalize flex items-center gap-2">
+                        <h4 className="font-semibold text-sm text-foreground capitalize flex items-center gap-2">
                             Cuota {resumen.ModalidadPago || "Fija"}
                             <span className="text-[10px] font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
                               Ajustable
@@ -147,7 +147,7 @@ export function PrestamoSimulationDialog({
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                     <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-xs font-bold text-gray-400">$</span>
+                        <span className="absolute left-3 top-2.5 text-xs font-bold text-muted-foreground">$</span>
                         <Input
                             type="number"
                             step="any"
@@ -159,7 +159,7 @@ export function PrestamoSimulationDialog({
                                 handleAjustarTasa();
                               }
                             }}
-                            className="w-36 pl-7 text-right font-bold text-lg text-[#213685] bg-white border-blue-300 focus-visible:ring-blue-500 shadow-sm"
+                            className="w-36 pl-7 text-right font-bold text-lg text-[#213685] dark:text-blue-300 bg-background border-blue-300 focus-visible:ring-blue-500 shadow-sm"
                         />
                     </div>
                     <Button
@@ -167,7 +167,7 @@ export function PrestamoSimulationDialog({
                         size="sm"
                         onClick={handleAjustarTasa}
                         disabled={loadingAjuste || !cuotaInput || parseFloat(cuotaInput) === resumen.montoCuota}
-                        className="bg-[#213685] hover:bg-[#213685]/90 text-white text-xs h-10 px-3 shadow-sm"
+                        className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 text-white text-xs h-10 px-3 shadow-sm"
                     >
                         {loadingAjuste ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -181,26 +181,26 @@ export function PrestamoSimulationDialog({
             </div>
 
             {/* TABLA */}
-            <div className="border rounded-md overflow-hidden bg-white shadow-sm">
-            <div className="bg-gray-50 px-4 py-2 border-b">
-                <h3 className="font-semibold text-sm text-gray-700">Tabla de Amortización</h3>
+            <div className="border rounded-md overflow-hidden bg-background shadow-sm">
+            <div className="bg-muted px-4 py-2 border-b">
+                <h3 className="font-semibold text-sm text-card-foreground">Tabla de Amortización</h3>
             </div>
             
            
             <div className="max-h-[300px] overflow-y-auto relative [&>div]:overflow-visible">
                 <Table>
-                    {/* Aseguramos que el fondo sea sólido (bg-white) y tenga un z-index alto */}
-                    <TableHeader className="sticky top-0 z-20 bg-white shadow-sm ring-1 ring-black/5">
+                    {/* Aseguramos que el fondo sea sólido (bg-background) y tenga un z-index alto */}
+                    <TableHeader className="sticky top-0 z-20 bg-background shadow-sm ring-1 ring-black/5">
                         <TableRow className="hover:bg-transparent">
-                            <TableHead className="w-[60px] text-center font-bold text-gray-900">#</TableHead>
-                            <TableHead className="text-right font-bold text-gray-900">Capital</TableHead>
-                            <TableHead className="text-right font-bold text-gray-900">Interés</TableHead>
+                            <TableHead className="w-[60px] text-center font-bold text-foreground">#</TableHead>
+                            <TableHead className="text-right font-bold text-foreground">Capital</TableHead>
+                            <TableHead className="text-right font-bold text-foreground">Interés</TableHead>
                             <TableHead className="text-right font-bold text-green-700">Cuota</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {cuotas.map((c: any) => (
-                            <TableRow key={c.numeroCuota} className="hover:bg-gray-50">
+                            <TableRow key={c.numeroCuota} className="hover:bg-muted">
                                 <TableCell className="text-center font-medium text-muted-foreground">
                                     {c.numeroCuota}
                                 </TableCell>
@@ -221,10 +221,10 @@ export function PrestamoSimulationDialog({
         </div>
         </div>
 
-        <DialogFooter className="p-4 border-t bg-white z-20">
+        <DialogFooter className="p-4 border-t bg-background z-20">
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
             <Button 
-                className="bg-[#213685] hover:bg-[#213685]/90 min-w-[150px]" 
+                className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 min-w-[150px]" 
                 onClick={onConfirm} 
                 disabled={isSubmitting}
             >

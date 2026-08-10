@@ -98,11 +98,11 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
         <CardTitle className="text-white flex items-center gap-2 text-base">
           <Clock className="w-5 h-5 text-blue-400" />
           Radar de Cobros
-          <Badge variant="secondary" className="ml-auto bg-white/15 text-white border-0 text-[10px]">
+          <Badge variant="secondary" className="ml-auto bg-background/15 text-white border-0 text-[10px]">
             {listaRadar.length} pendiente{listaRadar.length !== 1 ? 's' : ''}
           </Badge>
         </CardTitle>
-        <CardDescription className="text-slate-400 text-xs mt-1">
+        <CardDescription className="text-muted-foreground text-xs mt-1">
           Cobros programados en ventana de 7 días
         </CardDescription>
       </div>
@@ -110,7 +110,7 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
         <ScrollArea className="h-[280px]">
           <div className="p-3 space-y-2.5">
             {listaRadar.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400">
+              <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
                 <AlertTriangle className="w-8 h-8 mb-2 opacity-40" />
                 <p className="text-sm font-medium">No hay cobros en el radar</p>
                 <p className="text-xs mt-1">¡Todo al día! 🎉</p>
@@ -123,7 +123,7 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
                 return (
                   <div
                     key={prestamo.IdPrestamo}
-                    className={`flex items-center gap-3 p-3 rounded-lg border border-slate-100 border-l-4 bg-white transition-all hover:shadow-md ${getLeftBorderColor(dias)}`}
+                    className={`flex items-center gap-3 p-3 rounded-lg border border-slate-100 border-l-4 bg-background transition-all hover:shadow-md ${getLeftBorderColor(dias)}`}
                   >
                     {/* Avatar */}
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${getAvatarStyle(dias)}`}>
@@ -132,7 +132,7 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
                     
                     {/* Info del cliente */}
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-slate-900 truncate">
+                      <p className="font-semibold text-sm text-foreground truncate">
                         {prestamo.clienteNombre}
                       </p>
                       {prestamo.clienteTelefono && (
@@ -146,10 +146,10 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
                         </a>
                       )}
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs font-medium text-slate-500">
+                        <span className="text-xs font-medium text-muted-foreground">
                           Cuota: {formatMoney(prestamo.MontoCuota)}
                         </span>
-                        <span className="text-[10px] uppercase bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-medium">
+                        <span className="text-[10px] uppercase bg-accent text-muted-foreground px-1.5 py-0.5 rounded font-medium">
                           {prestamo.ModalidadPago}
                         </span>
                       </div>
@@ -160,7 +160,7 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
                       <Badge variant="secondary" className={`text-[10px] px-2 py-0.5 border-0 font-semibold ${getBadgeStyle(dias)}`}>
                         {getStatusText(dias)}
                       </Badge>
-                      <p className="text-[10px] font-medium text-slate-400 flex items-center gap-1">
+                      <p className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
                         {prestamo.fechaPagoFormat}
                       </p>

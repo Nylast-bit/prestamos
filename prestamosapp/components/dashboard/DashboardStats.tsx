@@ -34,7 +34,7 @@ export function DashboardStats({
       value: formatCurrency(capitalEnCalle),
       subtitle: "Total de préstamos activos",
       icon: DollarSign,
-      iconBg: "bg-[#213685]/10",
+      iconBg: "bg-[#213685] text-white dark:text-white/10",
       iconColor: "text-[#213685]",
       trend: "up",
     },
@@ -74,15 +74,15 @@ export function DashboardStats({
         return (
           <Card
             key={i}
-            className="group overflow-hidden border border-slate-100 bg-gradient-to-b from-slate-50/50 to-white transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:border-slate-800 dark:from-slate-900/50 dark:to-slate-950"
+            className="group overflow-hidden border border-slate-100 bg-gradient-to-b from-slate-50 dark:from-slate-900/50 to-white transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:border-slate-800 dark:from-slate-900/50 dark:to-slate-950"
           >
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     {stat.label}
                   </p>
-                  <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+                  <h3 className="text-2xl font-bold tracking-tight text-foreground dark:text-slate-50">
                     {stat.value}
                   </h3>
                 </div>
@@ -92,7 +92,7 @@ export function DashboardStats({
                   <Icon className={`h-6 w-6 ${stat.iconColor}`} />
                 </div>
               </div>
-              <div className="mt-4 flex items-center text-xs text-slate-500 dark:text-slate-400">
+              <div className="mt-4 flex items-center text-xs text-muted-foreground dark:text-muted-foreground">
                 {stat.trend === "up" && (
                   <ArrowUpRight className="mr-1 h-3 w-3 text-emerald-500" />
                 )}

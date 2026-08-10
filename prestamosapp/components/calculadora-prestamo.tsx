@@ -160,7 +160,7 @@ export function CalculadoraPrestamo() {
                 />
                 <Button 
                   onClick={ajustarCuota}
-                  className="bg-[#213685] hover:bg-[#213685]/90"
+                  className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90"
                 >
                   Ajustar
                 </Button>
@@ -183,7 +183,7 @@ export function CalculadoraPrestamo() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4">
-            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+            <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
               <span className="font-medium">Monto Prestado:</span>
               <Badge variant="outline" className="text-lg">
                 ${calculo.MontoPrestado.toLocaleString()}
@@ -192,14 +192,14 @@ export function CalculadoraPrestamo() {
 
             <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
               <span className="font-medium">Interés Total:</span>
-              <Badge className="bg-blue-600 text-lg">
+              <Badge className="bg-blue-600 text-white dark:text-white text-lg">
                 ${calculo.InteresMontoTotal.toFixed(2)}
               </Badge>
             </div>
 
-            <div className="flex justify-between items-center p-3 bg-[#213685]/10 rounded-lg">
+            <div className="flex justify-between items-center p-3 bg-[#213685] text-white dark:text-white/10 rounded-lg">
               <span className="font-medium">Capital Total a Pagar:</span>
-              <Badge className="bg-[#213685] text-lg">
+              <Badge className="bg-[#213685] text-white dark:text-white text-lg">
                 ${calculo.CapitalTotalPagar.toFixed(2)}
               </Badge>
             </div>

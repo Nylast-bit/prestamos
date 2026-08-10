@@ -40,7 +40,7 @@ export function DashboardSolicitudes({ solicitudes, onNavigate }: DashboardSolic
       <CardContent className="flex-1 flex flex-col justify-between">
         <div className="space-y-3 mb-4">
           {solicitudesMostrar.length === 0 ? (
-            <div className="text-center py-6 text-slate-500 text-sm border rounded-lg border-dashed">
+            <div className="text-center py-6 text-muted-foreground text-sm border rounded-lg border-dashed">
               No hay solicitudes pendientes en este momento.
             </div>
           ) : (
@@ -49,10 +49,10 @@ export function DashboardSolicitudes({ solicitudes, onNavigate }: DashboardSolic
               const esAprobada = solicitud.Estado.toLowerCase() === 'aprobada';
               
               return (
-                <div key={solicitud.IdSolicitud} className="flex items-center justify-between p-3 rounded-lg border hover:bg-slate-50 transition-colors">
+                <div key={solicitud.IdSolicitud} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors">
                   <div>
                     {/* Como la API devuelve el objeto Cliente anidado, lo leemos así */}
-                    <p className="font-medium text-slate-800">{solicitud.Cliente?.Nombre || 'Cliente'}</p>
+                    <p className="font-medium text-foreground">{solicitud.Cliente?.Nombre || 'Cliente'}</p>
                     {solicitud.Cliente?.Telefono && (
                       <a
                         href={`tel:${solicitud.Cliente.Telefono}`}
@@ -63,7 +63,7 @@ export function DashboardSolicitudes({ solicitudes, onNavigate }: DashboardSolic
                         {solicitud.Cliente.Telefono}
                       </a>
                     )}
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-muted-foreground">
                       <span className="font-bold text-[#213685]">{formatMoney(solicitud.MontoSolicitado)}</span> 
                       <span className="mx-1">•</span> 
                       {formatDate(solicitud.FechaDeseada)}
@@ -86,7 +86,7 @@ export function DashboardSolicitudes({ solicitudes, onNavigate }: DashboardSolic
         </div>
         
         <Button 
-          className="w-full bg-[#213685] hover:bg-[#213685]/90 mt-auto"
+          className="w-full bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 mt-auto"
           onClick={() => onNavigate("solicitudes")}
         >
           <Calendar className="h-4 w-4 mr-2" />

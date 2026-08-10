@@ -63,7 +63,7 @@ export function ProyeccionesCard({ prestamos }: ProyeccionesCardProps) {
   const totalProyectado = meses.reduce((s, m) => s + m.total, 0)
 
   const mesColors = [
-    { bar: 'from-[#213685] to-[#3a5bc7]', bg: 'bg-[#213685]/5', text: 'text-[#213685]', ring: 'ring-[#213685]/20' },
+    { bar: 'from-[#213685] to-[#3a5bc7]', bg: 'bg-[#213685] text-white dark:text-white/5', text: 'text-[#213685]', ring: 'ring-[#213685]/20' },
     { bar: 'from-violet-500 to-violet-600', bg: 'bg-violet-50', text: 'text-violet-700', ring: 'ring-violet-200' },
     { bar: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-200' }
   ]
@@ -95,12 +95,12 @@ export function ProyeccionesCard({ prestamos }: ProyeccionesCardProps) {
               <div key={idx} className="space-y-2">
                 {/* Month name + total */}
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold text-sm text-slate-800 capitalize">{mes.nombre}</span>
-                  <span className="font-bold text-sm text-slate-900">{formatMoney(mes.total)}</span>
+                  <span className="font-semibold text-sm text-foreground capitalize">{mes.nombre}</span>
+                  <span className="font-bold text-sm text-foreground">{formatMoney(mes.total)}</span>
                 </div>
 
                 {/* Stacked bar */}
-                <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-3 w-full bg-accent rounded-full overflow-hidden">
                   {mes.total > 0 && (
                     <div
                       className="h-full flex rounded-full overflow-hidden transition-all duration-700"
@@ -122,11 +122,11 @@ export function ProyeccionesCard({ prestamos }: ProyeccionesCardProps) {
                 <div className="flex justify-between text-[11px]">
                   <div className="flex items-center gap-1.5">
                     <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${colors.bar}`} />
-                    <span className="text-slate-500">Capital: {formatMoney(mes.capital)}</span>
+                    <span className="text-muted-foreground">Capital: {formatMoney(mes.capital)}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-slate-300" />
-                    <span className="text-slate-500">Interés: {formatMoney(mes.interes)}</span>
+                    <span className="text-muted-foreground">Interés: {formatMoney(mes.interes)}</span>
                   </div>
                 </div>
               </div>

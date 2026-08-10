@@ -37,14 +37,14 @@ const featuresData = [
 
 function Header() {
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-slate-50 sticky top-0 z-50">
+    <header className="flex items-center justify-between px-6 py-4 bg-muted sticky top-0 z-50">
       <div className="flex items-center gap-2">
         <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#384b92] text-[#dbeafe]">
           <Building2 className="size-5" />
         </div>
         <span className="text-xl font-bold text-[#384b92]">CreditWay</span>
       </div>
-      <nav className="hidden md:flex gap-6 text-sm font-medium text-slate-600">
+      <nav className="hidden md:flex gap-6 text-sm font-medium text-muted-foreground">
         <Link href="#features" className="hover:text-[#384b92] transition-colors">Características</Link>
         <Link href="#pricing" className="hover:text-[#384b92] transition-colors">Precios</Link>
       </nav>
@@ -60,10 +60,10 @@ function Header() {
 function HeroSection() {
   return (
     <section className="pt-24 pb-16 px-4 md:px-8 max-w-7xl mx-auto flex flex-col items-center text-center">
-      <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-slate-900 max-w-4xl">
+      <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-foreground max-w-4xl">
         El Futuro de los Préstamos con la <span className="text-[#384b92]">Mejor Tecnología</span>
       </h1>
-      <p className="mt-6 text-slate-600 max-w-2xl text-lg">
+      <p className="mt-6 text-muted-foreground max-w-2xl text-lg">
         Herramientas expertas para elevar tu negocio financiero. Llevemos tu capital más lejos.
       </p>
 
@@ -80,21 +80,21 @@ function HeroSection() {
         <div className="flex text-yellow-400">
            {[...Array(5)].map((_, i) => <Star key={i} size={16} fill="currentColor" />)}
         </div>
-        <span className="text-sm text-slate-500">4.9/5 de más de 1,000 prestamistas</span>
+        <span className="text-sm text-muted-foreground">4.9/5 de más de 1,000 prestamistas</span>
       </div>
 
       {/* Hero Grid Asimétrico */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-16 w-full h-auto md:h-[300px]">
         <div className="bg-slate-200 rounded-3xl overflow-hidden relative min-h-[200px] md:min-h-0 flex items-center justify-center p-6">
-           <PieChart className="text-slate-400 size-24 opacity-50" />
+           <PieChart className="text-muted-foreground size-24 opacity-50" />
         </div>
         <div className="bg-[#384b92] rounded-3xl p-6 text-white flex flex-col justify-center min-h-[200px] md:min-h-0">
           <h3 className="text-4xl font-bold">+500</h3>
           <p className="text-sm text-blue-200 mt-2">Prestamistas Activos</p>
         </div>
-        <div className="bg-white border rounded-3xl p-6 flex flex-col justify-center min-h-[200px] md:min-h-0">
-           <h3 className="text-2xl font-bold text-slate-900">+10M</h3>
-           <p className="text-sm text-slate-500">Capital Gestionado</p>
+        <div className="bg-background border rounded-3xl p-6 flex flex-col justify-center min-h-[200px] md:min-h-0">
+           <h3 className="text-2xl font-bold text-foreground">+10M</h3>
+           <p className="text-sm text-muted-foreground">Capital Gestionado</p>
         </div>
         <div className="bg-[#dbeafe] rounded-3xl p-6 flex flex-col justify-center min-h-[200px] md:min-h-0">
            <h3 className="text-3xl font-bold text-[#384b92]">100%</h3>
@@ -117,7 +117,7 @@ function FeaturesSection() {
           {featuresData.map((feat, idx) => {
             const Icon = feat.icon;
             return (
-              <div key={idx} className="bg-[#29386d] border border-white/10 rounded-2xl p-6 hover:bg-white/20 transition-colors cursor-pointer group">
+              <div key={idx} className="bg-[#29386d] border border-white/10 rounded-2xl p-6 hover:bg-background/20 transition-colors cursor-pointer group">
                 <div className="mb-12 flex justify-between items-start text-blue-200 group-hover:text-white transition-colors">
                   <Icon size={24} />
                   <ArrowRight size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -139,16 +139,16 @@ function PricingSection() {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl font-bold text-white mb-4">Planes a Medida para la<br/>Escala de tu Negocio</h2>
-          <p className="text-slate-400">Precios flexibles para cualquier tamaño de cartera</p>
+          <p className="text-muted-foreground">Precios flexibles para cualquier tamaño de cartera</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Starter Plan */}
           <div className="bg-slate-800 border border-white/10 rounded-3xl p-8">
             <h3 className="text-xl font-medium text-white mb-2">Starter</h3>
-            <p className="text-sm text-slate-400 mb-6">Este paquete ofrece las funciones básicas que necesitas para empezar.</p>
-            <div className="text-4xl font-bold text-white mb-8">$39 <span className="text-sm font-normal text-slate-500">/ mes</span></div>
-            <Button asChild variant="outline" className="w-full rounded-full border-white/20 text-white hover:bg-white/10 bg-transparent mb-8">
+            <p className="text-sm text-muted-foreground mb-6">Este paquete ofrece las funciones básicas que necesitas para empezar.</p>
+            <div className="text-4xl font-bold text-white mb-8">$39 <span className="text-sm font-normal text-muted-foreground">/ mes</span></div>
+            <Button asChild variant="outline" className="w-full rounded-full border-white/20 text-white hover:bg-background/10 bg-transparent mb-8">
               <Link href="/login">Elegir Plan</Link>
             </Button>
             <ul className="space-y-4">
@@ -163,9 +163,9 @@ function PricingSection() {
           {/* Enterprise Plan */}
           <div className="bg-slate-800 border border-white/10 rounded-3xl p-8">
             <h3 className="text-xl font-medium text-white mb-2">Enterprise</h3>
-            <p className="text-sm text-slate-400 mb-6">Este paquete proporciona características avanzadas para escalar.</p>
-            <div className="text-4xl font-bold text-white mb-8">$99 <span className="text-sm font-normal text-slate-500">/ mes</span></div>
-            <Button asChild variant="outline" className="w-full rounded-full border-white/20 text-white hover:bg-white/10 bg-transparent mb-8">
+            <p className="text-sm text-muted-foreground mb-6">Este paquete proporciona características avanzadas para escalar.</p>
+            <div className="text-4xl font-bold text-white mb-8">$99 <span className="text-sm font-normal text-muted-foreground">/ mes</span></div>
+            <Button asChild variant="outline" className="w-full rounded-full border-white/20 text-white hover:bg-background/10 bg-transparent mb-8">
               <Link href="/login">Elegir Plan</Link>
             </Button>
             <ul className="space-y-4">
@@ -199,7 +199,7 @@ function PricingSection() {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="min-h-screen bg-muted font-sans">
       <Header />
       <main>
         <HeroSection />
@@ -218,7 +218,7 @@ export default function LandingPage() {
         </section>
       </main>
       
-      <footer className="bg-slate-950 py-8 text-center text-slate-500 text-sm border-t border-white/5">
+      <footer className="bg-slate-950 py-8 text-center text-muted-foreground text-sm border-t border-white/5">
         <p>© {new Date().getFullYear()} CreditWay Platform. Todos los derechos reservados.</p>
       </footer>
     </div>

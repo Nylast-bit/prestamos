@@ -24,6 +24,10 @@ export interface PagoData {
   CuotasTotales: number; // Cuota(s) Total
   CuotasRestantes?: number;
   MontoCuota?: number;
+  
+  // Datos del emisor / usuario
+  NombrePrestamista?: string;
+  NombreEmpresa?: string;
 }
 
 export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>((props, ref) => {
@@ -89,6 +93,18 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
       year: 'numeric', month: 'short', day: 'numeric' 
     });
   };
+
+  const nombreFirma = data.NombrePrestamista || 'Firma Autorizada';
+  const getSignatureFontSize = (name: string): string => {
+    const len = name?.trim().length || 0;
+    if (len === 0) return '24px';
+    if (len <= 10) return '26px';
+    if (len <= 16) return '22px';
+    if (len <= 22) return '18px';
+    if (len <= 28) return '15px';
+    return '13px';
+  };
+  const signatureFontSize = getSignatureFontSize(nombreFirma);
 
   return (
     <div 
@@ -268,22 +284,49 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
           </div>
         </div>
 
-        {/* Firmas y Footer (Mantenidos igual de hermosos) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '40px', marginBottom: '0px' }}>
+        {/* Firmas y Footer */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '40px', marginTop: '30px', marginBottom: '0px' }}>
+          {/* Columna Izquierda: Firma Autorizada (Prestamista / Usuario) */}
           <div style={{ flex: 1 }}>
+            {/* Espacio de la Firma: colocado naturalmente sobre la línea de firma */}
+            <div style={{
+              height: '38px',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              textAlign: 'center',
+              paddingBottom: '3px'
+            }}>
+              <span style={{
+                display: 'inline-block',
+                fontFamily: '"Segoe Script", "Brush Script MT", "Caveat", "Dancing Script", cursive',
+                fontSize: signatureFontSize,
+                fontWeight: 700,
+                color: '#0f172a',
+                transform: 'rotate(-2deg)',
+                transformOrigin: 'center center',
+                lineHeight: '1',
+                textAlign: 'center',
+                margin: '0 auto',
+                userSelect: 'none'
+              }}>
+                {nombreFirma}
+              </span>
+            </div>
+
             <div style={{
               borderTop: '2px solid #1e293b',
-              paddingTop: '8px',
-              marginTop: '60px'
+              paddingTop: '8px'
             }}>
               <p style={{
                 fontSize: '12px',
-                fontWeight: 600,
+                fontWeight: 700,
                 color: '#1e293b',
                 margin: 0,
                 textAlign: 'center'
               }}>
-                Firma Autorizada
+                {data.NombrePrestamista ? `Firma: ${data.NombrePrestamista}` : 'Firma Autorizada'}
               </p>
               <p style={{
                 fontSize: '10px',
@@ -291,12 +334,15 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
                 margin: '4px 0 0 0',
                 textAlign: 'center'
               }}>
-                Credit Way 
+                {data.NombreEmpresa || 'Credit Way'}
               </p>
             </div>
           </div>
+
+          {/* Columna Derecha: Firma del Cliente */}
           <div style={{ flex: 1 }}>
-            <div style={{ borderTop: '2px solid #1e293b', paddingTop: '8px', marginTop: '60px' }}>
+            <div style={{ height: '38px', paddingBottom: '3px' }} />
+            <div style={{ borderTop: '2px solid #1e293b', paddingTop: '8px' }}>
               <p style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', margin: 0, textAlign: 'center' }}>Firma del Cliente</p>
               <p style={{ fontSize: '10px', color: '#64748b', margin: '4px 0 0 0', textAlign: 'center' }}>{data.Cliente}</p>
             </div>

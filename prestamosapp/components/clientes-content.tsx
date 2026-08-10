@@ -28,7 +28,17 @@ interface Cliente {
   Direccion: string
   FechaRegistro: string
   cantidadPrestamosActivos?: number
+  PuntajeCredito?: number
 }
+
+const getScoreBadge = (score: number | null | undefined) => {
+  const s = score ?? 500;
+  if (s >= 850) return { label: `Excelente (${s})`, bg: 'bg-green-100 text-green-800' };
+  if (s >= 700) return { label: `Bueno (${s})`, bg: 'bg-blue-100 text-blue-800' };
+  if (s >= 500) return { label: `Regular (${s})`, bg: 'bg-yellow-100 text-yellow-800' };
+  if (s >= 300) return { label: `Bajo (${s})`, bg: 'bg-orange-100 text-orange-800' };
+  return { label: `Crítico (${s})`, bg: 'bg-red-100 text-red-800' };
+};
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
@@ -232,7 +242,7 @@ export function ClientesContent() {
       try {
         const res = await fetchWithAuth(`${API_BASE_URL}/api/prestamos`);
         const data = await res.json();
-        const activeLoans = data.filter((p: any) => p.IdCliente === cliente.IdCliente && p.Estado === 'Activo');
+        const activeLoans = data.filter((p: any) => p.IdCliente === cliente.IdCliente && p.Estado !== 'Pagado' && p.Estado !== 'Eliminado');
         setClientLoans(activeLoans);
       } catch (e) {
         console.error(e);
@@ -435,7 +445,7 @@ export function ClientesContent() {
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-[#213685] hover:bg-[#213685]/90 w-full sm:w-auto">
+                <Button className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Nuevo Cliente
                 </Button>
@@ -485,7 +495,7 @@ export function ClientesContent() {
                         <Input
                           id="telefono"
                           value={formData.Telefono}
-                          onChange={(e) => setFormData({...formData, Telefono: e.target.value})}
+                          onChange={(e) => setFormData({...formData, Telefono: e.target.value.replace(/\D/g, '')})}
                           placeholder="809-000-0000"
                           required
                         />
@@ -512,7 +522,7 @@ export function ClientesContent() {
                         <Input
                           id="numeroCuenta"
                           value={formData.NumeroCuenta}
-                          onChange={(e) => setFormData({...formData, NumeroCuenta: e.target.value})}
+                          onChange={(e) => setFormData({...formData, NumeroCuenta: e.target.value.replace(/\D/g, '')})}
                           placeholder="Ej: 0123456789"
                         />
                       </div>
@@ -537,7 +547,7 @@ export function ClientesContent() {
                     <Button type="button" variant="outline" onClick={resetForm} disabled={submitting}>
                       Cancelar
                     </Button>
-                    <Button type="submit" className="bg-[#213685] hover:bg-[#213685]/90" disabled={submitting}>
+                    <Button type="submit" className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90" disabled={submitting}>
                       {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                       {submitting ? "Guardando..." : (editingCliente ? "Actualizar" : "Crear")}
                     </Button>
@@ -548,7 +558,7 @@ export function ClientesContent() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2 mb-4 bg-gray-50 p-2 rounded-md border">
+          <div className="flex items-center space-x-2 mb-4 bg-muted p-2 rounded-md border">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nombre, cédula o email..."
@@ -561,7 +571,7 @@ export function ClientesContent() {
           <div className="rounded-md border mb-4">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50">
+                <TableRow className="bg-muted">
                   <TableHead>ID</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Contacto</TableHead>
@@ -583,13 +593,18 @@ export function ClientesContent() {
                   currentItems.map((cliente) => {
                     const tienePrestamos = (cliente.cantidadPrestamosActivos || 0) > 0;
                     return (
-                        <TableRow key={cliente.IdCliente} className="hover:bg-gray-50/50">
+                        <TableRow key={cliente.IdCliente} className="hover:bg-muted/50">
                         <TableCell className="font-mono text-xs text-muted-foreground">
                             {cliente.IdCliente}
                         </TableCell>
                         <TableCell>
                             <div>
-                            <div className="font-medium text-gray-900">{cliente.Nombre}</div>
+                            <div className="font-medium text-foreground flex items-center gap-2">
+                              {cliente.Nombre}
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${getScoreBadge(cliente.PuntajeCredito).bg}`}>
+                                {getScoreBadge(cliente.PuntajeCredito).label}
+                              </span>
+                            </div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                 <MapPin className="h-3 w-3" />
                                 <span className="truncate max-w-[200px]" title={cliente.Direccion}>{cliente.Direccion}</span>
@@ -599,32 +614,32 @@ export function ClientesContent() {
                         <TableCell>
                             <div className="space-y-1">
                             {cliente.Telefono && (
-                              <div className="text-sm flex items-center gap-1.5 text-gray-600">
-                                  <Phone className="h-3.5 w-3.5 text-gray-400" />
+                              <div className="text-sm flex items-center gap-1.5 text-muted-foreground">
+                                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                                   {cliente.Telefono}
                               </div>
                             )}
                             {cliente.Email && (
-                              <div className="text-sm flex items-center gap-1.5 text-gray-600">
-                                  <Mail className="h-3.5 w-3.5 text-gray-400" />
+                              <div className="text-sm flex items-center gap-1.5 text-muted-foreground">
+                                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                                   {cliente.Email}
                               </div>
                             )}
                             {cliente.NumeroCuenta && (
-                              <div className="text-xs flex items-center gap-1.5 text-gray-600">
-                                  <CreditCard className="h-3.5 w-3.5 text-gray-400" />
+                              <div className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                                  <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
                                   <span>Cta: {cliente.NumeroCuenta}</span>
                               </div>
                             )}
                             </div>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-700">{cliente.Cedula}</TableCell>
+                        <TableCell className="text-sm text-card-foreground">{cliente.Cedula}</TableCell>
                         <TableCell>
                             <Badge 
                             variant={tienePrestamos ? "default" : "secondary"}
                             className={tienePrestamos 
                                 ? "bg-green-100 text-green-700 hover:bg-green-200 border-green-200" 
-                                : "bg-gray-100 text-gray-500 hover:bg-gray-200 border-gray-200"}
+                                : "bg-accent text-muted-foreground hover:bg-gray-200 border-border"}
                             >
                             {tienePrestamos ? "Activo" : "Sin Deuda"}
                             </Badge>
@@ -643,7 +658,7 @@ export function ClientesContent() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEdit(cliente)}
-                                className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-600"
                             >
                                 <Edit className="h-4 w-4" />
                             </Button>
@@ -651,7 +666,7 @@ export function ClientesContent() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => confirmDelete(cliente)}
-                                className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600 hover:bg-red-50"
                             >
                                 <Trash2 className="h-4 w-4" />
                             </Button>
@@ -704,7 +719,7 @@ export function ClientesContent() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 text-white dark:text-white hover:bg-red-700"
             >
               Eliminar
             </AlertDialogAction>
@@ -733,7 +748,7 @@ export function ClientesContent() {
             ) : clientLoans.length > 0 ? (
               <div className="space-y-3">
                 {clientLoans.map(prestamo => (
-                  <div key={prestamo.IdPrestamo} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                  <div key={prestamo.IdPrestamo} className="flex items-center justify-between p-3 border rounded-lg bg-muted">
                     <div>
                       <p className="font-medium text-sm">Préstamo #{prestamo.IdPrestamo}</p>
                       <p className="text-xs text-muted-foreground">Monto: ${prestamo.MontoPrestado} | Balance: ${prestamo.BalancePendiente}</p>
@@ -741,7 +756,7 @@ export function ClientesContent() {
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      className="border-[#213685] text-[#213685] hover:bg-[#213685]/10"
+                      className="border-[#213685] text-[#213685] hover:bg-[#213685] text-white dark:text-white/10"
                       onClick={() => {
                          router.push(`/client/prestamos`);
                       }}
@@ -797,7 +812,7 @@ export function ClientesContent() {
           
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setMapOpen(false)}>Cancelar</Button>
-            <Button onClick={confirmMapLocation} className="bg-[#213685] hover:bg-[#213685]/90">
+            <Button onClick={confirmMapLocation} className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90">
               Confirmar Ubicación
             </Button>
           </DialogFooter>

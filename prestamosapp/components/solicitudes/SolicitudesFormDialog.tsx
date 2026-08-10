@@ -73,7 +73,7 @@ export function SolicitudFormDialog({
             
             {/* Cliente */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-1 text-slate-700">
+              <Label className="flex items-center gap-1 text-card-foreground">
                 <User className="h-4 w-4" /> Cliente Solicitante
               </Label>
               <Select 
@@ -82,7 +82,7 @@ export function SolicitudFormDialog({
                 disabled={isEditing} // Generalmente no cambias el cliente de una solicitud ya hecha
                 required
               >
-                <SelectTrigger className="bg-white">
+                <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Seleccionar cliente..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -98,11 +98,11 @@ export function SolicitudFormDialog({
             <div className="grid grid-cols-2 gap-4">
               {/* Monto Solicitado */}
               <div className="space-y-2">
-                <Label htmlFor="MontoSolicitado" className="flex items-center gap-1 text-slate-700">
+                <Label htmlFor="MontoSolicitado" className="flex items-center gap-1 text-card-foreground">
                   <DollarSign className="h-4 w-4" /> Monto Solicitado
                 </Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-slate-400 font-bold">$</span>
+                  <span className="absolute left-3 top-2.5 text-muted-foreground font-bold">$</span>
                   <Input
                     id="MontoSolicitado"
                     type="number"
@@ -119,13 +119,13 @@ export function SolicitudFormDialog({
 
               {/* Fecha Deseada */}
               <div className="space-y-2">
-                <Label htmlFor="FechaDeseada" className="flex items-center gap-1 text-slate-700">
+                <Label htmlFor="FechaDeseada" className="flex items-center gap-1 text-card-foreground">
                   <CalendarDays className="h-4 w-4" /> Fecha Deseada
                 </Label>
                 <Input
                   id="FechaDeseada"
                   type="date"
-                  className="bg-white"
+                  className="bg-background"
                   value={formData.FechaDeseada}
                   onChange={(e) => updateField("FechaDeseada", e.target.value)}
                   required
@@ -135,12 +135,12 @@ export function SolicitudFormDialog({
 
             {/* Estado */}
             <div className="space-y-2">
-              <Label className="text-slate-700">Estado de la Solicitud</Label>
+              <Label className="text-card-foreground">Estado de la Solicitud</Label>
               <Select 
                 value={formData.Estado} 
                 onValueChange={(val) => updateField("Estado", val)}
               >
-                <SelectTrigger className="bg-white">
+                <SelectTrigger className="bg-background">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -153,10 +153,10 @@ export function SolicitudFormDialog({
 
             {/* Notas / Observaciones */}
             <div className="space-y-2">
-              <Label htmlFor="Notas" className="text-slate-700">Notas Adicionales</Label>
+              <Label htmlFor="Notas" className="text-card-foreground">Notas Adicionales</Label>
               <Textarea
                 id="Notas"
-                className="resize-none bg-white"
+                className="resize-none bg-background"
                 rows={3}
                 value={formData.Notas}
                 onChange={(e) => updateField("Notas", e.target.value)}
@@ -172,7 +172,7 @@ export function SolicitudFormDialog({
             </Button>
             <Button 
               type="submit" 
-              className="bg-[#213685] hover:bg-[#213685]/90 min-w-[120px]" 
+              className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 min-w-[120px]" 
               disabled={isSubmitting || !formData.IdCliente || !formData.MontoSolicitado}
             >
               {isSubmitting ? "Guardando..." : (isEditing ? "Actualizar" : "Crear Solicitud")}

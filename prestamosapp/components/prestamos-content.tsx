@@ -180,6 +180,21 @@ export function PrestamosContent() {
   const handleSimular = async () => {
     const esSoloInteres = formData.TipoCalculo === "solo_interes";
     const cuotasVal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0);
+    const montoVal = parseFloat(formData.MontoPrestado);
+    const interesVal = parseFloat(formData.InteresPorcentaje);
+
+    if (isNaN(montoVal) || montoVal <= 0) {
+      toast.error('El monto prestado debe ser mayor a 0');
+      return;
+    }
+    if (isNaN(interesVal) || interesVal < 0) {
+      toast.error('El porcentaje de interés debe ser mayor o igual a 0');
+      return;
+    }
+    if (isNaN(cuotasVal) || cuotasVal <= 0) {
+      toast.error('La cantidad de cuotas debe ser mayor a 0');
+      return;
+    }
 
     if (!formData.MontoPrestado || !formData.InteresPorcentaje || (!formData.CantidadCuotas && !esSoloInteres)) {
       console.error("❌ 3. VALIDACIÓN FALLÓ: Faltan campos numéricos");
@@ -285,6 +300,37 @@ export function PrestamosContent() {
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     
+    const monto = parseFloat(formData.MontoPrestado);
+    const interes = parseFloat(formData.InteresPorcentaje);
+    const esSoloInteres = formData.TipoCalculo === "solo_interes";
+    const cuotas = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0);
+
+    if (isNaN(monto) || monto <= 0) {
+      toast.error("El monto prestado debe ser mayor a 0");
+      return;
+    }
+    if (isNaN(interes) || interes < 0) {
+      toast.error("El porcentaje de interés debe ser mayor o igual a 0");
+      return;
+    }
+    if (isNaN(cuotas) || cuotas <= 0) {
+      toast.error("La cantidad de cuotas debe ser mayor a 0");
+      return;
+    }
+
+    const changedFinancials = editingPrestamo && (
+      parseFloat(formData.MontoPrestado) !== editingPrestamo.MontoPrestado ||
+      parseFloat(formData.InteresPorcentaje) !== editingPrestamo.InteresPorcentaje ||
+      cuotas !== editingPrestamo.CantidadCuotas ||
+      formData.ModalidadPago.toLowerCase() !== editingPrestamo.ModalidadPago.toLowerCase() ||
+      formData.TipoCalculo !== editingPrestamo.TipoCalculo
+    );
+
+    if (changedFinancials && (!simulacionResumen || simulacionCuotas.length === 0)) {
+        toast.warning("Modificaste el capital o términos financieros. Debes volver a simular antes de guardar.");
+        return;
+    }
+
     if (!editingPrestamo && (!simulacionResumen || simulacionCuotas.length === 0)) {
         toast.warning("Por favor, realiza y confirma la simulación del préstamo antes de crearlo.");
         return;
@@ -292,8 +338,7 @@ export function PrestamosContent() {
 
     setSubmitting(true)
     try {
-      const esSoloInteres = formData.TipoCalculo === "solo_interes";
-      const cuotasTotal = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0);
+      const cuotasTotal = cuotas;
 
       const safeISO = (dateStr: string, defaultOffsetDays: number = 0) => {
         if (dateStr) {
@@ -317,19 +362,27 @@ export function PrestamosContent() {
         FechaInicio: safeISO(formData.FechaInicio, 0),
         FechaFinEstimada: safeISO(formData.FechaFinEstimada, cuotasTotal * 30 || 30),
         Observaciones: formData.Observaciones || null,
-        Estado: "Activo"
+        Estado: editingPrestamo ? editingPrestamo.Estado : "Activo"
       }
 
-      if (!editingPrestamo && simulacionResumen) {
+      if (simulacionResumen) {
           prestamoData = {
               ...prestamoData,
               InteresMontoTotal: simulacionResumen.montoTotalInteres,
               CapitalTotalPagar: simulacionResumen.montoTotalAPagar,
               MontoCuota: simulacionResumen.montoCuota,
-              CapitalRestante: parseFloat(formData.MontoPrestado),
-              CuotasRestantes: cuotasTotal,
               TablaPagos: JSON.stringify(simulacionCuotas) 
           };
+          
+          if (!editingPrestamo) {
+              prestamoData.CapitalRestante = parseFloat(formData.MontoPrestado);
+              prestamoData.CuotasRestantes = cuotasTotal;
+          } else {
+              const diferenciaCapital = parseFloat(formData.MontoPrestado) - editingPrestamo.MontoPrestado;
+              const diferenciaCuotas = cuotasTotal - editingPrestamo.CantidadCuotas;
+              prestamoData.CapitalRestante = (editingPrestamo.CapitalRestante || editingPrestamo.MontoPrestado) + diferenciaCapital;
+              prestamoData.CuotasRestantes = (editingPrestamo.CuotasRestantes !== undefined ? editingPrestamo.CuotasRestantes : editingPrestamo.CantidadCuotas) + diferenciaCuotas;
+          }
       }
 
       const url = editingPrestamo 
@@ -431,7 +484,7 @@ export function PrestamosContent() {
               <CardDescription>Administra todos los préstamos de la plataforma</CardDescription>
             </div>
             {user?.rol !== 'Cajero' && (
-              <Button onClick={openNewForm} className="bg-[#213685] hover:bg-[#213685]/90">
+              <Button onClick={openNewForm} className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90">
                 <Plus className="h-4 w-4 mr-2" /> Nuevo Préstamo
               </Button>
             )}
@@ -440,22 +493,22 @@ export function PrestamosContent() {
         <CardContent>
           
           {/* 🎛️ BARRA DE FILTROS AVANZADA */}
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4 flex flex-col md:flex-row gap-3 items-center">
+          <div className="bg-muted p-3 rounded-lg border border-border mb-4 flex flex-col md:flex-row gap-3 items-center">
             
             {/* Buscador de Texto */}
             <div className="relative flex-1 w-full">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar cliente o responsable..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-white"
+                className="pl-9 bg-background"
               />
             </div>
 
             {/* Filtro: Prestatario (Responsable) */}
             <Select value={filtroPrestatario} onValueChange={setFiltroPrestatario}>
-                <SelectTrigger className="w-full md:w-[180px] bg-white">
+                <SelectTrigger className="w-full md:w-[180px] bg-background">
                     <SelectValue placeholder="Responsable" />
                 </SelectTrigger>
                 <SelectContent>
@@ -470,7 +523,7 @@ export function PrestamosContent() {
 
             {/* Filtro: Modalidad de Pago */}
             <Select value={filtroModalidad} onValueChange={setFiltroModalidad}>
-                <SelectTrigger className="w-full md:w-[160px] bg-white">
+                <SelectTrigger className="w-full md:w-[160px] bg-background">
                     <SelectValue placeholder="Modalidad" />
                 </SelectTrigger>
                 <SelectContent>
@@ -484,7 +537,7 @@ export function PrestamosContent() {
 
             {/* Filtro: Estado */}
             <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-                <SelectTrigger className="w-full md:w-[160px] bg-white">
+                <SelectTrigger className="w-full md:w-[160px] bg-background">
                     <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -497,7 +550,7 @@ export function PrestamosContent() {
 
             {/* Botón Limpiar Filtros */}
             {(searchTerm || filtroPrestatario !== "todos" || filtroModalidad !== "todos" || filtroEstado !== "Activo") && (
-                <Button variant="ghost" size="icon" onClick={limpiarFiltros} title="Limpiar Filtros" className="text-slate-500 hover:text-red-500">
+                <Button variant="ghost" size="icon" onClick={limpiarFiltros} title="Limpiar Filtros" className="text-muted-foreground hover:text-red-500">
                     <FilterX className="h-5 w-5" />
                 </Button>
             )}
@@ -522,6 +575,11 @@ export function PrestamosContent() {
         clientes={clientes}
         prestatarios={prestatarios}
         isEditing={!!editingPrestamo}
+        tienePagos={!!editingPrestamo && (
+          editingPrestamo.CapitalRestante < editingPrestamo.MontoPrestado || 
+          !!editingPrestamo.FechaUltimoPago || 
+          editingPrestamo.CuotasRestantes < editingPrestamo.CantidadCuotas
+        )}
         onSimular={handleSimular}
         onSubmit={handleSubmit}
         isSubmitting={submitting}
@@ -554,7 +612,7 @@ export function PrestamosContent() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600">Eliminar</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 text-white dark:text-white">Eliminar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

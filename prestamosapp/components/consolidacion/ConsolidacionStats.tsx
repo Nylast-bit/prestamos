@@ -80,7 +80,7 @@ export function ConsolidacionStats({
                 value={consolidacion.IdConsolidacion.toString()} 
                 onValueChange={onConsolidacionChange}
               >
-                <SelectTrigger className="w-[340px] mt-1 bg-white border-slate-300 font-semibold shadow-sm text-xs h-9">
+                <SelectTrigger className="w-[340px] mt-1 bg-background border-border font-semibold shadow-sm text-xs h-9">
                   <SelectValue placeholder="Seleccionar Período" />
                 </SelectTrigger>
                 <SelectContent>
@@ -111,7 +111,7 @@ export function ConsolidacionStats({
                   <span>Buena y Válida ({formatShortTime(ultimaAud.fechaAuditoria)})</span>
                 </Badge>
               ) : (
-                <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-300 text-xs py-1 px-2.5 flex items-center gap-1.5">
+                <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-xs py-1 px-2.5 flex items-center gap-1.5">
                   <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                   <span>Sin Verificar</span>
                 </Badge>
@@ -121,7 +121,7 @@ export function ConsolidacionStats({
                 variant="outline"
                 size="sm"
                 onClick={onOpenHistorialModal}
-                className="h-8 text-xs border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+                className="h-8 text-xs border-border text-card-foreground hover:bg-muted font-medium"
               >
                 <History className="h-3.5 w-3.5 mr-1 text-[#213685]" />
                 Historial
@@ -130,7 +130,7 @@ export function ConsolidacionStats({
               <Button
                 size="sm"
                 onClick={onOpenAuditarModal}
-                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm"
+                className="h-8 text-xs bg-emerald-600 text-white dark:text-white hover:bg-emerald-700 text-white font-medium shadow-sm"
               >
                 <ShieldCheck className="h-3.5 w-3.5 mr-1" />
                 Marcar Buena y Válida
@@ -149,14 +149,14 @@ export function ConsolidacionStats({
               <div className="text-2xl font-bold text-red-600">-RD${consolidacion.CapitalSaliente.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground font-medium">Capital Saliente</div>
             </div>
-            <div className="text-center p-4 bg-[#213685]/10 rounded-lg border border-[#213685]/20">
-              <div className={`text-2xl font-bold ${balanceNeto >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900/50">
+              <div className={`text-2xl font-bold ${balanceNeto >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 RD${balanceNeto.toLocaleString()}
               </div>
               <div className="text-sm text-muted-foreground font-medium">Balance Neto</div>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-2xl font-bold text-gray-600">{totalRegistros}</div>
+            <div className="text-center p-4 bg-muted rounded-lg border border-border">
+              <div className="text-2xl font-bold text-muted-foreground">{totalRegistros}</div>
               <div className="text-sm text-muted-foreground font-medium">Total Registros</div>
             </div>
           </div>

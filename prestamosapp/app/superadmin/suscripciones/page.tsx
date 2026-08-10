@@ -100,9 +100,9 @@ export default function SuscripcionesPage() {
         </Button>
       </div>
       
-      <div className="rounded-md border bg-white">
+      <div className="rounded-md border bg-background">
         <table className="w-full text-sm text-left">
-          <thead className="bg-slate-50 border-b">
+          <thead className="bg-muted border-b">
             <tr>
               <th className="p-4 font-medium">Empresa</th>
               <th className="p-4 font-medium">Plan</th>
@@ -114,7 +114,7 @@ export default function SuscripcionesPage() {
           </thead>
           <tbody>
             {suscripciones.map(sus => (
-              <tr key={sus.IdSuscripcion} className="border-b last:border-0 hover:bg-slate-50">
+              <tr key={sus.IdSuscripcion} className="border-b last:border-0 hover:bg-muted">
                 <td className="p-4 font-medium">{sus.Empresa?.Nombre}</td>
                 <td className="p-4 flex items-center gap-2">
                   <Ticket className="w-4 h-4 text-orange-600" />
@@ -133,7 +133,7 @@ export default function SuscripcionesPage() {
               </tr>
             ))}
             {suscripciones.length === 0 && (
-                <tr><td colSpan={6} className="p-4 text-center text-slate-500">No hay suscripciones registradas</td></tr>
+                <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No hay suscripciones registradas</td></tr>
             )}
           </tbody>
         </table>
@@ -152,7 +152,7 @@ export default function SuscripcionesPage() {
             <div className="space-y-2">
               <Label>Empresa</Label>
               <select 
-                className="w-full border rounded-md p-2 outline-none text-sm bg-slate-50"
+                className="w-full border rounded-md p-2 outline-none text-sm bg-muted"
                 value={formData.idEmpresa} 
                 onChange={e => setFormData({...formData, idEmpresa: e.target.value})}
                 disabled={!!editingSuscripcion} // No se puede cambiar la empresa de una suscripción

@@ -47,19 +47,19 @@ export function DashboardConsolidacion({
   const tieneIngresos = ingresos > 0;
 
   return (
-    <Card className="flex flex-col h-full border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-200">
+    <Card className="flex flex-col h-full border border-border/80 shadow-sm hover:shadow-md transition-all duration-200">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2.5 text-base font-semibold text-slate-800">
+          <CardTitle className="flex items-center gap-2.5 text-base font-semibold text-foreground">
             <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
               <PiggyBank className="h-5 w-5" />
             </div>
             Consolidación de Capital
           </CardTitle>
         </div>
-        <CardDescription className="text-xs text-slate-500 flex items-center gap-1.5 mt-1">
-          <Clock className="h-3.5 w-3.5 text-slate-400" />
-          Período actual: <span className="font-medium text-slate-700">{formatDate(fechaInicio)}</span> al <span className="font-medium text-slate-700">{formatDate(fechaFin)}</span>
+        <CardDescription className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+          Período actual: <span className="font-medium text-card-foreground">{formatDate(fechaInicio)}</span> al <span className="font-medium text-card-foreground">{formatDate(fechaFin)}</span>
         </CardDescription>
       </CardHeader>
 
@@ -94,8 +94,8 @@ export function DashboardConsolidacion({
           <div
             className={`p-4 rounded-xl border flex items-center justify-between ${
               isPositive
-                ? 'bg-blue-50/60 border-blue-200/80 text-blue-900'
-                : 'bg-red-50/60 border-red-200/80 text-red-900'
+                ? 'bg-blue-50/60 dark:bg-blue-950/40 border-blue-200/80 dark:border-blue-900/50 text-blue-900 dark:text-blue-200'
+                : 'bg-red-50/60 dark:bg-red-950/40 border-red-200/80 dark:border-red-900/50 text-red-900 dark:text-red-200'
             }`}
           >
             <div className="space-y-0.5">
@@ -117,7 +117,7 @@ export function DashboardConsolidacion({
 
           {/* Visual Progress Indicator (Ingresos vs Egresos Ratio) */}
           <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-slate-500 font-medium">
+            <div className="flex justify-between text-xs text-muted-foreground font-medium">
               <span className="flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block"></span>
                 Ingresos ({ingresosRatio}%)
@@ -127,7 +127,7 @@ export function DashboardConsolidacion({
                 Egresos ({egresosRatio}%)
               </span>
             </div>
-            <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
+            <div className="h-2.5 w-full bg-accent rounded-full overflow-hidden flex">
               <div
                 className="bg-emerald-500 h-full transition-all duration-500"
                 style={{ width: `${ingresosRatio}%` }}
@@ -143,27 +143,27 @@ export function DashboardConsolidacion({
 
           {/* Checklist de la Quincena */}
           <div className="space-y-2.5">
-            <h4 className="font-semibold text-xs text-slate-600 uppercase tracking-wider">
+            <h4 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
               Checklist de la Quincena
             </h4>
             <div className="space-y-2">
-              <div className="flex items-center gap-2.5 text-sm p-2 rounded-lg bg-slate-50/80 border border-slate-100">
+              <div className="flex items-center gap-2.5 text-sm p-2 rounded-lg bg-muted/80 border border-slate-100">
                 {tieneGastos ? (
                   <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
                 ) : (
                   <Clock className="h-4 w-4 text-amber-500 shrink-0" />
                 )}
-                <span className={tieneGastos ? "text-slate-700 font-medium" : "text-slate-500"}>
+                <span className={tieneGastos ? "text-card-foreground font-medium" : "text-muted-foreground"}>
                   Registro de gastos fijos
                 </span>
               </div>
-              <div className="flex items-center gap-2.5 text-sm p-2 rounded-lg bg-slate-50/80 border border-slate-100">
+              <div className="flex items-center gap-2.5 text-sm p-2 rounded-lg bg-muted/80 border border-slate-100">
                 {tieneIngresos ? (
                   <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
                 ) : (
                   <Clock className="h-4 w-4 text-amber-500 shrink-0" />
                 )}
-                <span className={tieneIngresos ? "text-slate-700 font-medium" : "text-slate-500"}>
+                <span className={tieneIngresos ? "text-card-foreground font-medium" : "text-muted-foreground"}>
                   Ingreso de cuotas
                 </span>
               </div>
@@ -174,7 +174,7 @@ export function DashboardConsolidacion({
         {/* Button */}
         <div className="pt-2">
           <Button
-            className="w-full bg-[#213685] hover:bg-[#213685]/90 text-white font-medium shadow-sm transition-all"
+            className="w-full bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 text-white font-medium shadow-sm transition-all"
             onClick={() => onNavigate('consolidacion')}
           >
             <FileText className="h-4 w-4 mr-2" />

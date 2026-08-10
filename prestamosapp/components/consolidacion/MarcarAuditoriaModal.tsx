@@ -74,7 +74,7 @@ export function MarcarAuditoriaModal({
               <ShieldCheck className="h-6 w-6 text-emerald-600" />
             </div>
             <div>
-              <DialogTitle className="text-lg text-slate-900">
+              <DialogTitle className="text-lg text-foreground">
                 Marcar como Buena y Válida
               </DialogTitle>
               <DialogDescription className="text-xs">
@@ -85,12 +85,12 @@ export function MarcarAuditoriaModal({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2 text-xs">
-            <div className="font-semibold text-slate-700 flex items-center gap-1.5">
+          <div className="bg-muted border border-border rounded-lg p-3 space-y-2 text-xs">
+            <div className="font-semibold text-card-foreground flex items-center gap-1.5">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               Instantánea de Cuadre Actual:
             </div>
-            <div className="grid grid-cols-2 gap-2 text-slate-600 pt-1">
+            <div className="grid grid-cols-2 gap-2 text-muted-foreground pt-1">
               <div>
                 Capital Entrante: <strong className="text-emerald-700 font-mono">RD${capitalEntrante.toLocaleString()}</strong>
               </div>
@@ -101,13 +101,13 @@ export function MarcarAuditoriaModal({
                 Balance Neto: <strong className={`font-mono ${balanceNeto >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>RD${balanceNeto.toLocaleString()}</strong>
               </div>
               <div>
-                Registros Auditados: <strong className="text-slate-800">{totalRegistros}</strong>
+                Registros Auditados: <strong className="text-foreground">{totalRegistros}</strong>
               </div>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="obs-auditoria" className="text-xs font-semibold text-slate-700">
+            <Label htmlFor="obs-auditoria" className="text-xs font-semibold text-card-foreground">
               Observaciones / Comentarios del Cuadre (Opcional)
             </Label>
             <Textarea
@@ -129,7 +129,7 @@ export function MarcarAuditoriaModal({
             size="sm"
             onClick={handleConfirm}
             disabled={submitting}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm"
+            className="bg-emerald-600 text-white dark:text-white hover:bg-emerald-700 text-white font-medium shadow-sm"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <ShieldCheck className="h-4 w-4 mr-1.5" />}
             Confirmar Cuadre Válido

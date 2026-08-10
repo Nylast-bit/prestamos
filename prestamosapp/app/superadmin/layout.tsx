@@ -38,7 +38,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             <h1 className="text-lg font-semibold text-orange-950">Panel SuperAdmin SaaS</h1>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 bg-slate-50">
+        <div className="flex flex-1 flex-col gap-4 p-4 bg-muted">
           {children}
         </div>
       </SidebarInset>

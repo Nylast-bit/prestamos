@@ -33,11 +33,11 @@ export function ConsolidacionTable({
 
   const getEstadoBadgeColor = (estado: string) => {
     switch (estado) {
-        case "Depositado": return "bg-green-600"
-        case "Pendiente": return "bg-orange-600"
-        case "Prestado": return "bg-[#213685]"
-        case "Pagado": return "bg-blue-600"
-        default: return "bg-gray-600"
+        case "Depositado": return "bg-green-600 text-white dark:text-white"
+        case "Pendiente": return "bg-orange-600 text-white dark:text-white"
+        case "Prestado": return "bg-[#213685] text-white dark:text-white"
+        case "Pagado": return "bg-blue-600 text-white dark:text-white"
+        default: return "bg-gray-600 text-white dark:text-white"
       }
   }
 
@@ -65,14 +65,14 @@ export function ConsolidacionTable({
   const paginatedRegistros = sortedRegistros.slice(startIndex, startIndex + pageSize);
 
   if (registros.length === 0) {
-    return <div className="text-center py-10 text-slate-500 border rounded-lg">No se encontraron registros para esta consolidación con los filtros actuales.</div>
+    return <div className="text-center py-10 text-muted-foreground border rounded-lg">No se encontraron registros para esta consolidación con los filtros actuales.</div>
   }
 
   return (
     <div className="rounded-md border overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="bg-gray-50">
+          <TableRow className="bg-muted">
             <TableHead className="font-bold">INGRESOS</TableHead>
             <TableHead className="font-bold">EGRESOS</TableHead>
             <TableHead 
@@ -82,7 +82,7 @@ export function ConsolidacionTable({
             >
               <div className="flex items-center gap-1">
                 FECHA
-                <ArrowUpDown className={`h-4 w-4 transition-colors ${sortOrder === 'asc' ? 'text-[#213685]' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                <ArrowUpDown className={`h-4 w-4 transition-colors ${sortOrder === 'asc' ? 'text-[#213685]' : 'text-muted-foreground group-hover:text-muted-foreground'}`} />
               </div>
             </TableHead>
             <TableHead className="font-bold min-w-[280px] md:min-w-[340px]">CONCEPTO</TableHead>
@@ -93,7 +93,7 @@ export function ConsolidacionTable({
         </TableHeader>
         <TableBody>
           {paginatedRegistros.map((registro) => (
-            <TableRow key={registro.IdRegistro} className="hover:bg-slate-50/50">
+            <TableRow key={registro.IdRegistro} className="hover:bg-muted/50">
               <TableCell>
                 {registro.TipoRegistro === "Ingreso" && (
                   <div className="flex items-center gap-2">
@@ -114,9 +114,9 @@ export function ConsolidacionTable({
                   </div>
                 )}
               </TableCell>
-              <TableCell className="text-slate-600 font-medium whitespace-nowrap">{formatDate(registro.FechaRegistro)}</TableCell>
+              <TableCell className="text-muted-foreground font-medium whitespace-nowrap">{formatDate(registro.FechaRegistro)}</TableCell>
               <TableCell className="min-w-[280px] md:min-w-[340px]">
-                <div className="whitespace-normal break-words leading-relaxed font-medium text-slate-800 text-sm py-1">
+                <div className="whitespace-normal break-words leading-relaxed font-medium text-foreground text-sm py-1">
                   {registro.Descripcion}
                 </div>
               </TableCell>
@@ -133,13 +133,13 @@ export function ConsolidacionTable({
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1">
                   <Button
-                    variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-300 hover:bg-[#213685]/10"
+                    variant="outline" size="sm" className="h-8 w-8 p-0 border-border hover:bg-[#213685] hover:text-white"
                     onClick={() => onEdit(registro)}
                   >
-                    <Edit className="h-4 w-4 text-slate-600" />
+                    <Edit className="h-4 w-4 text-muted-foreground" />
                   </Button>
                   <Button
-                    variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-300 hover:bg-red-50 hover:border-red-200"
+                    variant="outline" size="sm" className="h-8 w-8 p-0 border-border hover:bg-red-50 hover:border-red-200"
                     onClick={() => onDelete(registro.IdRegistro)}
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -153,7 +153,7 @@ export function ConsolidacionTable({
 
       {/* --- BARRA DE PAGINACIÓN DE REGISTROS DE CONSOLIDACIÓN --- */}
       {sortedRegistros.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs font-medium text-slate-600">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-muted border-t border-border text-xs font-medium text-muted-foreground">
           <div className="flex items-center gap-2">
             <span>Mostrar</span>
             <select
@@ -162,7 +162,7 @@ export function ConsolidacionTable({
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="bg-white border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#213685]"
+              className="bg-background border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#213685]"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
@@ -172,12 +172,12 @@ export function ConsolidacionTable({
             <span>registros por página</span>
           </div>
 
-          <div className="text-slate-500">
-            Mostrando <span className="font-semibold text-slate-700">{startIndex + 1}</span> a{" "}
-            <span className="font-semibold text-slate-700">
+          <div className="text-muted-foreground">
+            Mostrando <span className="font-semibold text-card-foreground">{startIndex + 1}</span> a{" "}
+            <span className="font-semibold text-card-foreground">
               {Math.min(startIndex + pageSize, sortedRegistros.length)}
             </span>{" "}
-            de <span className="font-semibold text-slate-700">{sortedRegistros.length}</span> registros
+            de <span className="font-semibold text-card-foreground">{sortedRegistros.length}</span> registros
           </div>
 
           <div className="flex items-center gap-1">
@@ -202,7 +202,7 @@ export function ConsolidacionTable({
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
-            <span className="px-2 font-semibold text-slate-700">
+            <span className="px-2 font-semibold text-card-foreground">
               {currentPage} / {totalPages}
             </span>
 

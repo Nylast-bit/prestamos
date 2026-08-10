@@ -183,7 +183,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
                     <SidebarMenuButton
                       asChild
                       size="sm"
-                      className="hover:bg-slate-100 cursor-pointer"
+                      className="hover:bg-accent cursor-pointer"
                       isActive={pathname === `/client/${item.key}`}
                     >
                       <Link href={`/client/${item.key}`}>
@@ -201,7 +201,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" className="hover:bg-[#213685]/10">
+            <SidebarMenuButton size="lg" className="hover:bg-[#213685] hover:text-white">
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#213685] text-white">
                 <UserCheck className="size-4" />
               </div>

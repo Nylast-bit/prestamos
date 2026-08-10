@@ -138,7 +138,7 @@ export function ReengancheModal({
             <RefreshCw className="h-5 w-5 animate-spin-slow" />
             <DialogTitle className="text-xl font-bold">Reenganche de Préstamo</DialogTitle>
           </div>
-          <DialogDescription className="text-xs text-slate-500">
+          <DialogDescription className="text-xs text-muted-foreground">
             Liquida la deuda del préstamo #{prestamo.NumeroEmpresa ?? prestamo.IdPrestamo} e inicia uno nuevo de mayor monto.
           </DialogDescription>
         </DialogHeader>
@@ -151,7 +151,7 @@ export function ReengancheModal({
               <span className="bg-amber-200/60 px-2 py-0.5 rounded text-[11px]">Préstamo #{prestamo.NumeroEmpresa ?? prestamo.IdPrestamo}</span>
             </div>
             <div className="flex justify-between items-center pt-1 border-t border-amber-200/50">
-              <span className="text-slate-600">Saldo Pendiente a Liquidar:</span>
+              <span className="text-muted-foreground">Saldo Pendiente a Liquidar:</span>
               <span className="font-bold text-base text-amber-900">{formatMoney(saldoPendiente)}</span>
             </div>
           </div>
@@ -161,7 +161,7 @@ export function ReengancheModal({
             <div className="space-y-1">
               <Label className="text-xs font-semibold">Monto Nuevo Préstamo</Label>
               <div className="relative">
-                <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                <DollarSign className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="number"
                   step="0.01"
@@ -259,11 +259,11 @@ export function ReengancheModal({
 
           {/* Card Resumen de Desembolso Neto */}
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-1.5">
-            <div className="flex justify-between items-center text-xs text-slate-600">
+            <div className="flex justify-between items-center text-xs text-muted-foreground">
               <span>Nuevo Préstamo Solicitado:</span>
-              <span className="font-semibold text-slate-800">{formatMoney(nuevoMontoNum)}</span>
+              <span className="font-semibold text-foreground">{formatMoney(nuevoMontoNum)}</span>
             </div>
-            <div className="flex justify-between items-center text-xs text-slate-600">
+            <div className="flex justify-between items-center text-xs text-muted-foreground">
               <span>- Saldo Préstamo Anterior (a Liquidar):</span>
               <span className="font-semibold text-amber-700">-{formatMoney(saldoPendiente)}</span>
             </div>
@@ -287,7 +287,7 @@ export function ReengancheModal({
             <Button
               type="submit"
               disabled={submitting || !esValidoMonto}
-              className="bg-[#213685] hover:bg-[#213685]/90 text-white font-semibold"
+              className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 text-white font-semibold"
             >
               {submitting ? "Procesando Reenganche..." : `Confirmar y Entregar ${formatMoney(efectivoNetoAEntregar)}`}
             </Button>

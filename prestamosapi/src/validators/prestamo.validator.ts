@@ -61,6 +61,7 @@ export const prestamoSchema = z.object({
   Estado: z
     .string()
     .min(1, "Estado es obligatorio"),
-  Ajustable: z.boolean().optional(),
-  Observaciones: z.string().optional(),
+  Ajustable: z.boolean().nullable().optional(),
+  Observaciones: z.string().nullable().optional(),
+  TablaPagos: z.string().nullable().optional(),
 });

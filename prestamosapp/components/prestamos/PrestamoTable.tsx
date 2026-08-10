@@ -1,5 +1,6 @@
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { useState } from "react"
+import { toast } from "sonner"
 import { useAuthStore } from "@/store/authStore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -53,6 +54,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
   // Estados
   const [isPayOpen, setIsPayOpen] = useState(false);
   const [selectedPrestamo, setSelectedPrestamo] = useState<any>(null);
+  const [moraToPerdonar, setMoraToPerdonar] = useState<any>(null);
+  const [isPerdonarMoraOpen, setIsPerdonarMoraOpen] = useState(false);
   const [paymentType, setPaymentType] = useState("Efectivo");
   const [observaciones, setObservaciones] = useState("");
   const [isPaying, setIsPaying] = useState(false);
@@ -276,7 +279,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
         return;
       }
 
-      alert(
+      toast.success(
         payMode === 'liquidar' 
           ? "¡Préstamo liquidado exitosamente!" 
           : (payMode === 'extraordinario' ? "¡Abono extraordinario a capital registrado correctamente!" : "¡Pago registrado correctamente!")
@@ -286,7 +289,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
       
     } catch (error: any) {
       console.error(error);
-      alert(error.message);
+      toast.error(error.message);
     } finally {
       setIsPaying(false);
     }
@@ -358,6 +361,23 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
     return `Liquidar ${montoLiquidarNum > 0 ? formatMoney(montoLiquidarNum) : ''}`;
   };
 
+  const handlePerdonarMora = async () => {
+    if (!moraToPerdonar) return;
+    try {
+      const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/mora/perdonar/${moraToPerdonar.IdPrestamo}`, {
+        method: 'POST'
+      });
+      if (!response.ok) throw new Error("Error al perdonar mora");
+      toast.success("Mora perdonada exitosamente");
+      onPaymentSuccess(); 
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsPerdonarMoraOpen(false);
+      setMoraToPerdonar(null);
+    }
+  };
+
   const prestamosVisibles = prestamos.filter((p: any) => p.Estado !== 'Eliminado');
 
   // Cálculos de Paginación
@@ -370,36 +390,36 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
   return (
     <>
-      <div className="rounded-xl border-2 border-slate-200 shadow-lg bg-white overflow-hidden">
+      <div className="rounded-xl border-2 border-border shadow-lg bg-background overflow-hidden">
         <div className="overflow-x-auto">
           <Table className="min-w-max">
             <TableHeader>
-              <TableRow className="bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200 hover:bg-gradient-to-r">
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider py-4 w-16">ID</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider py-4">Cliente</TableHead>
-                <TableHead className="text-right font-bold text-slate-800 text-xs uppercase tracking-wider">Capital Restante</TableHead>
-                <TableHead className="text-right font-bold text-slate-800 text-xs uppercase tracking-wider">Interés Actual</TableHead>
-                <TableHead className="text-center font-bold text-slate-800 text-xs uppercase tracking-wider">Tasa</TableHead>
-                <TableHead className="text-right font-bold text-[#213685] text-xs uppercase tracking-wider">Saldo Restante</TableHead>
-                <TableHead className="text-right font-bold text-slate-800 text-xs uppercase tracking-wider">Cuota</TableHead>
-                <TableHead className="text-center font-bold text-slate-800 text-xs uppercase tracking-wider">Progreso</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider">Modalidad</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider">Inicio</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider">Fin</TableHead>
-                <TableHead className="font-bold text-slate-800 text-xs uppercase tracking-wider">Último Pago</TableHead>
-                <TableHead className="text-right font-bold text-slate-800 text-xs uppercase tracking-wider sticky right-0 bg-gradient-to-l from-slate-100 to-slate-50 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.15)]">Acciones</TableHead>
+              <TableRow className="bg-gradient-to-r from-slate-50 dark:from-slate-900 to-slate-100 dark:to-slate-800 border-b-2 border-border hover:bg-gradient-to-r">
+                <TableHead className="font-bold text-foreground text-xs uppercase tracking-wider py-4 w-16">ID</TableHead>
+                <TableHead className="font-bold text-foreground text-xs uppercase tracking-wider py-4">Cliente</TableHead>
+                <TableHead className="text-right font-bold text-foreground text-xs uppercase tracking-wider">Capital Restante</TableHead>
+                <TableHead className="text-right font-bold text-foreground text-xs uppercase tracking-wider">Interés Actual</TableHead>
+                <TableHead className="text-center font-bold text-foreground text-xs uppercase tracking-wider">Tasa</TableHead>
+                <TableHead className="text-right font-bold text-[#213685] dark:text-blue-300 text-xs uppercase tracking-wider">Saldo Restante</TableHead>
+                <TableHead className="text-right font-bold text-foreground text-xs uppercase tracking-wider">Cuota</TableHead>
+                <TableHead className="text-center font-bold text-foreground text-xs uppercase tracking-wider">Progreso</TableHead>
+                <TableHead className="font-bold text-foreground text-xs uppercase tracking-wider">Modalidad</TableHead>
+                <TableHead className="font-bold text-foreground text-xs uppercase tracking-wider">Inicio</TableHead>
+                <TableHead className="font-bold text-foreground text-xs uppercase tracking-wider">Fin</TableHead>
+                <TableHead className="font-bold text-foreground text-xs uppercase tracking-wider">Último Pago</TableHead>
+                <TableHead className="text-right font-bold text-foreground text-xs uppercase tracking-wider sticky right-0 bg-gradient-to-l from-slate-100 dark:from-slate-800 to-slate-50 dark:to-slate-900 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.15)]">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedPrestamos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center py-16 text-slate-400">
+                  <TableCell colSpan={13} className="text-center py-16 text-muted-foreground">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
-                        <Banknote className="w-8 h-8 text-slate-300" />
+                      <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center">
+                        <Banknote className="w-8 h-8 text-muted-foreground" />
                       </div>
                       <p className="text-lg font-medium">No hay préstamos activos</p>
-                      <p className="text-sm text-slate-400">Los préstamos aparecerán aquí una vez creados</p>
+                      <p className="text-sm text-muted-foreground">Los préstamos aparecerán aquí una vez creados</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -432,46 +452,53 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                       key={prestamo.IdPrestamo} 
                       className={`
                         cursor-pointer transition-all duration-150
-                        ${idx % 2 === 0 ? 'bg-white hover:bg-blue-50/50' : 'bg-slate-50/30 hover:bg-blue-50/50'}
-                        border-b border-slate-100
+                        ${idx % 2 === 0 ? 'bg-background hover:bg-accent' : 'bg-muted/30 hover:bg-accent'}
+                        border-b border-border
                         group
                       `}
                       onClick={() => handleRowClick(prestamo)}
                     >
                       <TableCell className="py-4">
-                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-xs font-bold tabular-nums" title={`ID Interno: ${prestamo.IdPrestamo}`}>
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-accent text-muted-foreground text-xs font-bold tabular-nums" title={`ID Interno: ${prestamo.IdPrestamo}`}>
                           #{prestamo.NumeroEmpresa ?? prestamo.IdPrestamo}
                         </span>
                       </TableCell>
 
-                      <TableCell className="font-semibold text-slate-900 py-4">
+                      <TableCell className="font-semibold text-foreground py-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold text-sm">
                             {prestamo.clienteNombre?.charAt(0) || '?'}
                           </div>
-                          <span className="group-hover:text-blue-700 transition-colors">{prestamo.clienteNombre}</span>
+                          <div className="flex flex-col">
+                            <span className="group-hover:text-blue-700 dark:text-blue-400 transition-colors">{prestamo.clienteNombre}</span>
+                            {prestamo.MontoMoraAcumulado > 0 && (
+                              <Badge className="bg-red-100 text-red-700 dark:text-red-400 border-red-300 w-fit text-[10px] mt-1">
+                                En Mora: {formatMoney(prestamo.MontoMoraAcumulado)}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
 
-                      <TableCell className="text-right font-semibold text-slate-700">
+                      <TableCell className="text-right font-semibold text-card-foreground">
                         {formatMoney(capRestante)}
                       </TableCell>
 
-                      <TableCell className="text-right text-slate-600 font-medium">
+                      <TableCell className="text-right text-muted-foreground font-medium">
                         {formatMoney(interesActual)}
                       </TableCell>
 
                       <TableCell className="text-center">
-                        <Badge variant="secondary" className="bg-slate-200 text-slate-700 font-bold px-3 py-1" title={`Tasa real guardada: ${prestamo.InteresPorcentaje}%`}>
+                        <Badge variant="secondary" className="bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-bold px-3 py-1" title={`Tasa real guardada: ${prestamo.InteresPorcentaje}%`}>
                           {Number(prestamo.InteresPorcentaje).toFixed(2)}%
                         </Badge>
                       </TableCell>
 
-                      <TableCell className="text-right font-bold text-[#213685] text-lg">
+                      <TableCell className="text-right font-bold text-[#213685] dark:text-blue-300 text-lg">
                         {formatMoney(restanteAPagar)}
                       </TableCell>
 
-                      <TableCell className="text-right font-semibold text-slate-900">
+                      <TableCell className="text-right font-semibold text-foreground">
                         {formatMoney(prestamo.MontoCuota)}
                       </TableCell>
 
@@ -485,31 +512,31 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                               style={{ width: `${progreso}%` }}
                             />
                           </div>
-                          <span className="text-xs font-mono font-bold text-slate-600">
+                          <span className="text-xs font-mono font-bold text-muted-foreground">
                             {cuotasPagadas}/{cuotasTotales}
                           </span>
                         </div>
                       </TableCell>
 
                       <TableCell>
-                        <Badge variant="outline" className="capitalize font-medium text-slate-600 border-slate-300">
+                        <Badge variant="outline" className="capitalize font-medium text-muted-foreground border-border">
                           {prestamo.ModalidadPago}
                         </Badge>
                       </TableCell>
 
-                      <TableCell className="text-slate-600 font-medium text-sm">
+                      <TableCell className="text-muted-foreground font-medium text-sm">
                         {formatDate(prestamo.FechaInicio)}
                       </TableCell>
 
-                      <TableCell className="text-slate-600 font-medium text-sm">
+                      <TableCell className="text-muted-foreground font-medium text-sm">
                         {formatDate(prestamo.FechaFinEstimada)}
                       </TableCell>
 
-                      <TableCell className="text-slate-600 font-medium text-sm">
+                      <TableCell className="text-muted-foreground font-medium text-sm">
                         {formatDate(prestamo.FechaUltimoPago)}
                       </TableCell>
 
-                      <TableCell className="text-right sticky right-0 bg-white group-hover:bg-blue-50/50 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.15)] transition-colors">
+                      <TableCell className="text-right sticky right-0 bg-background group-hover:bg-accent shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.15)] transition-colors">
                         <div className="flex justify-end gap-2">
                           {(() => {
                             const isCajero = user?.rol === 'Cajero';
@@ -522,6 +549,21 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                               <>
                                 {prestamo.Estado !== 'Pagado' && (
                                   <>
+                                    {prestamo.MontoMoraAcumulado > 0 && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-9 px-3 border-red-200 dark:border-red-900/50 text-red-600 hover:bg-red-50 dark:bg-red-950/40"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setMoraToPerdonar(prestamo);
+                                          setIsPerdonarMoraOpen(true);
+                                        }}
+                                        disabled={!puedeEditarOEliminar}
+                                      >
+                                        Perdonar Mora
+                                      </Button>
+                                    )}
                                     <Button 
                                       variant="default" 
                                       size="sm" 
@@ -529,7 +571,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                                       className={`shadow-md hover:shadow-lg transition-all h-9 px-3 ${
                                         puedeCobrar 
                                           ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white' 
-                                          : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                                          : 'bg-slate-200 text-muted-foreground cursor-not-allowed opacity-60'
                                       }`}
                                       onClick={(e) => puedeCobrar && handleOpenPay(e, prestamo)}
                                       title={puedeCobrar ? "Registrar Cobro u Opciones de Pago" : "Solo el prestamista asignado puede cobrar este préstamo"}
@@ -544,16 +586,16 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                                     <Button 
                                       variant="outline" 
                                       size="sm" 
-                                      className="h-9 px-3 border-slate-300 hover:bg-slate-100 hover:border-slate-400 transition-all"
+                                      className="h-9 px-3 border-border hover:bg-accent hover:border-slate-400 transition-all"
                                       onClick={(e) => { e.stopPropagation(); onEdit(prestamo); }}
                                       title="Editar Préstamo"
                                     >
-                                      <Edit className="h-4 w-4 text-slate-600" />
+                                      <Edit className="h-4 w-4 text-muted-foreground" />
                                     </Button>
                                     <Button 
                                       variant="outline" 
                                       size="sm" 
-                                      className="h-9 px-3 border-slate-300 hover:bg-red-50 hover:border-red-300 transition-all"
+                                      className="h-9 px-3 border-border hover:bg-red-50 dark:bg-red-950/40 hover:border-red-300 transition-all"
                                       onClick={(e) => { e.stopPropagation(); onDelete(prestamo.IdPrestamo); }}
                                       title="Eliminar Préstamo"
                                     >
@@ -576,7 +618,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
         {/* --- BARRA DE PAGINACIÓN DE PRÉSTAMOS --- */}
         {prestamosVisibles.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs font-medium text-slate-600">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-muted border-t border-border text-xs font-medium text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>Mostrar</span>
               <select
@@ -585,7 +627,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="bg-background border border-border rounded px-2 py-1 text-xs font-semibold text-card-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
                 <option value={5}>5</option>
                 <option value={10}>10</option>
@@ -593,7 +635,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                 <option value={50}>50</option>
               </select>
               <span>registros por página</span>
-              <span className="text-slate-400 ml-2">
+              <span className="text-muted-foreground ml-2">
                 (Mostrando {totalItems > 0 ? startIndex + 1 : 0} - {endIndex} de {totalItems})
               </span>
             </div>
@@ -621,7 +663,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                 <ChevronLeft className="h-4 w-4" />
               </Button>
 
-              <span className="px-3 py-1 bg-white border border-slate-300 rounded font-bold text-slate-800">
+              <span className="px-3 py-1 bg-background border border-border rounded font-bold text-foreground">
                 Página {validPage} de {totalPages}
               </span>
 
@@ -673,8 +715,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                     onClick={() => setPayMode('cuota')}
                     className={`px-2.5 py-2.5 rounded-lg border-2 text-xs font-semibold transition-all ${
                       payMode === 'cuota' 
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' 
-                        : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:text-emerald-400 shadow-sm' 
+                        : 'border-border text-muted-foreground hover:border-border hover:bg-muted'
                     }`}
                   >
                     <CalendarClock className="h-4 w-4 mx-auto mb-1" />
@@ -686,8 +728,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                   onClick={() => setPayMode('personalizado')}
                   className={`px-2.5 py-2.5 rounded-lg border-2 text-xs font-semibold transition-all ${
                     payMode === 'personalizado' 
-                      ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm' 
-                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 dark:text-blue-400 shadow-sm' 
+                      : 'border-border text-muted-foreground hover:border-border hover:bg-muted'
                   }`}
                 >
                   <Banknote className="h-4 w-4 mx-auto mb-1" />
@@ -699,7 +741,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                   className={`px-2.5 py-2.5 rounded-lg border-2 text-xs font-semibold transition-all ${
                     payMode === 'extraordinario' 
                       ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-sm' 
-                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                      : 'border-border text-muted-foreground hover:border-border hover:bg-muted'
                   }`}
                 >
                   <Zap className="h-4 w-4 mx-auto mb-1 text-purple-600" />
@@ -710,8 +752,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                   onClick={() => setPayMode('liquidar')}
                   className={`px-2.5 py-2.5 rounded-lg border-2 text-xs font-semibold transition-all ${
                     payMode === 'liquidar' 
-                      ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-sm' 
-                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                      ? 'border-orange-500 bg-orange-50 text-orange-700 dark:text-orange-400 shadow-sm' 
+                      : 'border-border text-muted-foreground hover:border-border hover:bg-muted'
                   }`}
                 >
                   <CheckCircle2 className="h-4 w-4 mx-auto mb-1" />
@@ -723,7 +765,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                   className={`px-2.5 py-2.5 rounded-lg border-2 text-xs font-semibold transition-all col-span-2 sm:col-span-1 ${
                     payMode === 'reenganche' 
                       ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-sm' 
-                      : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                      : 'border-border text-muted-foreground hover:border-border hover:bg-muted'
                   }`}
                 >
                   <RefreshCw className="h-4 w-4 mx-auto mb-1 text-amber-700" />
@@ -736,11 +778,11 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
               {payMode === 'cuota' && (
                 <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200 space-y-3">
                   <div className="flex justify-between items-center border-b border-emerald-200 pb-2">
-                    <span className="text-sm text-emerald-700">Cuota #{(selectedPrestamo.CantidadCuotas - selectedPrestamo.CuotasRestantes) + 1} de {selectedPrestamo.CantidadCuotas}</span>
-                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300">{selectedPrestamo.CuotasRestantes} restantes</Badge>
+                    <span className="text-sm text-emerald-700 dark:text-emerald-400">Cuota #{(selectedPrestamo.CantidadCuotas - selectedPrestamo.CuotasRestantes) + 1} de {selectedPrestamo.CantidadCuotas}</span>
+                    <Badge className="bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300">{selectedPrestamo.CuotasRestantes} restantes</Badge>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-emerald-700 font-medium">Monto a cobrar</span>
+                    <span className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">Monto a cobrar</span>
                     <span className="text-2xl font-bold text-emerald-800">
                       {formatMoney(selectedPrestamo.MontoCuota)}
                     </span>
@@ -752,11 +794,11 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                 <div className="space-y-4">
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-3">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-blue-700">Interés mínimo del periodo</span>
+                      <span className="text-blue-700 dark:text-blue-400">Interés mínimo del periodo</span>
                       <span className="font-bold text-blue-800">{formatMoney(interesMinimo)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-blue-700">Capital restante</span>
+                      <span className="text-blue-700 dark:text-blue-400">Capital restante</span>
                       <span className="font-bold text-blue-800">{formatMoney(capitalRestanteReal)}</span>
                     </div>
                   </div>
@@ -778,14 +820,14 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                   </div>
 
                   {montoPersonalizadoNum > 0 && esMontoValido && (
-                    <div className="bg-slate-50 p-3 rounded-lg border space-y-1 text-sm">
-                      <p className="font-semibold text-slate-700 mb-2">Desglose estimado:</p>
+                    <div className="bg-muted p-3 rounded-lg border space-y-1 text-sm">
+                      <p className="font-semibold text-card-foreground mb-2">Desglose estimado:</p>
                       <div className="flex justify-between">
-                        <span className="text-slate-500">→ Interés cobrado</span>
-                        <span className="font-mono font-semibold text-orange-600">{formatMoney(desgloseInteres)}</span>
+                        <span className="text-muted-foreground">→ Interés cobrado</span>
+                        <span className="font-mono font-semibold text-orange-600 dark:text-orange-400">{formatMoney(desgloseInteres)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-500">→ Abono a capital</span>
+                        <span className="text-muted-foreground">→ Abono a capital</span>
                         <span className="font-mono font-semibold text-green-600">{formatMoney(desgloseCapital)}</span>
                       </div>
                     </div>
@@ -811,7 +853,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                   ) : (
                     <div className="bg-purple-50 p-3.5 rounded-lg border border-purple-200 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
                           <Zap className="h-4 w-4 text-purple-600" />
                           Barrera Cumplida — Abono Directo a Capital
                         </span>
@@ -830,7 +872,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                   )}
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="montoExtraordinario" className="text-xs font-bold text-slate-800">
+                    <Label htmlFor="montoExtraordinario" className="text-xs font-bold text-foreground">
                       Monto a Abonar al Capital ($)
                     </Label>
                     <Input
@@ -840,15 +882,15 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                       disabled={!yaPagoInteresPeriodo}
                       value={montoExtraordinario}
                       onChange={(e) => setMontoExtraordinario(e.target.value)}
-                      className={`text-lg font-bold bg-white ${!yaPagoInteresPeriodo ? 'opacity-60 cursor-not-allowed border-amber-300' : 'text-purple-900 border-purple-300 focus:border-purple-500'}`}
+                      className={`text-lg font-bold bg-background ${!yaPagoInteresPeriodo ? 'opacity-60 cursor-not-allowed border-amber-300' : 'text-purple-900 dark:text-purple-300 border-purple-300 focus:border-purple-500'}`}
                       min={0}
                       step="0.01"
                     />
                   </div>
 
                   {montoExtraordinarioNum > 0 && yaPagoInteresPeriodo && (
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 text-xs">
-                      <div className="flex justify-between text-slate-600">
+                    <div className="bg-muted p-3 rounded-lg border border-border space-y-1.5 text-xs">
+                      <div className="flex justify-between text-muted-foreground">
                         <span>Capital Actual:</span>
                         <span className="font-mono font-medium">{formatMoney(capitalRestanteReal)}</span>
                       </div>
@@ -856,9 +898,9 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                         <span>- Abono Directo a Capital (100%):</span>
                         <span className="font-mono">-{formatMoney(montoExtraordinarioNum)}</span>
                       </div>
-                      <div className="flex justify-between pt-1.5 border-t border-slate-200 font-bold text-slate-900 text-sm">
+                      <div className="flex justify-between pt-1.5 border-t border-border font-bold text-foreground text-sm">
                         <span>Nuevo Capital Restante:</span>
-                        <span className="text-emerald-700">{formatMoney(nuevoCapitalPostExtraordinario)}</span>
+                        <span className="text-emerald-700 dark:text-emerald-400">{formatMoney(nuevoCapitalPostExtraordinario)}</span>
                       </div>
                     </div>
                   )}
@@ -874,22 +916,22 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
                   <div className="grid grid-cols-2 gap-2 text-xs border-b border-orange-200 pb-2">
                     <div>
-                      <span className="text-slate-500">Capital Restante:</span>
-                      <p className="font-semibold text-slate-800">{formatMoney(capitalRestanteReal)}</p>
+                      <span className="text-muted-foreground">Capital Restante:</span>
+                      <p className="font-semibold text-foreground">{formatMoney(capitalRestanteReal)}</p>
                     </div>
                     <div>
-                      <span className="text-slate-500">Interés del período:</span>
-                      <p className="font-semibold text-slate-800">{formatMoney(interesMinimo)}</p>
+                      <span className="text-muted-foreground">Interés del período:</span>
+                      <p className="font-semibold text-foreground">{formatMoney(interesMinimo)}</p>
                     </div>
                   </div>
 
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="montoLiquidar" className="text-xs font-bold text-orange-900">
+                      <Label htmlFor="montoLiquidar" className="text-xs font-bold text-orange-900 dark:text-orange-300">
                         Monto Final de Liquidación ($)
                       </Label>
                       {descuentoOtorgado > 0 && esMontoLiquidarValido && (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 px-2 py-0.5 rounded">
                           Rebaja: {formatMoney(descuentoOtorgado)}
                         </span>
                       )}
@@ -898,7 +940,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                       id="montoLiquidar"
                       type="number"
                       step="50"
-                      className="font-bold text-lg text-orange-900 border-orange-300 focus:border-orange-500 bg-white"
+                      className="font-bold text-lg text-orange-900 dark:text-orange-300 border-orange-300 focus:border-orange-500 bg-background"
                       value={montoLiquidar}
                       onChange={(e) => setMontoLiquidar(e.target.value)}
                       placeholder={montoLiquidacionDefecto.toString()}
@@ -927,7 +969,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                       setIsPayOpen(false);
                       if (onReenganchar) onReenganchar(selectedPrestamo);
                     }}
-                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold h-10 shadow-sm mt-1"
+                    className="w-full bg-amber-600 text-white dark:text-white hover:bg-amber-700 text-white font-semibold h-10 shadow-sm mt-1"
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Abrir Formulario de Reenganche
@@ -964,8 +1006,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
               <Button 
                 size="sm"
                 className={`text-white font-semibold text-xs ${
-                  payMode === 'cuota' ? 'bg-emerald-600 hover:bg-emerald-700' : 
-                  payMode === 'personalizado' ? 'bg-blue-600 hover:bg-blue-700' : 
+                  payMode === 'cuota' ? 'bg-emerald-600 text-white dark:text-white hover:bg-emerald-700' : 
+                  payMode === 'personalizado' ? 'bg-blue-600 text-white dark:text-white hover:bg-blue-700' : 
                   payMode === 'extraordinario' ? 'bg-purple-600 hover:bg-purple-700' :
                   'bg-orange-600 hover:bg-orange-700'
                 }`}
@@ -988,44 +1030,44 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
       {/* --- MODAL DE DETALLES E HISTORIAL --- */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-[95vw] md:max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200 p-6">
+          <div className="bg-gradient-to-r from-slate-50 dark:from-slate-900 to-slate-100 dark:to-slate-800 border-b-2 border-border p-6">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <DialogTitle className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <DialogTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
                   {selectedPrestamo?.clienteNombre}
                 </DialogTitle>
-                <DialogDescription className="text-slate-500 mt-1">
+                <DialogDescription className="text-muted-foreground mt-1">
                   Detalle de movimientos y tabla de amortización
                 </DialogDescription>
               </div>
-              <Badge variant="outline" className="text-md px-4 mr-4 py-1.5 bg-white shadow-sm font-semibold">
+              <Badge variant="outline" className="text-md px-4 mr-4 py-1.5 bg-background shadow-sm font-semibold">
                 {selectedPrestamo?.Estado}
               </Badge>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="shadow-sm border-2 border-slate-200 bg-white">
+              <Card className="shadow-sm border-2 border-border bg-background">
                 <CardContent className="p-4">
-                  <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Monto Prestado</div>
-                  <div className="text-xl font-bold text-slate-800">{selectedPrestamo ? formatMoney(selectedPrestamo.MontoPrestado) : 0}</div>
+                  <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-1">Monto Prestado</div>
+                  <div className="text-xl font-bold text-foreground">{selectedPrestamo ? formatMoney(selectedPrestamo.MontoPrestado) : 0}</div>
                 </CardContent>
               </Card>
-              <Card className="shadow-sm border-2 border-blue-200 bg-blue-50">
+              <Card className="shadow-sm border-2 border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/40 dark:bg-blue-950/40">
                 <CardContent className="p-4">
-                  <div className="text-xs text-blue-700 font-bold uppercase tracking-wider mb-1">Capital Restante</div>
-                  <div className="text-xl font-bold text-[#213685]">{selectedPrestamo ? formatMoney(selectedPrestamo.CapitalRestante || selectedPrestamo.MontoPrestado) : 0}</div>
+                  <div className="text-xs text-blue-700 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Capital Restante</div>
+                  <div className="text-xl font-bold text-[#213685] dark:text-blue-300">{selectedPrestamo ? formatMoney(selectedPrestamo.CapitalRestante || selectedPrestamo.MontoPrestado) : 0}</div>
                 </CardContent>
               </Card>
-              <Card className="shadow-sm border-2 border-emerald-200 bg-emerald-50">
+              <Card className="shadow-sm border-2 border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/40 dark:bg-emerald-950/40">
                 <CardContent className="p-4">
-                  <div className="text-xs text-emerald-700 font-bold uppercase tracking-wider mb-1">Cuota Actual</div>
-                  <div className="text-xl font-bold text-emerald-700">{selectedPrestamo ? formatMoney(selectedPrestamo.MontoCuota) : 0}</div>
+                  <div className="text-xs text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider mb-1">Cuota Actual</div>
+                  <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{selectedPrestamo ? formatMoney(selectedPrestamo.MontoCuota) : 0}</div>
                 </CardContent>
               </Card>
-              <Card className="shadow-sm border-2 border-orange-200 bg-orange-50">
+              <Card className="shadow-sm border-2 border-orange-200 dark:border-orange-900/50 bg-orange-50 dark:bg-orange-950/40 dark:bg-orange-950/40">
                 <CardContent className="p-4">
-                  <div className="text-xs text-orange-700 font-bold uppercase tracking-wider mb-1">Próx. Vencimiento</div>
-                  <div className="text-xl font-bold text-orange-600">
+                  <div className="text-xs text-orange-700 dark:text-orange-400 font-bold uppercase tracking-wider mb-1">Próx. Vencimiento</div>
+                  <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
                     {selectedPrestamo && selectedPrestamo.Estado !== 'Pagado' 
                       ? getProximoPago(selectedPrestamo.FechaInicio, selectedPrestamo.ModalidadPago, (selectedPrestamo.CantidadCuotas - selectedPrestamo.CuotasRestantes))
                       : '---'
@@ -1034,27 +1076,49 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                 </CardContent>
               </Card>
             </div>
+
+            {selectedPrestamo?.MontoMoraAcumulado > 0 && (
+              <div className="mt-4 bg-red-50 dark:bg-red-950/40 border-2 border-red-200 dark:border-red-900/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2 text-red-800 dark:text-red-300 font-bold">
+                  <AlertCircle className="w-5 h-5" />
+                  Información de Mora
+                  {selectedPrestamo.MoraCongelada && (
+                    <Badge className="bg-blue-100 text-blue-800 border-blue-300 ml-2">Congelada</Badge>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-red-600 font-bold uppercase tracking-wider mb-1">Monto Mora Acumulado</div>
+                    <div className="text-lg font-bold text-red-700 dark:text-red-400">{formatMoney(selectedPrestamo.MontoMoraAcumulado)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-red-600 font-bold uppercase tracking-wider mb-1">Cuotas en Mora</div>
+                    <div className="text-lg font-bold text-red-700 dark:text-red-400">{selectedPrestamo.CuotasEnMora}</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
-          <div className="flex-1 overflow-hidden bg-white">
+          <div className="flex-1 overflow-hidden bg-background">
             {isLoadingHistorial ? (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-                <Loader2 className="h-10 w-10 animate-spin mb-3 text-[#213685]" />
+                <Loader2 className="h-10 w-10 animate-spin mb-3 text-[#213685] dark:text-blue-300" />
                 <p>Cargando historial financiero...</p>
               </div>
             ) : (
               <ScrollArea className="h-full w-full">
                 <div className="p-6">
                   <Table>
-                    <TableHeader className="bg-gradient-to-r from-slate-50 to-slate-100 sticky top-0 z-10 shadow-sm">
-                      <TableRow className="border-b-2 border-slate-200">
-                        <TableHead className="w-[60px] text-center font-bold text-slate-800">#</TableHead>
-                        <TableHead className="font-bold text-slate-800">Estado</TableHead>
-                        <TableHead className="font-bold text-slate-800 text-right">Cuota</TableHead>
-                        <TableHead className="font-bold text-slate-800 text-right">Interés</TableHead>
-                        <TableHead className="font-bold text-slate-800 text-right">Capital</TableHead>
-                        <TableHead className="font-bold text-slate-800 text-right">Saldo</TableHead>
-                        <TableHead className="text-right font-bold text-slate-800">Detalle Pago</TableHead>
+                    <TableHeader className="bg-gradient-to-r from-slate-50 dark:from-slate-900 to-slate-100 dark:to-slate-800 sticky top-0 z-10 shadow-sm">
+                      <TableRow className="border-b-2 border-border">
+                        <TableHead className="w-[60px] text-center font-bold text-foreground">#</TableHead>
+                        <TableHead className="font-bold text-foreground">Estado</TableHead>
+                        <TableHead className="font-bold text-foreground text-right">Cuota</TableHead>
+                        <TableHead className="font-bold text-foreground text-right">Interés</TableHead>
+                        <TableHead className="font-bold text-foreground text-right">Capital</TableHead>
+                        <TableHead className="font-bold text-foreground text-right">Saldo</TableHead>
+                        <TableHead className="text-right font-bold text-foreground">Detalle Pago</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1064,40 +1128,40 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                           <TableRow 
                             key={fila.numeroCuota} 
                             className={`
-                              ${esPagado ? "bg-green-50/70 hover:bg-green-50" : "hover:bg-slate-50"} 
-                              transition-colors border-b border-slate-100
+                              ${esPagado ? "bg-green-50/70 dark:bg-green-950/40 hover:bg-green-50 dark:hover:bg-green-950/60" : "hover:bg-muted"} 
+                              transition-colors border-b border-border
                             `}
                           >
-                            <TableCell className="text-center font-bold text-slate-600">
+                            <TableCell className="text-center font-bold text-muted-foreground">
                               {fila.numeroCuota}
                             </TableCell>
                             <TableCell>
                               {esPagado ? (
-                                <Badge variant="outline" className="bg-white text-green-700 border-green-300 font-bold shadow-sm flex w-fit items-center gap-1.5">
+                                <Badge variant="outline" className="bg-background text-green-700 border-green-300 font-bold shadow-sm flex w-fit items-center gap-1.5">
                                   <CheckCircle2 className="h-3.5 w-3.5" /> Pagado
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="text-slate-500 border-slate-300 font-medium">
+                                <Badge variant="outline" className="text-muted-foreground border-border font-medium">
                                   Pendiente
                                 </Badge>
                               )}
                             </TableCell>
-                            <TableCell className="text-right font-mono text-slate-700 font-semibold">
+                            <TableCell className="text-right font-mono text-card-foreground font-semibold">
                               {formatMoney(fila.cuota)}
                             </TableCell>
-                            <TableCell className="text-right font-mono text-slate-600 text-sm">
+                            <TableCell className="text-right font-mono text-muted-foreground text-sm">
                               {formatMoney(fila.interes)}
                             </TableCell>
-                            <TableCell className="text-right font-mono text-slate-600 text-sm">
+                            <TableCell className="text-right font-mono text-muted-foreground text-sm">
                               {formatMoney(fila.capital)}
                             </TableCell>
-                            <TableCell className="text-right font-mono font-bold text-slate-800">
+                            <TableCell className="text-right font-mono font-bold text-foreground">
                               {formatMoney(fila.saldo)}
                             </TableCell>
                             <TableCell className="text-right">
                               {esPagado ? (
                                 <div className="flex flex-col items-end gap-1">
-                                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                                  <span className="text-xs font-bold text-card-foreground flex items-center gap-1">
                                     {formatDate(fila.fechaPagoReal)}
                                   </span>
                                   <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
@@ -1105,7 +1169,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                                   </Badge>
                                 </div>
                               ) : (
-                                <span className="text-slate-300">-</span>
+                                <span className="text-muted-foreground">-</span>
                               )}
                             </TableCell>
                           </TableRow>
@@ -1118,10 +1182,25 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
             )}
           </div>
           
-          <DialogFooter className="border-t-2 border-slate-200 p-4 bg-slate-50">
+          <DialogFooter className="border-t-2 border-border p-4 bg-muted">
             <Button variant="outline" onClick={() => setIsDetailsOpen(false)} className="font-semibold">
               Cerrar Detalle
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPerdonarMoraOpen} onOpenChange={setIsPerdonarMoraOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Perdón de Mora</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas perdonar la mora acumulada de {moraToPerdonar ? formatMoney(moraToPerdonar.MontoMoraAcumulado) : ''} para este préstamo? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsPerdonarMoraOpen(false)}>Cancelar</Button>
+            <Button className="bg-red-600 text-white dark:text-white hover:bg-red-700 text-white" onClick={handlePerdonarMora}>Confirmar Perdón</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

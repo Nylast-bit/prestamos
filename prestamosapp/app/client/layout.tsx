@@ -31,7 +31,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return (
       <div className="flex h-screen w-full">
         {/* Sidebar Skeleton */}
-        <div className="w-[250px] border-r bg-slate-50 hidden md:block p-4">
+        <div className="w-[250px] border-r bg-muted hidden md:block p-4">
           <Skeleton className="h-8 w-3/4 mb-8" />
           <div className="space-y-4">
              <Skeleton className="h-10 w-full" />
@@ -91,7 +91,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white z-10">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-background z-10">
           <SidebarTrigger className="-ml-1" />
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold">{getSectionTitle()}</h1>

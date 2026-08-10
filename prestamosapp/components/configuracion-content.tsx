@@ -216,7 +216,7 @@ export function ConfiguracionContent() {
             <div className="grid grid-cols-3 gap-4">
               <Button
                 variant={theme === "light" ? "default" : "outline"}
-                className={`h-20 flex-col gap-2 ${theme === "light" ? "bg-[#213685] hover:bg-[#213685]/90" : "hover:bg-[#213685]/10"}`}
+                className={`h-20 flex-col gap-2 ${theme === "light" ? "bg-[#213685] text-white hover:bg-[#213685]/90" : "hover:bg-[#213685] hover:text-white"}`}
                 onClick={() => setTheme("light")}
               >
                 <Sun className="h-6 w-6" />
@@ -224,7 +224,7 @@ export function ConfiguracionContent() {
               </Button>
               <Button
                 variant={theme === "dark" ? "default" : "outline"}
-                className={`h-20 flex-col gap-2 ${theme === "dark" ? "bg-[#213685] hover:bg-[#213685]/90" : "hover:bg-[#213685]/10"}`}
+                className={`h-20 flex-col gap-2 ${theme === "dark" ? "bg-[#213685] text-white hover:bg-[#213685]/90" : "hover:bg-[#213685] hover:text-white"}`}
                 onClick={() => setTheme("dark")}
               >
                 <Moon className="h-6 w-6" />
@@ -232,7 +232,7 @@ export function ConfiguracionContent() {
               </Button>
               <Button
                 variant={theme === "system" ? "default" : "outline"}
-                className={`h-20 flex-col gap-2 ${theme === "system" ? "bg-[#213685] hover:bg-[#213685]/90" : "hover:bg-[#213685]/10"}`}
+                className={`h-20 flex-col gap-2 ${theme === "system" ? "bg-[#213685] text-white hover:bg-[#213685]/90" : "hover:bg-[#213685] hover:text-white"}`}
                 onClick={() => setTheme("system")}
               >
                 <Monitor className="h-6 w-6" />
@@ -378,7 +378,7 @@ export function ConfiguracionContent() {
             <div className="grid gap-3 md:grid-cols-2">
               <Button 
                 variant="outline" 
-                className="justify-start gap-2 hover:bg-[#213685]/10"
+                className="justify-start gap-2 hover:bg-[#213685] hover:text-white"
                 onClick={handleExportExcel}
                 disabled={isExporting}
               >
@@ -397,7 +397,7 @@ export function ConfiguracionContent() {
                 />
                 <Button 
                   variant="outline" 
-                  className="w-full justify-start gap-2 hover:bg-[#213685]/10"
+                  className="w-full justify-start gap-2 hover:bg-[#213685] hover:text-white"
                   asChild
                   disabled={isImporting}
                 >
@@ -408,7 +408,7 @@ export function ConfiguracionContent() {
                 </Button>
               </div>
 
-              <Button variant="outline" className="justify-start gap-2 hover:bg-[#213685]/10">
+              <Button variant="outline" className="justify-start gap-2 hover:bg-[#213685] hover:text-white">
                 <Shield className="h-4 w-4" />
                 Limpiar Caché
               </Button>

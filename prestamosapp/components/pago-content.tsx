@@ -10,12 +10,13 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
-  Search, Trash2, Banknote, TrendingUp, Loader2, ArrowDownLeft, Printer,
+  Search, Trash2, Banknote, TrendingUp, Loader2, ArrowDownLeft, Printer, Clipboard,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Sparkles, Calendar, DollarSign, Zap, CreditCard
 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
 import { VolantePago } from "@/components/VolantePagoPDF"
+import { useAuthStore } from "@/store/authStore"
 
 interface Pago {
   IdPago: number
@@ -52,6 +53,7 @@ const formatMoney = (amount: number) => {
 }
 
 export function PagosContent() {
+  const user = useAuthStore((state) => state.user)
   const [pagos, setPagos] = useState<Pago[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -66,8 +68,9 @@ export function PagosContent() {
   const [pagoToDelete, setPagoToDelete] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Impresión
+  // Impresión y Copia de Recibo
   const [pagoParaImprimir, setPagoParaImprimir] = useState<any>(null)
+  const [copiandoPagoId, setCopiandoPagoId] = useState<number | null>(null)
   const componentRef = useRef<HTMLDivElement>(null)
 
   const handlePrint = useReactToPrint({
@@ -80,7 +83,7 @@ export function PagosContent() {
     setCurrentPage(1)
   }, [searchTerm, filtroTipo])
 
-  const prepararImpresion = (pago: Pago) => {
+  const obtenerDatosVolante = (pago: Pago) => {
     const esSoloInteres = pago.Prestamo?.TipoCalculo === "solo_interes";
     const capitalRegular = Number(pago.MontoCapitalAbonado || 0);
     const capitalExtra = 0;
@@ -105,32 +108,87 @@ export function PagosContent() {
       montoPendienteCalculado = Number(pago.Prestamo.CapitalRestante);
     }
 
-    const datosVolante = {
-        IdPago: pago.IdPago,
-        FechaPago: pago.FechaPago,
-        MontoPagado: Number(pago.MontoPagado),
-        Cliente: pago.Prestamo?.Cliente?.Nombre || "Cliente Desconocido",
-        IdPrestamo: pago.IdPrestamo,
-        NumeroCuota: pago.NumeroCuota,
-        Observaciones: pago.Observaciones || "",
-        TipoPago: pago.TipoPago,
-        PagoCapital: capitalRegular,
-        PagoInteres: Number(pago.MontoInteresPagado),
-        PagoAbono: capitalExtra,
-        PagoMora: 0,
-        InicioPrestamo: pago.Prestamo?.FechaInicio || "",
-        TerminoPrestamo: pago.Prestamo?.FechaFinEstimada || "",
-        MontoPendiente: montoPendienteCalculado,
-        CuotasTotales: cuotasTotales,
-        CuotasRestantes: cuotasRestantes,
-        MontoCuota: montoCuota
-    }
+    return {
+      IdPago: pago.IdPago,
+      FechaPago: pago.FechaPago,
+      MontoPagado: Number(pago.MontoPagado),
+      Cliente: pago.Prestamo?.Cliente?.Nombre || "Cliente Desconocido",
+      IdPrestamo: pago.IdPrestamo,
+      NumeroCuota: pago.NumeroCuota,
+      Observaciones: pago.Observaciones || "",
+      TipoPago: pago.TipoPago,
+      PagoCapital: capitalRegular,
+      PagoInteres: Number(pago.MontoInteresPagado),
+      PagoAbono: capitalExtra,
+      PagoMora: 0,
+      InicioPrestamo: pago.Prestamo?.FechaInicio || "",
+      TerminoPrestamo: pago.Prestamo?.FechaFinEstimada || "",
+      MontoPendiente: montoPendienteCalculado,
+      CuotasTotales: cuotasTotales,
+      CuotasRestantes: cuotasRestantes,
+      MontoCuota: montoCuota,
+      NombrePrestamista: user?.nombre || "Firma Autorizada",
+      NombreEmpresa: user?.nombreEmpresa || "Credit Way"
+    };
+  }
 
-    setPagoParaImprimir(datosVolante)
+  const prepararImpresion = (pago: Pago) => {
+    const datosVolante = obtenerDatosVolante(pago);
+    setPagoParaImprimir(datosVolante);
 
     setTimeout(() => {
-        handlePrint()
-    }, 150)
+      handlePrint();
+    }, 150);
+  }
+
+  const copiarReciboComoImagen = async (pago: Pago) => {
+    setCopiandoPagoId(pago.IdPago);
+    const toastId = toast.loading("Generando imagen del recibo...");
+
+    try {
+      const datosVolante = obtenerDatosVolante(pago);
+      setPagoParaImprimir(datosVolante);
+
+      // Esperar a que React renderice los datos en el componente
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      if (!componentRef.current) {
+        throw new Error("No se pudo acceder al formato del recibo");
+      }
+
+      const { toBlob } = await import("html-to-image");
+      const blob = await toBlob(componentRef.current, {
+        quality: 0.95,
+        backgroundColor: "#ffffff",
+        pixelRatio: 2,
+        cacheBust: true,
+        skipFonts: true,
+      });
+
+      if (!blob) {
+        throw new Error("Error al convertir el recibo a imagen");
+      }
+
+      if (navigator.clipboard && typeof ClipboardItem !== "undefined") {
+        const item = new ClipboardItem({ "image/png": blob });
+        await navigator.clipboard.write([item]);
+        toast.success("¡Recibo copiado al portapapeles como imagen!", { id: toastId });
+      } else {
+        // Fallback de descarga si el navegador no permite escribir imágenes al clipboard
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Recibo-${datosVolante.IdPago}.png`;
+        link.click();
+        URL.revokeObjectURL(url);
+        toast.success("Recibo descargado como imagen.", { id: toastId });
+      }
+    } catch (error: any) {
+      console.error("Error al copiar imagen del recibo:", error);
+      toast.error(`Error: ${error.message || "No se pudo copiar la imagen"}`, { id: toastId });
+    } finally {
+      setCopiandoPagoId(null);
+    }
   }
 
   useEffect(() => {
@@ -245,15 +303,15 @@ export function PagosContent() {
   if (loading) return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
           <Loader2 className="h-8 w-8 animate-spin mb-2 text-[#213685]" />
-          <p className="font-medium text-sm text-slate-600">Cargando historial de pagos...</p>
+          <p className="font-medium text-sm text-muted-foreground">Cargando historial de pagos...</p>
       </div>
   )
 
   return (
     <div className="space-y-6">
       
-      {/* Componente Oculto para Impresión */}
-      <div style={{ display: "none" }}>
+      {/* Componente Oculto para Impresión y Copia de Imagen */}
+      <div style={{ position: "fixed", left: "-9999px", top: "-9999px", width: "800px", zIndex: -100, opacity: 0, pointerEvents: "none" }}>
         <VolantePago ref={componentRef} data={pagoParaImprimir} />
       </div>
 
@@ -261,12 +319,12 @@ export function PagosContent() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-l-4 border-l-[#213685] shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Histórico</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Histórico</CardTitle>
             <Banknote className="h-4 w-4 text-[#213685]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-[#213685]">{formatMoney(totalCobrado)}</div>
-            <p className="text-[11px] font-medium text-slate-500 mt-1 flex items-center gap-1">
+            <p className="text-[11px] font-medium text-muted-foreground mt-1 flex items-center gap-1">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500"></span>
               {pagos.length} cobros registrados
             </p>
@@ -275,7 +333,7 @@ export function PagosContent() {
 
         <Card className="border-l-4 border-l-emerald-600 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">Cobrado Este Mes</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cobrado Este Mes</CardTitle>
             <Calendar className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
@@ -289,12 +347,12 @@ export function PagosContent() {
 
         <Card className="border-l-4 border-l-amber-500 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">Ganancia Neta (Intereses)</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ganancia Neta (Intereses)</CardTitle>
             <TrendingUp className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-amber-600">{formatMoney(totalInteres)}</div>
-            <p className="text-[11px] font-medium text-slate-500 mt-1">
+            <p className="text-[11px] font-medium text-muted-foreground mt-1">
               Margen de Ganancia: <strong className="text-amber-700 font-bold">{pctInteres}%</strong> del total
             </p>
           </CardContent>
@@ -302,12 +360,12 @@ export function PagosContent() {
 
         <Card className="border-l-4 border-l-indigo-500 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">Pago Promedio</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pago Promedio</CardTitle>
             <CreditCard className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-indigo-700">{formatMoney(ticketPromedio)}</div>
-            <p className="text-[11px] font-medium text-slate-500 mt-1">
+            <p className="text-[11px] font-medium text-muted-foreground mt-1">
               Método líder: <strong className="text-indigo-800 font-semibold">{metodoLider}</strong>
             </p>
           </CardContent>
@@ -317,7 +375,7 @@ export function PagosContent() {
       {/* --- BANNER FINANCIERO CREATIVO --- */}
       <div className="bg-gradient-to-r from-[#213685] via-blue-900 to-indigo-900 text-white rounded-xl p-4 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-white/10 rounded-lg backdrop-blur-sm">
+          <div className="p-2.5 bg-background/10 rounded-lg backdrop-blur-sm">
             <Sparkles className="h-5 w-5 text-amber-300 animate-pulse" />
           </div>
           <div>
@@ -330,18 +388,18 @@ export function PagosContent() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-end sm:self-center bg-white/10 px-3 py-1.5 rounded-lg text-xs font-medium backdrop-blur-sm border border-white/10">
+        <div className="flex items-center gap-2 self-end sm:self-center bg-background/10 px-3 py-1.5 rounded-lg text-xs font-medium backdrop-blur-sm border border-white/10">
           <DollarSign className="h-4 w-4 text-emerald-400" />
           <span>Cobros de Hoy: <strong>{formatMoney(cobradoHoy)}</strong></span>
         </div>
       </div>
 
       {/* --- TABLA DE PAGOS --- */}
-      <Card className="shadow-sm border-slate-200">
+      <Card className="shadow-sm border-border">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-slate-800 text-lg">Historial de Pagos</CardTitle>
+              <CardTitle className="text-foreground text-lg">Historial de Pagos</CardTitle>
               <CardDescription className="text-xs">Registro detallado y auditable de todas las transacciones recibidas</CardDescription>
             </div>
           </div>
@@ -349,9 +407,9 @@ export function PagosContent() {
 
         <CardContent className="p-0">
           {/* Buscador y Filtros */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-6 py-3 bg-slate-50 border-y border-slate-200">
-            <div className="flex items-center space-x-2 flex-1 bg-white px-3 py-1.5 rounded-md border border-slate-200 shadow-sm focus-within:ring-1 focus-within:ring-blue-500">
-              <Search className="h-4 w-4 text-slate-400" />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-6 py-3 bg-muted border-y border-border">
+            <div className="flex items-center space-x-2 flex-1 bg-background px-3 py-1.5 rounded-md border border-border shadow-sm focus-within:ring-1 focus-within:ring-blue-500">
+              <Search className="h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por cliente, recibo o préstamo..."
                 value={searchTerm}
@@ -360,18 +418,18 @@ export function PagosContent() {
               />
             </div>
             
-            <div className="flex items-center gap-1 bg-white p-1 rounded-md border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-1 bg-background p-1 rounded-md border border-border shadow-sm">
               <button
                 onClick={() => setFiltroTipo('todos')}
-                className={`px-3 py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'todos' ? 'bg-[#213685] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-3 py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'todos' ? 'bg-[#213685] text-white shadow-sm' : 'text-muted-foreground hover:text-card-foreground'}`}
               >Todos ({pagos.length})</button>
               <button
                 onClick={() => setFiltroTipo('cuota')}
-                className={`px-3 py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'cuota' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-3 py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'cuota' ? 'bg-emerald-600 text-white shadow-sm' : 'text-muted-foreground hover:text-card-foreground'}`}
               >Cuotas Regular</button>
               <button
                 onClick={() => setFiltroTipo('personalizado')}
-                className={`px-3 py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'personalizado' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-3 py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'personalizado' ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:text-card-foreground'}`}
               >Personalizados / Liq.</button>
             </div>
           </div>
@@ -379,37 +437,37 @@ export function PagosContent() {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-50 border-b border-slate-200">
-                  <TableHead className="font-bold text-slate-700 text-xs py-3.5"># Recibo</TableHead>
-                  <TableHead className="font-bold text-slate-700 text-xs">Fecha</TableHead>
-                  <TableHead className="font-bold text-slate-700 text-xs">Cliente / Préstamo</TableHead>
-                  <TableHead className="font-bold text-slate-700 text-xs">Cuota</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700 text-xs">Monto Total</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700 text-xs">Desglose</TableHead>
-                  <TableHead className="text-center font-bold text-slate-700 text-xs">Método</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700 text-xs pr-6">Acciones</TableHead>
+                <TableRow className="bg-muted border-b border-border">
+                  <TableHead className="font-bold text-card-foreground text-xs py-3.5"># Recibo</TableHead>
+                  <TableHead className="font-bold text-card-foreground text-xs">Fecha</TableHead>
+                  <TableHead className="font-bold text-card-foreground text-xs">Cliente / Préstamo</TableHead>
+                  <TableHead className="font-bold text-card-foreground text-xs">Cuota</TableHead>
+                  <TableHead className="text-right font-bold text-card-foreground text-xs">Monto Total</TableHead>
+                  <TableHead className="text-right font-bold text-card-foreground text-xs">Desglose</TableHead>
+                  <TableHead className="text-center font-bold text-card-foreground text-xs">Método</TableHead>
+                  <TableHead className="text-right font-bold text-card-foreground text-xs pr-6">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedPagos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-12 text-slate-400">
+                    <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                       No se encontraron pagos con los criterios seleccionados.
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedPagos.map((pago) => (
-                    <TableRow key={pago.IdPago} className="hover:bg-slate-50/70 border-b border-slate-100 transition-colors">
-                      <TableCell className="font-mono text-xs font-bold text-slate-600">
+                    <TableRow key={pago.IdPago} className="hover:bg-muted/70 border-b border-slate-100 transition-colors">
+                      <TableCell className="font-mono text-xs font-bold text-muted-foreground">
                         #{(pago.NumeroEmpresa ?? pago.IdPago).toString().padStart(4, '0')}
                       </TableCell>
                       
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="text-xs font-semibold text-slate-800">
+                          <span className="text-xs font-semibold text-foreground">
                             {new Date(pago.FechaPago).toLocaleDateString()}
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-muted-foreground">
                             {new Date(pago.FechaPago).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           </span>
                         </div>
@@ -420,14 +478,14 @@ export function PagosContent() {
                           <span className="font-semibold text-xs text-[#213685]">
                             {pago.Prestamo?.Cliente?.Nombre || "Cliente Desconocido"}
                           </span>
-                          <span className="text-[10px] text-slate-500 font-mono">
+                          <span className="text-[10px] text-muted-foreground font-mono">
                             Préstamo #{pago.Prestamo?.NumeroEmpresa ?? pago.IdPrestamo}
                           </span>
                         </div>
                       </TableCell>
 
                       <TableCell>
-                        <Badge variant="outline" className="font-mono text-[10px] px-2 py-0.5 bg-slate-50">
+                        <Badge variant="outline" className="font-mono text-[10px] px-2 py-0.5 bg-muted">
                           {pago.TipoPago === 'Liquidación' ? 'Liquidación' : `Cuota ${pago.NumeroCuota}`}
                         </Badge>
                       </TableCell>
@@ -440,8 +498,8 @@ export function PagosContent() {
 
                       <TableCell className="text-right">
                          <div className="flex flex-col text-[11px]">
-                            <span className="text-slate-700">Cap: <b>{formatMoney(pago.MontoCapitalAbonado)}</b></span>
-                            <span className="text-slate-400">Int: {formatMoney(pago.MontoInteresPagado)}</span>
+                            <span className="text-card-foreground">Cap: <b>{formatMoney(pago.MontoCapitalAbonado)}</b></span>
+                            <span className="text-muted-foreground">Int: {formatMoney(pago.MontoInteresPagado)}</span>
                          </div>
                       </TableCell>
 
@@ -451,7 +509,7 @@ export function PagosContent() {
                           className={`text-[10px] font-semibold px-2 py-0.5 ${
                             pago.TipoPago === 'Personalizado' ? 'bg-blue-100 text-blue-800' :
                             pago.TipoPago === 'Liquidación' ? 'bg-orange-100 text-orange-800' :
-                            'bg-slate-100 text-slate-700'
+                            'bg-accent text-card-foreground'
                           }`}
                         >
                           {pago.TipoPago}
@@ -460,21 +518,39 @@ export function PagosContent() {
 
                       <TableCell className="text-right pr-6">
                         <div className="flex items-center justify-end gap-1">
+                          {/* BOTÓN COPIAR RECIBO IMAGEN (A LA IZQUIERDA) */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={copiandoPagoId === pago.IdPago}
+                            onClick={() => copiarReciboComoImagen(pago)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50"
+                            title="Copiar Recibo como Imagen (JPG/PNG)"
+                          >
+                            {copiandoPagoId === pago.IdPago ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+                            ) : (
+                              <Clipboard className="h-4 w-4" />
+                            )}
+                          </Button>
+
+                          {/* BOTÓN IMPRIMIR RECIBO PDF */}
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => prepararImpresion(pago)}
-                            className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-                            title="Imprimir Recibo"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
+                            title="Imprimir Recibo PDF"
                           >
                             <Printer className="h-4 w-4" />
                           </Button>
 
+                          {/* BOTÓN REVERTIR PAGO */}
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => confirmDelete(pago.IdPago)}
-                            className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600 hover:bg-red-50"
                             title="Revertir Pago"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -490,7 +566,7 @@ export function PagosContent() {
 
           {/* --- BARRA DE PAGINACIÓN DE PAGOS --- */}
           {filteredPagos.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-3 bg-slate-50 border-t border-slate-200 text-xs font-medium text-slate-600">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-3 bg-muted border-t border-border text-xs font-medium text-muted-foreground">
               <div className="flex items-center gap-2">
                 <span>Mostrar</span>
                 <select
@@ -499,7 +575,7 @@ export function PagosContent() {
                     setPageSize(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="bg-background border border-border rounded px-2 py-1 text-xs font-semibold text-card-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value={5}>5</option>
                   <option value={10}>10</option>
@@ -507,7 +583,7 @@ export function PagosContent() {
                   <option value={50}>50</option>
                 </select>
                 <span>pagos por página</span>
-                <span className="text-slate-400 ml-2">
+                <span className="text-muted-foreground ml-2">
                   (Mostrando {totalItems > 0 ? startIndex + 1 : 0} - {endIndex} de {totalItems})
                 </span>
               </div>
@@ -535,7 +611,7 @@ export function PagosContent() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
 
-                <span className="px-3 py-1 bg-white border border-slate-300 rounded font-bold text-slate-800">
+                <span className="px-3 py-1 bg-background border border-border rounded font-bold text-foreground">
                   Página {validPage} de {totalPages}
                 </span>
 
@@ -574,11 +650,11 @@ export function PagosContent() {
                 <Trash2 className="h-5 w-5" />
                 ¿Revertir este pago?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs space-y-2 text-slate-600">
+            <AlertDialogDescription className="text-xs space-y-2 text-muted-foreground">
               <span>Estás a punto de eliminar el registro de pago.</span>
               <br/>
-              <span className="font-semibold text-slate-700">Acciones automáticas que se tomarán:</span>
-              <ul className="list-disc list-inside text-xs mt-1 space-y-1 text-slate-600">
+              <span className="font-semibold text-card-foreground">Acciones automáticas que se tomarán:</span>
+              <ul className="list-disc list-inside text-xs mt-1 space-y-1 text-muted-foreground">
                   <li>Se eliminará el recibo de pago #{pagoToDelete}.</li>
                   <li>Se restaurará el saldo y capital del préstamo correspondientes.</li>
                   <li>Se anulará el registro en la consolidación de caja.</li>
@@ -591,7 +667,7 @@ export function PagosContent() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-red-600 text-white dark:text-white hover:bg-red-700 text-white"
               disabled={isDeleting}
             >
               {isDeleting ? "Revirtiendo..." : "Confirmar Reversión"}

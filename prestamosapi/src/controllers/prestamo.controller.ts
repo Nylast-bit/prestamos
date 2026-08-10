@@ -197,7 +197,7 @@ export const simularPrestamo = async (req: Request, res: Response) => {
     const { monto, tasaInteres, numeroCuotas, tipoCalculo } = req.body;
 
     // 1. El controlador hace la validación de entrada
-    if (!monto || !tasaInteres || !numeroCuotas || !tipoCalculo) {
+    if (monto === undefined || tasaInteres === undefined || numeroCuotas === undefined || !tipoCalculo) {
       return res.status(400).json({ error: "Faltan parámetros" });
     }
 
@@ -238,7 +238,7 @@ export const opcionesSimularPrestamoCapitalInteres = async (
     const { monto, tasaInteres, numeroCuotas } = req.body;
 
     // 1. El controlador valida la entrada
-    if (!monto || !tasaInteres || !numeroCuotas) {
+    if (monto === undefined || tasaInteres === undefined || numeroCuotas === undefined) {
       return res.status(400).json({ error: "Faltan parámetros" });
     }
 

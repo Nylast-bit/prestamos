@@ -114,9 +114,9 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
           <div className="relative">
-            <div className="w-12 h-12 rounded-full border-4 border-slate-200 border-t-[#213685] animate-spin" />
+            <div className="w-12 h-12 rounded-full border-4 border-border border-t-[#213685] animate-spin" />
           </div>
-          <p className="text-sm text-slate-500 font-medium animate-pulse">Cargando dashboard...</p>
+          <p className="text-sm text-muted-foreground font-medium animate-pulse">Cargando dashboard...</p>
         </div>
       </div>
     );
@@ -131,12 +131,12 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
             <LayoutDashboard className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
               {filtroPrestatario === "todos"
                 ? "Dashboard General"
                 : `${prestatarios.find(p => p.IdPrestatario.toString() === filtroPrestatario)?.Nombre || ''}`}
             </h2>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               {filtroPrestatario === "todos"
                 ? "Resumen completo de operaciones"
                 : "Resumen del prestatario seleccionado"}
@@ -144,9 +144,9 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-slate-400" />
+          <Filter className="h-4 w-4 text-muted-foreground" />
           <Select value={filtroPrestatario} onValueChange={setFiltroPrestatario}>
-            <SelectTrigger className="w-[220px] border-slate-200 bg-white shadow-sm focus:ring-[#213685] text-sm">
+            <SelectTrigger className="w-[220px] border-border bg-background shadow-sm focus:ring-[#213685] text-sm">
               <SelectValue placeholder="Seleccionar prestatario" />
             </SelectTrigger>
             <SelectContent>

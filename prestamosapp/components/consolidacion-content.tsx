@@ -261,7 +261,7 @@ export function ConsolidacionContent() {
             
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-[#213685] hover:bg-[#213685]/90">
+                <Button className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90">
                   <Plus className="h-4 w-4 mr-2" /> Nuevo Registro
                 </Button>
               </DialogTrigger>
@@ -312,7 +312,7 @@ export function ConsolidacionContent() {
                   </div>
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={resetForm} disabled={submitting}>Cancelar</Button>
-                    <Button type="submit" disabled={submitting} className="bg-[#213685] hover:bg-[#213685]/90">
+                    <Button type="submit" disabled={submitting} className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90">
                       {submitting ? "Procesando..." : `${editingRegistro ? "Actualizar" : "Crear"} Registro`}
                     </Button>
                   </DialogFooter>
@@ -329,11 +329,11 @@ export function ConsolidacionContent() {
                 placeholder="Buscar por concepto o estado..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-white"
+                className="pl-9 bg-background"
               />
             </div>
             <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-              <SelectTrigger className="w-full md:w-[200px] bg-white">
+              <SelectTrigger className="w-full md:w-[200px] bg-background">
                 <SelectValue placeholder="Filtrar por Estado" />
               </SelectTrigger>
               <SelectContent>
@@ -358,7 +358,7 @@ export function ConsolidacionContent() {
           )}
           
           {/* OBSERVACIONES */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <div className="mt-6 p-4 bg-muted rounded-lg">
             <h4 className="font-medium mb-2">OBSERVACIONES</h4>
             <p className="text-sm text-muted-foreground mb-2">{consolidacion.Observaciones || 'Sin observaciones registradas.'}</p>
             <div className="grid grid-cols-3 gap-4 text-sm">
