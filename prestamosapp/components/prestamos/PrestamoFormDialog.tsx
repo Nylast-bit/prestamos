@@ -415,7 +415,6 @@ export function PrestamoFormDialog({
                         updateField("FechaInicio", localDate.toISOString().split("T")[0]);
                       }
                     }}
-                    initialFocus
                   />
                 </PopoverContent>
                 </Popover>
@@ -455,7 +454,6 @@ export function PrestamoFormDialog({
                           updateField("FechaFinEstimada", `${year}-${month}-${day}`);
                         }
                       }}
-                      initialFocus
                     />
                     <div className="border-t pt-2 mt-1">
                       <Button
