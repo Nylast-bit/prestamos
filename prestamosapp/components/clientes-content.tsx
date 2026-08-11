@@ -174,7 +174,7 @@ export function ClientesContent() {
     
     let hasError = false;
     
-    if (!validateCedula(formData.Cedula)) {
+    if (formData.Cedula && !validateCedula(formData.Cedula)) {
       setFormErrors(prev => ({...prev, cedula: "Cédula inválida (Módulo 10)"}))
       hasError = true;
     }
@@ -523,7 +523,7 @@ export function ClientesContent() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="cedula">Cédula</Label>
+                        <Label htmlFor="cedula">Cédula (Opcional)</Label>
                         <Input
                           id="cedula"
                           value={formData.Cedula}
@@ -532,19 +532,17 @@ export function ClientesContent() {
                             if (formErrors.cedula) setFormErrors({...formErrors, cedula: ""})
                           }}
                           placeholder="000-0000000-0"
-                          required
                           className={formErrors.cedula ? "border-red-500 focus-visible:ring-red-500" : ""}
                         />
                         {formErrors.cedula && <span className="text-xs text-red-500">{formErrors.cedula}</span>}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="telefono">Teléfono</Label>
+                        <Label htmlFor="telefono">Teléfono (Opcional)</Label>
                         <Input
                           id="telefono"
                           value={formData.Telefono}
                           onChange={(e) => setFormData({...formData, Telefono: e.target.value.replace(/\D/g, '')})}
                           placeholder="809-000-0000"
-                          required
                         />
                       </div>
                     </div>
@@ -576,7 +574,7 @@ export function ClientesContent() {
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="direccion">Dirección</Label>
+                        <Label htmlFor="direccion">Dirección (Opcional)</Label>
                         <Button type="button" variant="ghost" size="sm" onClick={openMap} className="h-6 text-[#213685] p-0 pr-2">
                           <MapPin className="w-3 h-3 mr-1" /> Buscar en mapa
                         </Button>
@@ -586,7 +584,6 @@ export function ClientesContent() {
                         value={formData.Direccion}
                         onChange={(e) => setFormData({...formData, Direccion: e.target.value})}
                         placeholder="Calle, número, sector, ciudad"
-                        required
                       />
                     </div>
                   </div>
@@ -665,7 +662,7 @@ export function ClientesContent() {
                             </div>
                             <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                 <MapPin className="h-3 w-3" />
-                                <span className="truncate max-w-[200px]" title={cliente.Direccion}>{cliente.Direccion}</span>
+                                <span className="truncate max-w-[200px]" title={cliente.Direccion}>{cliente.Direccion || "Sin dirección"}</span>
                             </div>
                             </div>
                         </TableCell>
@@ -691,7 +688,7 @@ export function ClientesContent() {
                             )}
                             </div>
                         </TableCell>
-                        <TableCell className="text-sm text-card-foreground">{cliente.Cedula}</TableCell>
+                        <TableCell className="text-sm text-card-foreground">{cliente.Cedula || "Sin cédula"}</TableCell>
                         <TableCell>
                             <Badge 
                             variant={tienePrestamos ? "default" : "secondary"}
