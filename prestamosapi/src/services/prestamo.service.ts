@@ -106,6 +106,7 @@ export const createPrestamoService = async (data: CreatePrestamoData, idEmpresa:
     .from("Prestamo")
     .select("NumeroEmpresa")
     .eq("IdEmpresa", idEmpresa)
+    .not("NumeroEmpresa", "is", null)
     .order("NumeroEmpresa", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -671,6 +672,7 @@ export const reengancharPrestamoService = async (
     .from("Prestamo")
     .select("NumeroEmpresa")
     .eq("IdEmpresa", idEmpresa)
+    .not("NumeroEmpresa", "is", null)
     .order("NumeroEmpresa", { ascending: false })
     .limit(1)
     .maybeSingle();

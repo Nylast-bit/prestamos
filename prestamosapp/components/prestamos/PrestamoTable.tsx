@@ -443,9 +443,23 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                   const esVariable = tipoCalcRow.includes('amortiza') || tipoCalcRow.includes('solo_interes') || tipoCalcRow.includes('solo');
                   const baseInteresRow = esVariable ? capRestante : Number(prestamo.MontoPrestado);
                   const interesActual = baseInteresRow * (Number(prestamo.InteresPorcentaje) / 100);
-                  const restanteAPagar = prestamo.TipoCalculo === "solo_interes"
-                    ? (capRestante + (capRestante * (Number(prestamo.InteresPorcentaje) / 100)))
-                    : (prestamo.MontoCuota * (prestamo.CuotasRestantes || 0));
+                  
+                  let restanteAPagar = 0;
+                  let tablaUsada = false;
+                  try {
+                    const tabla = JSON.parse(prestamo.TablaPagos || '[]');
+                    if (tabla.length > 0) {
+                      const pendientes = tabla.filter((c: any) => !c.pagado);
+                      restanteAPagar = pendientes.reduce((sum: number, c: any) => sum + Number(c.cuota || 0), 0);
+                      tablaUsada = true;
+                    }
+                  } catch (e) { /* fallback */ }
+                  
+                  if (!tablaUsada) {
+                    restanteAPagar = prestamo.TipoCalculo === "solo_interes"
+                      ? (capRestante + (capRestante * (Number(prestamo.InteresPorcentaje) / 100)))
+                      : (prestamo.MontoCuota * (prestamo.CuotasRestantes || 0));
+                  }
 
                   return (
                     <TableRow 
