@@ -774,3 +774,115 @@ export const reengancharPrestamoService = async (
     efectivoNetoAEntregar
   };
 };
+
+// ==========================================
+// 6. REVERTIR REENGANCHE
+// ==========================================
+export const revertirReengancheService = async (idPrestamoNuevo: number, idEmpresa: number) => {
+  // 1. Obtener el Préstamo Nuevo
+  const { data: prestamoNuevo, error: errNuevo } = await supabase
+    .from("Prestamo")
+    .select("*")
+    .eq("IdPrestamo", idPrestamoNuevo)
+    .eq("IdEmpresa", idEmpresa)
+    .single();
+
+  if (errNuevo || !prestamoNuevo) {
+    throw new Error("El préstamo a revertir no fue encontrado.");
+  }
+
+  if (!prestamoNuevo.Observaciones?.includes("Creado por Reenganche del Préstamo #")) {
+    throw new Error("Este préstamo no fue creado por un reenganche y no se puede revertir.");
+  }
+
+  // 2. Verificar que no tenga pagos
+  const { data: pagos } = await supabase
+    .from("Pago")
+    .select("IdPago")
+    .eq("IdPrestamo", idPrestamoNuevo);
+
+  if (pagos && pagos.length > 0) {
+    throw new Error("No se puede revertir el reenganche porque el préstamo nuevo ya tiene pagos registrados.");
+  }
+
+  // 3. Extraer el NumeroEmpresa del Préstamo Original
+  const match = prestamoNuevo.Observaciones.match(/Creado por Reenganche del Préstamo #(\d+)/);
+  if (!match) {
+    throw new Error("No se pudo identificar el préstamo original a partir de las observaciones.");
+  }
+  const numeroEmpresaOriginal = Number(match[1]);
+
+  // 4. Encontrar el Préstamo Original
+  const { data: prestamoOriginal, error: errOrig } = await supabase
+    .from("Prestamo")
+    .select("*")
+    .eq("NumeroEmpresa", numeroEmpresaOriginal)
+    .eq("IdEmpresa", idEmpresa)
+    .single();
+
+  if (errOrig || !prestamoOriginal) {
+    throw new Error("No se pudo encontrar el préstamo original para restaurarlo.");
+  }
+
+  // 5. Borrar el Registro de Consolidación (Egreso)
+  const descPattern = `Reenganche Préstamo #${prestamoNuevo.NumeroEmpresa ?? prestamoNuevo.IdPrestamo} %`;
+  await supabase
+    .from("RegistroConsolidacion")
+    .delete()
+    .like("Descripcion", descPattern);
+
+  // 6. Borrar el Préstamo Nuevo
+  const { error: errDelNuevo } = await supabase
+    .from("Prestamo")
+    .delete()
+    .eq("IdPrestamo", idPrestamoNuevo);
+
+  if (errDelNuevo) {
+    throw new Error("Error eliminando el préstamo nuevo: " + errDelNuevo.message);
+  }
+
+  // 7. Restaurar el Préstamo Original
+  let tablaRestauradaStr = prestamoOriginal.TablaPagos;
+  let capitalRestanteRestaurado = 0;
+  let cuotasRestantesRestauradas = 0;
+
+  if (tablaRestauradaStr) {
+    try {
+      const tabla = JSON.parse(tablaRestauradaStr);
+      tabla.forEach((c: any) => {
+        if (c.observacion && c.observacion.includes(`Saldado por Reenganche a Préstamo #${prestamoNuevo.NumeroEmpresa ?? prestamoNuevo.IdPrestamo}`)) {
+          c.pagado = false;
+          delete c.fechaPago;
+          delete c.observacion;
+        }
+        if (!c.pagado) {
+          capitalRestanteRestaurado += c.capital;
+          cuotasRestantesRestauradas++;
+        }
+      });
+      tablaRestauradaStr = JSON.stringify(tabla);
+    } catch (e) {}
+  }
+
+  // Remove the Liquidado note from Observaciones
+  let obsOriginales = prestamoOriginal.Observaciones || "";
+  obsOriginales = obsOriginales.replace(new RegExp(` \\| Liquidado por Reenganche a Préstamo #${prestamoNuevo.NumeroEmpresa ?? prestamoNuevo.IdPrestamo}`), "");
+  obsOriginales = obsOriginales.replace(new RegExp(`Liquidado por Reenganche a Préstamo #${prestamoNuevo.NumeroEmpresa ?? prestamoNuevo.IdPrestamo}`), "");
+
+  const { error: errUpdOrig } = await supabase
+    .from("Prestamo")
+    .update({
+      Estado: "Activo",
+      CapitalRestante: capitalRestanteRestaurado,
+      CuotasRestantes: cuotasRestantesRestauradas,
+      TablaPagos: tablaRestauradaStr,
+      Observaciones: obsOriginales.trim() === "" ? null : obsOriginales.trim()
+    })
+    .eq("IdPrestamo", prestamoOriginal.IdPrestamo);
+
+  if (errUpdOrig) {
+    throw new Error("Error restaurando el préstamo original: " + errUpdOrig.message);
+  }
+
+  return { success: true, message: "Reenganche revertido con éxito." };
+};

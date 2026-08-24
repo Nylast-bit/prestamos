@@ -6,10 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Edit, Trash2, CalendarClock, Banknote, CheckCircle2, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Zap, TrendingDown, AlertCircle } from 'lucide-react'
+import { Edit, Trash2, CalendarClock, Banknote, CheckCircle2, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Zap, TrendingDown, AlertCircle, History } from 'lucide-react'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
 
@@ -76,6 +79,11 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
   // Estados de Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // Estados Revertir Reenganche
+  const [isRevertirReengancheOpen, setIsRevertirReengancheOpen] = useState(false);
+  const [revertirReengancheCargando, setRevertirReengancheCargando] = useState(false);
+  const [prestamoARevertir, setPrestamoARevertir] = useState<any>(null);
 
   // --- CÁLCULOS DERIVADOS ---
   const capitalRestanteReal = selectedPrestamo 
@@ -292,6 +300,26 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
       toast.error(error.message);
     } finally {
       setIsPaying(false);
+    }
+  };
+
+  const handleRevertirReenganche = async () => {
+    if (!prestamoARevertir) return;
+    setRevertirReengancheCargando(true);
+    try {
+      const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/prestamos/${prestamoARevertir.IdPrestamo}/revertir-reenganche`, {
+        method: "POST"
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error revirtiendo el reenganche");
+
+      toast.success("Reenganche revertido con éxito");
+      setIsRevertirReengancheOpen(false);
+      if (onPaymentSuccess) onPaymentSuccess();
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setRevertirReengancheCargando(false);
     }
   };
 
@@ -597,6 +625,21 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                                 )}
                                 {puedeEditarOEliminar && (
                                   <>
+                                    {(prestamo.Observaciones || "").includes("Creado por Reenganche") && !prestamo.FechaUltimoPago && (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-9 px-3 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300 transition-all"
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          setPrestamoARevertir(prestamo);
+                                          setIsRevertirReengancheOpen(true);
+                                        }}
+                                        title="Anular Reenganche"
+                                      >
+                                        <History className="h-4 w-4 text-orange-500" />
+                                      </Button>
+                                    )}
                                     <Button 
                                       variant="outline" 
                                       size="sm" 
@@ -1218,6 +1261,30 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ALERTA: REVERTIR REENGANCHE */}
+      <AlertDialog open={isRevertirReengancheOpen} onOpenChange={setIsRevertirReengancheOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Revertir este Reenganche?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción borrará el préstamo actual (<b>#{prestamoARevertir?.NumeroEmpresa ?? prestamoARevertir?.IdPrestamo}</b>), anulará el movimiento en la caja, y <b>revivirá</b> el préstamo original que había sido liquidado por este reenganche.
+              <br /><br />
+              Utiliza esto solo si te equivocaste al crear el reenganche (ej. error en los parámetros financieros o de cálculo).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={revertirReengancheCargando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-600 hover:bg-orange-700"
+              onClick={(e) => { e.preventDefault(); handleRevertirReenganche(); }}
+              disabled={revertirReengancheCargando}
+            >
+              {revertirReengancheCargando ? "Revirtiendo..." : "Sí, Revertir Reenganche"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

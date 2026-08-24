@@ -80,6 +80,21 @@ export const reengancharPrestamo = asyncHandler(async (req: any, res: Response) 
   }
 });
 
+// @desc    Revertir un reenganche
+// @route   POST /api/prestamos/:id/revertir-reenganche
+// @access  Private
+export const revertirReenganche = asyncHandler(async (req: any, res: Response) => {
+  const { id } = req.params;
+  const idEmpresa = req.user.IdEmpresa;
+
+  try {
+    const result = await prestamoService.revertirReengancheService(Number(id), idEmpresa);
+    res.status(200).json(result);
+  } catch (error: any) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 // Actualizar préstamo
 export const updatePrestamo = asyncHandler(async (req: any, res: Response) => {
   if (req.user?.Rol === 'Cajero') {
