@@ -85,69 +85,119 @@ const createPagoPersonalizadoService = async (data) => {
     catch (e) {
         logger_1.logger.error("Error parseando TablaPagos", e);
     }
-    // Crear la entrada del pago personalizado que acabamos de realizar
-    const entradaPagoRealizado = {
-        numeroCuota: 0, // se renumerará abajo
-        cuota: montoPagado,
-        interes: abonoInteres,
-        capital: abonoCapital,
-        saldo: nuevoCapitalRestante,
-        pagado: true,
-        tipo: esAbonoExtraordinario ? 'extraordinario' : (esLiquidacion ? 'liquidar' : 'personalizado'),
-        fechaPago: fechaPago
-    };
-    // Insertar el pago ANTES de las cuotas pendientes pero DESPUÉS de las ya pagadas (orden cronológico)
-    const lastPaidIndex = cuotasActualizadas.reduce((lastIdx, c, i) => c.pagado ? i : lastIdx, -1);
-    cuotasActualizadas.splice(lastPaidIndex + 1, 0, entradaPagoRealizado);
-    if (esLiquidacion || nuevoCapitalRestante === 0) {
-        // Al liquidar o saldar, eliminamos todas las cuotas pendientes futuras
-        cuotasActualizadas = cuotasActualizadas.filter((c) => c.pagado);
-    }
-    else if (tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) {
-        for (let i = 1; i < cuotasActualizadas.length; i++) {
-            if (cuotasActualizadas[i].pagado)
-                continue; // saltar cuotas ya pagadas
-            const interesNuevo = nuevoCapitalRestante * (prestamo.InteresPorcentaje / 100);
-            cuotasActualizadas[i].interes = interesNuevo;
-            cuotasActualizadas[i].cuota = interesNuevo;
-            cuotasActualizadas[i].capital = 0;
-            cuotasActualizadas[i].saldo = nuevoCapitalRestante;
+    let numeroCuotaReal = 0;
+    if (esAbonoExtraordinario || esLiquidacion) {
+        // Crear la entrada del pago personalizado (Abono Extra o Liquidación)
+        const entradaPagoRealizado = {
+            numeroCuota: 0, // se renumerará abajo
+            cuota: montoPagado,
+            interes: abonoInteres,
+            capital: abonoCapital,
+            saldo: nuevoCapitalRestante,
+            pagado: true,
+            tipo: esAbonoExtraordinario ? 'extraordinario' : 'liquidar',
+            fechaPago: fechaPago
+        };
+        // Insertar el pago ANTES de las cuotas pendientes pero DESPUÉS de las ya pagadas
+        const lastPaidIndex = cuotasActualizadas.reduce((lastIdx, c, i) => c.pagado ? i : lastIdx, -1);
+        cuotasActualizadas.splice(lastPaidIndex + 1, 0, entradaPagoRealizado);
+        if (esLiquidacion || nuevoCapitalRestante === 0) {
+            // Al liquidar o saldar, eliminamos todas las cuotas pendientes futuras
+            cuotasActualizadas = cuotasActualizadas.filter((c) => c.pagado);
         }
-    }
-    else if (nuevoCapitalRestante > 0 && abonoCapital > 0) {
-        // Para tipos estándar (capital+interes, amortizable): ajustar desde atrás
-        let capitalPorDescontar = abonoCapital;
-        for (let i = cuotasActualizadas.length - 1; i >= 1; i--) {
-            if (capitalPorDescontar <= 0)
-                break;
-            if (cuotasActualizadas[i].pagado)
-                continue;
-            let cuota = cuotasActualizadas[i];
-            if (capitalPorDescontar >= cuota.capital) {
-                capitalPorDescontar -= cuota.capital;
-                cuota.capital = 0;
-                cuota.interes = 0;
-                cuota.cuota = 0;
-            }
-            else {
-                cuota.capital -= capitalPorDescontar;
-                cuota.cuota -= capitalPorDescontar;
-                capitalPorDescontar = 0;
+        else if (tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) {
+            for (let i = 1; i < cuotasActualizadas.length; i++) {
+                if (cuotasActualizadas[i].pagado)
+                    continue; // saltar cuotas ya pagadas
+                const interesNuevo = nuevoCapitalRestante * (prestamo.InteresPorcentaje / 100);
+                cuotasActualizadas[i].interes = interesNuevo;
+                cuotasActualizadas[i].cuota = interesNuevo;
+                cuotasActualizadas[i].capital = 0;
+                cuotasActualizadas[i].saldo = nuevoCapitalRestante;
             }
         }
-        cuotasActualizadas = cuotasActualizadas.filter((c) => c.pagado || c.cuota > 0);
-        let saldoAcumulado = nuevoCapitalRestante;
-        for (let i = 0; i < cuotasActualizadas.length; i++) {
-            if (cuotasActualizadas[i].pagado)
-                continue;
-            saldoAcumulado -= cuotasActualizadas[i].capital;
-            cuotasActualizadas[i].saldo = Math.max(0, saldoAcumulado);
+        else if (nuevoCapitalRestante > 0 && abonoCapital > 0) {
+            // Para tipos estándar (capital+interes, amortizable): ajustar desde atrás
+            let capitalPorDescontar = abonoCapital;
+            for (let i = cuotasActualizadas.length - 1; i >= 1; i--) {
+                if (capitalPorDescontar <= 0)
+                    break;
+                if (cuotasActualizadas[i].pagado)
+                    continue;
+                let cuota = cuotasActualizadas[i];
+                if (capitalPorDescontar >= cuota.capital) {
+                    capitalPorDescontar -= cuota.capital;
+                    cuota.capital = 0;
+                    cuota.interes = 0;
+                    cuota.cuota = 0;
+                }
+                else {
+                    cuota.capital -= capitalPorDescontar;
+                    cuota.cuota -= capitalPorDescontar;
+                    capitalPorDescontar = 0;
+                }
+            }
+            cuotasActualizadas = cuotasActualizadas.filter((c) => c.pagado || c.cuota > 0);
+            let saldoAcumulado = nuevoCapitalRestante;
+            for (let i = 0; i < cuotasActualizadas.length; i++) {
+                if (cuotasActualizadas[i].pagado)
+                    continue;
+                saldoAcumulado -= cuotasActualizadas[i].capital;
+                cuotasActualizadas[i].saldo = Math.max(0, saldoAcumulado);
+            }
+        }
+    }
+    else {
+        // Lógica de Arrastre (Rollover) para Pago Personalizado Normal (Pago Incompleto/Excedente)
+        const currentQuotaIndex = cuotasActualizadas.findIndex((c) => !c.pagado);
+        if (currentQuotaIndex !== -1) {
+            const currentQuota = cuotasActualizadas[currentQuotaIndex];
+            const originalCuota = currentQuota.cuota;
+            const deficit = originalCuota - montoPagado;
+            // Marcar cuota actual como pagada y registrar lo que realmente se pagó
+            currentQuota.pagado = true;
+            currentQuota.fechaPago = fechaPago;
+            currentQuota.cuota = montoPagado;
+            currentQuota.interes = abonoInteres;
+            currentQuota.capital = abonoCapital;
+            currentQuota.saldo = nuevoCapitalRestante;
+            currentQuota.tipo = 'personalizado';
+            numeroCuotaReal = currentQuota.numeroCuota;
+            // Arrastrar el déficit a la siguiente cuota
+            if (deficit !== 0 && currentQuotaIndex + 1 < cuotasActualizadas.length) {
+                const nextQuota = cuotasActualizadas[currentQuotaIndex + 1];
+                nextQuota.capital += deficit;
+                nextQuota.cuota += deficit;
+                // Si deficit es negativo (pago con excedente), reduce la cuota y capital siguiente
+            }
+            // Recalcular el saldo en cascada hacia adelante
+            let saldoAcumulado = nuevoCapitalRestante;
+            for (let i = currentQuotaIndex + 1; i < cuotasActualizadas.length; i++) {
+                saldoAcumulado -= cuotasActualizadas[i].capital;
+                cuotasActualizadas[i].saldo = Math.max(0, saldoAcumulado);
+            }
         }
     }
     // Renumerar todas las cuotas secuencialmente
     cuotasActualizadas.forEach((c, i) => {
         c.numeroCuota = i + 1;
     });
+    if (esAbonoExtraordinario || esLiquidacion) {
+        // Find the numeroCuotaReal for the fake inserted quota after renumbering
+        const insertedQuota = cuotasActualizadas.find(c => c.tipo === (esAbonoExtraordinario ? 'extraordinario' : 'liquidar') && c.fechaPago === fechaPago);
+        if (insertedQuota) {
+            numeroCuotaReal = insertedQuota.numeroCuota;
+        }
+    }
+    else if (numeroCuotaReal > 0) {
+        // For rollover, find it by the original number we stored, or just let it be.
+        // It was already set above, but since we renumbered, it might have shifted?
+        // Actually, for rollover we didn't insert a fake quota, so the index is exactly the same!
+        const modifiedQuota = cuotasActualizadas.find(c => c.tipo === 'personalizado' && c.fechaPago === fechaPago);
+        if (modifiedQuota) {
+            numeroCuotaReal = modifiedQuota.numeroCuota;
+        }
+    }
     // Contar cuotas pendientes (las que NO están pagadas)
     const cuotasPendientes = cuotasActualizadas.filter((c) => !c.pagado).length;
     // Volvemos a convertir el JSON a string para guardarlo en Supabase
@@ -177,8 +227,6 @@ const createPagoPersonalizadoService = async (data) => {
         throw new Error(`Fallo al actualizar el préstamo: ${errorUpdatePrestamo.message}`);
     // 🛡️ ABRIMOS EL BLOQUE DE TRANSACCIÓN MANUAL 🛡️
     try {
-        // La cuota del pago personalizado siempre es la primera entrada (numeroCuota = 1 si es el primer pago)
-        const numeroCuotaReal = entradaPagoRealizado.numeroCuota; // ya fue renumerado arriba
         // 6.5 Calcular NumeroEmpresa secuencial para el Pago
         const { data: maxPago } = await supabaseClient_1.supabase
             .from("Pago")

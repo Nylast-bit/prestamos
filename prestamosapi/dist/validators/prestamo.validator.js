@@ -59,6 +59,7 @@ exports.prestamoSchema = zod_1.z.object({
     Estado: zod_1.z
         .string()
         .min(1, "Estado es obligatorio"),
-    Ajustable: zod_1.z.boolean().optional(),
-    Observaciones: zod_1.z.string().optional(),
+    Ajustable: zod_1.z.boolean().nullable().optional(),
+    Observaciones: zod_1.z.string().nullable().optional(),
+    TablaPagos: zod_1.z.string().nullable().optional(),
 });

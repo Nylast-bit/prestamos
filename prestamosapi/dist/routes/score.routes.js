@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const score_controller_1 = require("../controllers/score.controller");
+const router = (0, express_1.Router)();
+router.use(auth_middleware_1.requireAuth);
+router.get('/ranking/empresa', score_controller_1.getRanking);
+router.get('/:idCliente', score_controller_1.getScore);
+router.get('/historial/:idCliente', score_controller_1.getHistorialScore);
+router.post('/recalcular/:idCliente', score_controller_1.recalcularScore);
+exports.default = router;

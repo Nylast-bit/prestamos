@@ -8,8 +8,17 @@ const pago_service_1 = require("../services/pago.service");
 const createPago = async (req, res) => {
     try {
         const { IdPrestamo, MontoPagado, TipoPago, Observaciones, MontoInteresPagado, MontoCapitalAbonado, NumeroCuota } = req.body;
-        if (!IdPrestamo || !TipoPago || !MontoPagado) {
+        if (!IdPrestamo || !TipoPago || MontoPagado === undefined) {
             return res.status(400).json({ error: "Datos incompletos." });
+        }
+        if (Number(MontoPagado) <= 0) {
+            return res.status(400).json({ error: "El monto pagado debe ser mayor que 0." });
+        }
+        if (MontoCapitalAbonado !== undefined && Number(MontoCapitalAbonado) < 0) {
+            return res.status(400).json({ error: "El monto de capital abonado no puede ser negativo." });
+        }
+        if (MontoInteresPagado !== undefined && Number(MontoInteresPagado) < 0) {
+            return res.status(400).json({ error: "El monto de interés pagado no puede ser negativo." });
         }
         if (req.user?.Rol === 'Prestamista') {
             const { data: prestamo } = await supabaseClient_1.supabase

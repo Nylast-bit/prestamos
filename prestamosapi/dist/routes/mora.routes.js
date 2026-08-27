@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const mora_controller_1 = require("../controllers/mora.controller");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
+const router = (0, express_1.Router)();
+router.use(auth_middleware_1.requireAuth);
+router.post("/calcular/:idPrestamo", mora_controller_1.calcularMora);
+router.post("/perdonar/:idPrestamo", mora_controller_1.perdonarMora);
+router.get("/historial/:idPrestamo", mora_controller_1.getHistorialMora);
+router.get("/pendientes", mora_controller_1.getMorasPendientes);
+router.get("/verificar-cliente/:idCliente", mora_controller_1.verificarMoraCliente);
+exports.default = router;

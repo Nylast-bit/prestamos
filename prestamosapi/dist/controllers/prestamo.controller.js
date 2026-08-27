@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPrestamosActivosCount = exports.obtenerRangoCuotas = exports.calcularTasaPorCuota = exports.opcionesSimularPrestamoCapitalInteres = exports.simularPrestamo = exports.getPrestamoParaEliminar = exports.deletePrestamo = exports.updatePrestamo = exports.reengancharPrestamo = exports.createPrestamo = exports.getPrestamoById = exports.getPrestamos = void 0;
+exports.getPrestamosActivosCount = exports.obtenerRangoCuotas = exports.calcularTasaPorCuota = exports.opcionesSimularPrestamoCapitalInteres = exports.simularPrestamo = exports.getPrestamoParaEliminar = exports.deletePrestamo = exports.updatePrestamo = exports.revertirReenganche = exports.reengancharPrestamo = exports.createPrestamo = exports.getPrestamoById = exports.getPrestamos = void 0;
 const logger_1 = require("../utils/logger");
 const asyncHandler_1 = require("../middlewares/asyncHandler");
 const prestamoService = __importStar(require("../services/prestamo.service"));
@@ -95,6 +95,20 @@ exports.reengancharPrestamo = (0, asyncHandler_1.asyncHandler)(async (req, res) 
     }
     catch (error) {
         return res.status(400).json({ success: false, error: error.message });
+    }
+});
+// @desc    Revertir un reenganche
+// @route   POST /api/prestamos/:id/revertir-reenganche
+// @access  Private
+exports.revertirReenganche = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    const { id } = req.params;
+    const idEmpresa = req.user.IdEmpresa;
+    try {
+        const result = await prestamoService.revertirReengancheService(Number(id), idEmpresa);
+        res.status(200).json(result);
+    }
+    catch (error) {
+        res.status(400).json({ success: false, error: error.message });
     }
 });
 // Actualizar préstamo
@@ -193,7 +207,7 @@ const simularPrestamo = async (req, res) => {
     try {
         const { monto, tasaInteres, numeroCuotas, tipoCalculo } = req.body;
         // 1. El controlador hace la validación de entrada
-        if (!monto || !tasaInteres || !numeroCuotas || !tipoCalculo) {
+        if (monto === undefined || tasaInteres === undefined || numeroCuotas === undefined || !tipoCalculo) {
             return res.status(400).json({ error: "Faltan parámetros" });
         }
         // 2. El controlador llama al servicio con los datos limpios
@@ -226,7 +240,7 @@ const opcionesSimularPrestamoCapitalInteres = async (req, res) => {
     try {
         const { monto, tasaInteres, numeroCuotas } = req.body;
         // 1. El controlador valida la entrada
-        if (!monto || !tasaInteres || !numeroCuotas) {
+        if (monto === undefined || tasaInteres === undefined || numeroCuotas === undefined) {
             return res.status(400).json({ error: "Faltan parámetros" });
         }
         // 2. El controlador llama al servicio (no es async)

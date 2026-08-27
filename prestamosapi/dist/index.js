@@ -26,6 +26,8 @@ const pagopersonalizado_routes_1 = __importDefault(require("./routes/pagopersona
 const plan_routes_1 = __importDefault(require("./routes/plan.routes"));
 const suscripcion_routes_1 = __importDefault(require("./routes/suscripcion.routes"));
 const import_routes_1 = __importDefault(require("./routes/import.routes"));
+const score_routes_1 = __importDefault(require("./routes/score.routes"));
+const mora_routes_1 = __importDefault(require("./routes/mora.routes"));
 // 👇 importa el job
 const capitalJob_1 = require("./jobs/capitalJob");
 const app = (0, express_1.default)();
@@ -107,6 +109,8 @@ app.use("/api/pagospersonalizados", pagopersonalizado_routes_1.default);
 app.use("/api/planes", plan_routes_1.default);
 app.use("/api/suscripciones", suscripcion_routes_1.default);
 app.use("/api/import", import_routes_1.default);
+app.use("/api/score", score_routes_1.default);
+app.use("/api/mora", mora_routes_1.default);
 // 8. Manejo Global de Errores (Debe ser SIEMPRE el último middleware)
 app.use(errorHandler_1.errorHandler);
 // 9. Inicialización del Servidor

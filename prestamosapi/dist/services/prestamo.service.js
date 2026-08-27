@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reengancharPrestamoService = exports.calcularSaldoPendientePrestamo = exports.countPrestamosActivosByPrestatarioService = exports.obtenerRangoCuotasService = exports.calcularTasaPorCuotaService = exports.opcionesSimularPrestamoService = exports.simularPrestamoService = exports.getPrestamoConDetallesService = exports.deletePrestamoService = exports.updatePrestamoService = exports.getPrestamoByIdService = exports.getPrestamosService = exports.createPrestamoService = void 0;
+exports.revertirReengancheService = exports.reengancharPrestamoService = exports.calcularSaldoPendientePrestamo = exports.countPrestamosActivosByPrestatarioService = exports.obtenerRangoCuotasService = exports.calcularTasaPorCuotaService = exports.opcionesSimularPrestamoService = exports.simularPrestamoService = exports.getPrestamoConDetallesService = exports.deletePrestamoService = exports.updatePrestamoService = exports.getPrestamoByIdService = exports.getPrestamosService = exports.createPrestamoService = void 0;
 const logger_1 = require("../utils/logger");
 const supabaseClient_1 = require("../config/supabaseClient");
 const consolidacioncapital_service_1 = require("./consolidacioncapital.service");
@@ -28,6 +28,19 @@ const createPrestamoService = async (data, idEmpresa, isSuperAdmin = false) => {
             .eq('Estado', 'Activo');
         if ((count || 0) >= plan.LimitePrestamos) {
             throw new Error('Límite de préstamos activos de su plan excedido.');
+        }
+    }
+    // 0.5 Verificar si el cliente tiene mora pendiente
+    const { data: moraCliente, error: errMora } = await supabaseClient_1.supabase
+        .from('Prestamo')
+        .select('MontoMoraAcumulado, MoraPerdonada')
+        .eq('IdCliente', data.IdCliente)
+        .eq('IdEmpresa', idEmpresa)
+        .gt('MontoMoraAcumulado', 0);
+    if (!errMora && moraCliente && moraCliente.length > 0) {
+        const totalMora = moraCliente.reduce((acc, curr) => acc + (curr.MoraPerdonada ? 0 : Number(curr.MontoMoraAcumulado)), 0);
+        if (totalMora > 0) {
+            throw new Error(`El cliente tiene mora pendiente de $${totalMora.toFixed(2)}. Debe ser pagada o perdonada antes de otorgar un nuevo préstamo.`);
         }
     }
     const hoy = new Date().toISOString();
@@ -58,6 +71,7 @@ const createPrestamoService = async (data, idEmpresa, isSuperAdmin = false) => {
         .from("Prestamo")
         .select("NumeroEmpresa")
         .eq("IdEmpresa", idEmpresa)
+        .not("NumeroEmpresa", "is", null)
         .order("NumeroEmpresa", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -172,6 +186,9 @@ const getPrestamosService = async (idEmpresa) => {
             Estado: estado,
             CuotasRestantes: cuotasRestantes,
             FechaUltimoPago: fechaUltimoPago,
+            moraAcumulada: Number(p.MontoMoraAcumulado || 0),
+            cuotasEnMora: p.CuotasEnMora || 0,
+            moraCongelada: p.MoraCongelada || false,
             clienteNombre: p.Cliente?.Nombre || 'N/A',
             clienteTelefono: p.Cliente?.Telefono || null,
             prestatarioNombre: p.Prestatario?.Nombre || 'N/A'
@@ -248,6 +265,12 @@ exports.getPrestamoConDetallesService = getPrestamoConDetallesService;
 // B. Lógica de Simulación Matemática
 const simularPrestamoService = (params) => {
     const { monto, tasaInteres, numeroCuotas, tipoCalculo, cuotaDeseada } = params;
+    if (monto <= 0)
+        throw new Error('El monto debe ser mayor a 0');
+    if (numeroCuotas <= 0)
+        throw new Error('La cantidad de cuotas debe ser mayor a 0');
+    if (tasaInteres < 0)
+        throw new Error('La tasa de interés no puede ser negativa');
     let cuotas = [];
     let montoCuota = 0;
     let totalInteres = 0;
@@ -544,6 +567,7 @@ const reengancharPrestamoService = async (idPrestamoOriginal, nuevoPrestamoData,
         .from("Prestamo")
         .select("NumeroEmpresa")
         .eq("IdEmpresa", idEmpresa)
+        .not("NumeroEmpresa", "is", null)
         .order("NumeroEmpresa", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -634,3 +658,100 @@ const reengancharPrestamoService = async (idPrestamoOriginal, nuevoPrestamoData,
     };
 };
 exports.reengancharPrestamoService = reengancharPrestamoService;
+// ==========================================
+// 6. REVERTIR REENGANCHE
+// ==========================================
+const revertirReengancheService = async (idPrestamoNuevo, idEmpresa) => {
+    // 1. Obtener el Préstamo Nuevo
+    const { data: prestamoNuevo, error: errNuevo } = await supabaseClient_1.supabase
+        .from("Prestamo")
+        .select("*")
+        .eq("IdPrestamo", idPrestamoNuevo)
+        .eq("IdEmpresa", idEmpresa)
+        .single();
+    if (errNuevo || !prestamoNuevo) {
+        throw new Error("El préstamo a revertir no fue encontrado.");
+    }
+    if (!prestamoNuevo.Observaciones?.includes("Creado por Reenganche del Préstamo #")) {
+        throw new Error("Este préstamo no fue creado por un reenganche y no se puede revertir.");
+    }
+    // 2. Verificar que no tenga pagos
+    const { data: pagos } = await supabaseClient_1.supabase
+        .from("Pago")
+        .select("IdPago")
+        .eq("IdPrestamo", idPrestamoNuevo);
+    if (pagos && pagos.length > 0) {
+        throw new Error("No se puede revertir el reenganche porque el préstamo nuevo ya tiene pagos registrados.");
+    }
+    // 3. Extraer el NumeroEmpresa del Préstamo Original
+    const match = prestamoNuevo.Observaciones.match(/Creado por Reenganche del Préstamo #(\d+)/);
+    if (!match) {
+        throw new Error("No se pudo identificar el préstamo original a partir de las observaciones.");
+    }
+    const numeroEmpresaOriginal = Number(match[1]);
+    // 4. Encontrar el Préstamo Original
+    const { data: prestamoOriginal, error: errOrig } = await supabaseClient_1.supabase
+        .from("Prestamo")
+        .select("*")
+        .eq("NumeroEmpresa", numeroEmpresaOriginal)
+        .eq("IdEmpresa", idEmpresa)
+        .single();
+    if (errOrig || !prestamoOriginal) {
+        throw new Error("No se pudo encontrar el préstamo original para restaurarlo.");
+    }
+    // 5. Borrar el Registro de Consolidación (Egreso)
+    const descPattern = `Reenganche Préstamo #${prestamoNuevo.NumeroEmpresa ?? prestamoNuevo.IdPrestamo} %`;
+    await supabaseClient_1.supabase
+        .from("RegistroConsolidacion")
+        .delete()
+        .like("Descripcion", descPattern);
+    // 6. Borrar el Préstamo Nuevo
+    const { error: errDelNuevo } = await supabaseClient_1.supabase
+        .from("Prestamo")
+        .delete()
+        .eq("IdPrestamo", idPrestamoNuevo);
+    if (errDelNuevo) {
+        throw new Error("Error eliminando el préstamo nuevo: " + errDelNuevo.message);
+    }
+    // 7. Restaurar el Préstamo Original
+    let tablaRestauradaStr = prestamoOriginal.TablaPagos;
+    let capitalRestanteRestaurado = 0;
+    let cuotasRestantesRestauradas = 0;
+    if (tablaRestauradaStr) {
+        try {
+            const tabla = JSON.parse(tablaRestauradaStr);
+            tabla.forEach((c) => {
+                if (c.observacion && c.observacion.includes(`Saldado por Reenganche a Préstamo #${prestamoNuevo.NumeroEmpresa ?? prestamoNuevo.IdPrestamo}`)) {
+                    c.pagado = false;
+                    delete c.fechaPago;
+                    delete c.observacion;
+                }
+                if (!c.pagado) {
+                    capitalRestanteRestaurado += c.capital;
+                    cuotasRestantesRestauradas++;
+                }
+            });
+            tablaRestauradaStr = JSON.stringify(tabla);
+        }
+        catch (e) { }
+    }
+    // Remove the Liquidado note from Observaciones
+    let obsOriginales = prestamoOriginal.Observaciones || "";
+    obsOriginales = obsOriginales.replace(new RegExp(` \\| Liquidado por Reenganche a Préstamo #${prestamoNuevo.NumeroEmpresa ?? prestamoNuevo.IdPrestamo}`), "");
+    obsOriginales = obsOriginales.replace(new RegExp(`Liquidado por Reenganche a Préstamo #${prestamoNuevo.NumeroEmpresa ?? prestamoNuevo.IdPrestamo}`), "");
+    const { error: errUpdOrig } = await supabaseClient_1.supabase
+        .from("Prestamo")
+        .update({
+        Estado: "Activo",
+        CapitalRestante: capitalRestanteRestaurado,
+        CuotasRestantes: cuotasRestantesRestauradas,
+        TablaPagos: tablaRestauradaStr,
+        Observaciones: obsOriginales.trim() === "" ? null : obsOriginales.trim()
+    })
+        .eq("IdPrestamo", prestamoOriginal.IdPrestamo);
+    if (errUpdOrig) {
+        throw new Error("Error restaurando el préstamo original: " + errUpdOrig.message);
+    }
+    return { success: true, message: "Reenganche revertido con éxito." };
+};
+exports.revertirReengancheService = revertirReengancheService;
