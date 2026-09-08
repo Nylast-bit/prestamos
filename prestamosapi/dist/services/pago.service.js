@@ -138,7 +138,7 @@ const createPagoService = async (data, idEmpresa) => {
             Monto: Number(MontoPagado),
             TipoRegistro: "Ingreso",
             Estado: "Pendiente",
-            Descripcion: `Pago #${numeroCuotaReal} de ${nombreCliente}`,
+            Descripcion: `Pago #${numeroCuotaReal} - Préstamo #${prestamo.NumeroEmpresa ?? prestamo.IdPrestamo} - ${nombreCliente} - Ordinario`,
             FechaRegistro: new Date()
         }, idEmpresa);
         logger_1.logger.info("✅ Registro de consolidación creado exitosamente.");

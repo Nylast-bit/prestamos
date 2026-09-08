@@ -175,6 +175,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
         let interesAPagar = 0;
         let capitalAPagar = 0;
         let numeroCuotaActual = 1;
+        let cuotaTotalAPagar = Number(selectedPrestamo.MontoCuota);
 
         if (selectedPrestamo.TablaPagos) {
            try {
@@ -184,6 +185,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                    interesAPagar = Number(tabla[indiceCuota].interes);
                    capitalAPagar = Number(tabla[indiceCuota].capital);
                    numeroCuotaActual = Number(tabla[indiceCuota].numeroCuota);
+                   cuotaTotalAPagar = Number(tabla[indiceCuota].cuota);
                }
            } catch (e) {
                console.error("Error al parsear TablaPagos", e);
@@ -192,7 +194,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
         const payload = {
           IdPrestamo: Number(selectedPrestamo.IdPrestamo),
-          MontoPagado: Number(selectedPrestamo.MontoCuota),
+          MontoPagado: cuotaTotalAPagar,
           TipoPago: paymentType,
           Observaciones: observaciones || "Pago de cuota estándar",
           MontoInteresPagado: interesAPagar,
@@ -222,7 +224,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
           idConsolidacion,
           montoPagado: montoPersonalizadoNum,
           fechaPago: new Date().toISOString(),
-          concepto: observaciones || `Pago personalizado - ${paymentType}`
+          concepto: observaciones || paymentType
         };
 
         const response = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/pagospersonalizados`, {
@@ -247,7 +249,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
           idConsolidacion,
           montoPagado: montoExtraordinarioNum,
           fechaPago: new Date().toISOString(),
-          concepto: observaciones || `Abono Extraordinario a Capital - ${paymentType}`,
+          concepto: observaciones || paymentType,
           esAbonoExtraordinario: true
         };
 
@@ -269,7 +271,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
           idConsolidacion,
           montoPagado: montoLiquidarNum,
           fechaPago: new Date().toISOString(),
-          concepto: observaciones || `Liquidación final del préstamo - ${paymentType}${descuentoOtorgado > 0 ? ` (Rebaja de ${formatMoney(descuentoOtorgado)})` : ''}`,
+          concepto: observaciones || paymentType + (descuentoOtorgado > 0 ? ` (Rebaja de ${formatMoney(descuentoOtorgado)})` : ''),
           esLiquidacion: true
         };
 

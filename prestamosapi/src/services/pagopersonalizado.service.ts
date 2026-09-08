@@ -16,10 +16,10 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
 
     logger.info(`🔥 [PagoPersonalizado] ENTRADA → idPrestamo=${idPrestamo}, monto=${montoPagado}, esAbonoExtraordinario=${esAbonoExtraordinario} (type: ${typeof esAbonoExtraordinario}), esLiquidacion=${esLiquidacion}`);
 
-    // 1. Buscar el préstamo actual
+    // 1. Buscar el préstamo actual y cliente
     const { data: prestamo, error: errorPrestamo } = await supabase
         .from("Prestamo")
-        .select("*")
+        .select("*, Cliente(Nombre)")
         .eq("IdPrestamo", idPrestamo)
         .single();
 
@@ -187,11 +187,28 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
             numeroCuotaReal = currentQuota.numeroCuota;
 
             // Arrastrar el déficit a la siguiente cuota
-            if (deficit !== 0 && currentQuotaIndex + 1 < cuotasActualizadas.length) {
-                const nextQuota = cuotasActualizadas[currentQuotaIndex + 1];
-                nextQuota.capital += deficit;
-                nextQuota.cuota += deficit;
-                // Si deficit es negativo (pago con excedente), reduce la cuota y capital siguiente
+            if (deficit !== 0) {
+                if (currentQuotaIndex + 1 < cuotasActualizadas.length) {
+                    const nextQuota = cuotasActualizadas[currentQuotaIndex + 1];
+                    nextQuota.capital += deficit;
+                    nextQuota.cuota += deficit;
+                    // Si deficit es negativo (pago con excedente), reduce la cuota y capital siguiente
+                } else if (deficit > 0) {
+                    // Es la última cuota y quedó un déficit. Creamos una cuota nueva para cobrar el resto.
+                    // El interés para esta nueva cuota será el estándar generado por el capital restante
+                    const interesSiguiente = (tipoCalculo.includes('amortiza') || tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) 
+                        ? (nuevoCapitalRestante * (prestamo.InteresPorcentaje / 100)) 
+                        : (prestamo.InteresMontoTotal / prestamo.CantidadCuotas); // si es cuota fija, interes proporcional
+
+                    cuotasActualizadas.push({
+                        numeroCuota: currentQuota.numeroCuota + 1,
+                        cuota: deficit + interesSiguiente,
+                        interes: interesSiguiente,
+                        capital: deficit,
+                        saldo: 0, 
+                        pagado: false
+                    });
+                }
             }
             
             // Recalcular el saldo en cascada hacia adelante
@@ -243,6 +260,7 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
         Estado: estadoPrestamo,
         TablaPagos: tablaPagosString,
         CuotasRestantes: cuotasPendientes,
+        CantidadCuotas: cuotasActualizadas.filter((c: any) => c.tipo !== 'extraordinario' && c.tipo !== 'liquidar').length,
         FechaUltimoPago: fechaPago
     };
 
@@ -271,11 +289,14 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
         const nextNumeroEmpresa = ((maxPago?.NumeroEmpresa) || 0) + 1;
 
         const tipoPagoFinal = esAbonoExtraordinario ? "Extraordinario" : (esLiquidacion ? "Liquidacion" : "Personalizado");
+        const clientName = prestamo.Cliente?.Nombre || "Cliente Desconocido";
+        const numEmpresa = prestamo.NumeroEmpresa ?? prestamo.IdPrestamo;
+
         const descripcionConsolidacion = esAbonoExtraordinario 
-            ? `Abono Extraordinario a Capital - Préstamo #${idPrestamo} - ${concepto}`
+            ? `Abono Extraordinario a Capital - Préstamo #${numEmpresa} - ${clientName} - ${concepto}`
             : (esLiquidacion 
-                ? `Liquidación Total - Préstamo #${idPrestamo} - ${concepto}`
-                : `Pago Personalizado - Préstamo #${idPrestamo} - ${concepto}`);
+                ? `Liquidación Total - Préstamo #${numEmpresa} - ${clientName} - ${concepto}`
+                : `Pago Personalizado - Préstamo #${numEmpresa} - ${clientName} - ${concepto}`);
 
         // 7. Crear el registro del Pago en la tabla general
         const { data: nuevoPago, error: errorPago } = await supabase

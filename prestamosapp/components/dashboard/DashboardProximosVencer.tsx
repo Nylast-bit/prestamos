@@ -59,8 +59,8 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
       };
     });
 
-  // 2. Filtrar: Solo los que están entre -7 días y +7 días
-  listaRadar = listaRadar.filter(p => p.diasRestantes >= -7 && p.diasRestantes <= 7);
+  // 2. Filtrar: Solo los que están entre -7 días y +3 días (para que no salgan cobros semanales tan pronto se pagan)
+  listaRadar = listaRadar.filter(p => p.diasRestantes >= -7 && p.diasRestantes <= 3);
 
   // 3. Ordenar: Los más vencidos primero
   listaRadar.sort((a, b) => a.diasRestantes - b.diasRestantes);

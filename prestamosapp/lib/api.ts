@@ -21,7 +21,7 @@ api.interceptors.response.use(
     (error) => {
         if (error.response?.status === 401) {
             // No redirigir si el error viene del login para permitir mostrar el mensaje de error
-            const isLoginRequest = error.config?.url?.includes('/auth/login');
+            const isLoginRequest = error.config?.url?.includes('/api/auth/login');
             
             if (!isLoginRequest) {
                 useAuthStore.getState().logout();
