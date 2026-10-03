@@ -612,16 +612,16 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                                       variant="default" 
                                       size="sm" 
                                       disabled={!puedeCobrar}
-                                      className={`shadow-md hover:shadow-lg transition-all h-9 px-3 ${
+                                      className={`shadow-md hover:shadow-lg transition-all h-9 w-9 p-0 flex items-center justify-center ${
                                         puedeCobrar 
                                           ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white' 
                                           : 'bg-slate-200 text-muted-foreground cursor-not-allowed opacity-60'
                                       }`}
                                       onClick={(e) => puedeCobrar && handleOpenPay(e, prestamo)}
                                       title={puedeCobrar ? "Registrar Cobro u Opciones de Pago" : "Solo el prestamista asignado puede cobrar este préstamo"}
+                                      aria-label="Cobrar"
                                     >
-                                      <Banknote className="h-4 w-4 mr-1" />
-                                      Cobrar
+                                      <Banknote className="h-4 w-4" />
                                     </Button>
                                   </>
                                 )}
