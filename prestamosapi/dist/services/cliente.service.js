@@ -4,6 +4,14 @@ exports.deleteClienteService = exports.updateClienteService = exports.createClie
 // services/cliente.service.ts
 const supabaseClient_1 = require("../config/supabaseClient");
 const CLIENT_TABLE_NAME = 'Cliente';
+// La cédula es opcional: si viene vacía se guarda como null (Postgres permite
+// múltiples nulls en columnas con UNIQUE, a diferencia de dos "" que chocarían).
+const normalizeCedula = (clienteData) => {
+    if (clienteData.Cedula == null || String(clienteData.Cedula).trim() === "") {
+        clienteData.Cedula = null;
+    }
+    return clienteData;
+};
 const getAllClientesService = async (idEmpresa) => {
     // 1. Pedimos los clientes Y sus préstamos (solo el estado para no pesar tanto)
     const { data, error } = await supabaseClient_1.supabase
@@ -51,6 +59,7 @@ const getClienteByIdService = async (id, idEmpresa) => {
 };
 exports.getClienteByIdService = getClienteByIdService;
 const createClienteService = async (clienteData) => {
+    normalizeCedula(clienteData);
     const { data: maxCliente } = await supabaseClient_1.supabase
         .from(CLIENT_TABLE_NAME)
         .select("NumeroEmpresa")
@@ -74,6 +83,7 @@ const createClienteService = async (clienteData) => {
 };
 exports.createClienteService = createClienteService;
 const updateClienteService = async (id, idEmpresa, clienteData) => {
+    normalizeCedula(clienteData);
     const { data, error } = await supabaseClient_1.supabase
         .from(CLIENT_TABLE_NAME)
         .update(clienteData)

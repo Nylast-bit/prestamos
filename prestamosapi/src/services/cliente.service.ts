@@ -3,6 +3,15 @@ import { supabase } from "../config/supabaseClient";
 
 const CLIENT_TABLE_NAME = 'Cliente';
 
+// La cédula es opcional: si viene vacía se guarda como null (Postgres permite
+// múltiples nulls en columnas con UNIQUE, a diferencia de dos "" que chocarían).
+const normalizeCedula = (clienteData: any) => {
+  if (clienteData.Cedula == null || String(clienteData.Cedula).trim() === "") {
+    clienteData.Cedula = null;
+  }
+  return clienteData;
+};
+
 export const getAllClientesService = async (idEmpresa: number) => {
   // 1. Pedimos los clientes Y sus préstamos (solo el estado para no pesar tanto)
   const { data, error } = await supabase
@@ -53,6 +62,8 @@ export const getClienteByIdService = async (id: number, idEmpresa: number) => {
 };
 
 export const createClienteService = async (clienteData: any) => {
+  normalizeCedula(clienteData);
+
   const { data: maxCliente } = await supabase
     .from(CLIENT_TABLE_NAME)
     .select("NumeroEmpresa")
@@ -78,6 +89,8 @@ export const createClienteService = async (clienteData: any) => {
 };
 
 export const updateClienteService = async (id: number, idEmpresa: number, clienteData: any) => {
+  normalizeCedula(clienteData);
+
   const { data, error } = await supabase
     .from(CLIENT_TABLE_NAME)
     .update(clienteData)

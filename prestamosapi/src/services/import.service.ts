@@ -102,11 +102,14 @@ export const importBatchService = async (rows: ImportRow[], idEmpresa: number, i
         userCount++;
       }
 
-      // 2. Gestionar Cliente
-      let { data: cliente } = await supabase
+      // 2. Gestionar Cliente (sin cédula se busca por nombre; la cédula es opcional)
+      let clienteQuery = supabase
         .from("Cliente")
-        .select("IdCliente")
-        .eq("Cedula", row.cedula)
+        .select("IdCliente");
+      clienteQuery = row.cedula
+        ? clienteQuery.eq("Cedula", row.cedula)
+        : clienteQuery.eq("Nombre", row.nombreCliente);
+      let { data: cliente } = await clienteQuery
         .eq("IdEmpresa", idEmpresa)
         .maybeSingle();
 

@@ -24,7 +24,7 @@ import { Info } from 'lucide-react'
 interface Cliente {
   IdCliente: number
   Nombre: string
-  Cedula: string
+  Cedula: string | null
   Telefono: string
   Email?: string
   NumeroCuenta?: string
@@ -128,7 +128,7 @@ export function ClientesContent() {
 
   const filteredClientes = clientes.filter(cliente =>
     cliente.Nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cliente.Cedula.includes(searchTerm) ||
+    (cliente.Cedula || "").includes(searchTerm) ||
     (cliente.Email && cliente.Email.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (cliente.NumeroCuenta && cliente.NumeroCuenta.includes(searchTerm))
   )
@@ -193,7 +193,7 @@ export function ClientesContent() {
         const response = await fetchWithAuth(`${API_BASE_URL}/api/clientes/${editingCliente.IdCliente}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({ ...formData, Cedula: formData.Cedula.trim() || null }),
         })
         
         if (!response.ok) {
@@ -207,7 +207,7 @@ export function ClientesContent() {
         const response = await fetchWithAuth(`${API_BASE_URL}/api/clientes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({ ...formData, Cedula: formData.Cedula.trim() || null }),
         })
         
         if (!response.ok) {
@@ -245,7 +245,7 @@ export function ClientesContent() {
     setEditingCliente(cliente)
     setFormData({
       Nombre: cliente.Nombre,
-      Cedula: cliente.Cedula,
+      Cedula: cliente.Cedula || "",
       Telefono: cliente.Telefono,
       Email: cliente.Email || "",
       NumeroCuenta: cliente.NumeroCuenta || "",

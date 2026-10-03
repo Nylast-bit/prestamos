@@ -78,11 +78,14 @@ const importBatchService = async (rows, idEmpresa, isSuperAdmin = false) => {
                 });
                 userCount++;
             }
-            // 2. Gestionar Cliente
-            let { data: cliente } = await supabaseClient_1.supabase
+            // 2. Gestionar Cliente (sin cédula se busca por nombre; la cédula es opcional)
+            let clienteQuery = supabaseClient_1.supabase
                 .from("Cliente")
-                .select("IdCliente")
-                .eq("Cedula", row.cedula)
+                .select("IdCliente");
+            clienteQuery = row.cedula
+                ? clienteQuery.eq("Cedula", row.cedula)
+                : clienteQuery.eq("Nombre", row.nombreCliente);
+            let { data: cliente } = await clienteQuery
                 .eq("IdEmpresa", idEmpresa)
                 .maybeSingle();
             if (!cliente) {
