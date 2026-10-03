@@ -1,15 +1,34 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "sonner"
+import { OfflineBanner } from "@/components/offline-banner"
+import { SerwistProvider } from "@serwist/turbopack/react"
 import "@/lib/patchFetch"
 
 export const metadata: Metadata = {
-  title: 'PrestamosAPP',
+  title: 'CreditWay Préstamos',
   description: 'Gestión de préstamos',
-  generator: 'v0.dev',
+  applicationName: 'CreditWay Préstamos',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'CreditWay',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+  ],
 }
 
 export default function RootLayout({
@@ -32,15 +51,18 @@ html {
         `}</style>
       </head>
       <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <Toaster richColors closeButton position="top-right" />
-        </ThemeProvider>
+        <SerwistProvider swUrl="/serwist/sw.js" disable={process.env.NODE_ENV !== 'production'}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster richColors closeButton position="top-right" />
+            <OfflineBanner />
+          </ThemeProvider>
+        </SerwistProvider>
       </body>
     </html>
   )

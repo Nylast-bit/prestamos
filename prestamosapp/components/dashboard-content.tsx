@@ -125,13 +125,13 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
   return (
     <div className="space-y-6">
       {/* Header con selector de prestatario */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#213685] to-[#3a5bc7] shadow-lg shadow-[#213685]/20">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#213685] to-[#3a5bc7] shadow-lg shadow-[#213685]/20 shrink-0">
             <LayoutDashboard className="h-6 w-6 text-white" />
           </div>
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+          <div className="min-w-0">
+            <h2 className="truncate text-xl font-bold tracking-tight text-foreground sm:text-2xl">
               {filtroPrestatario === "todos"
                 ? "Dashboard General"
                 : `${prestatarios.find(p => p.IdPrestatario.toString() === filtroPrestatario)?.Nombre || ''}`}
@@ -143,10 +143,10 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
           <Select value={filtroPrestatario} onValueChange={setFiltroPrestatario}>
-            <SelectTrigger className="w-[220px] border-border bg-background shadow-sm focus:ring-[#213685] text-sm">
+            <SelectTrigger className="w-full border-border bg-background shadow-sm focus:ring-[#213685] text-sm sm:w-[220px]">
               <SelectValue placeholder="Seleccionar prestatario" />
             </SelectTrigger>
             <SelectContent>

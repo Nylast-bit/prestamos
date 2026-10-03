@@ -157,7 +157,7 @@ export function ReengancheModal({
           </div>
 
           {/* Campos Nuevo Préstamo */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs font-semibold">Monto Nuevo Préstamo</Label>
               <div className="relative">
@@ -188,7 +188,7 @@ export function ReengancheModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-1">
               <Label className="text-xs font-semibold">Tipo de Cálculo</Label>
               <Select value={tipoCalculo} onValueChange={setTipoCalculo}>

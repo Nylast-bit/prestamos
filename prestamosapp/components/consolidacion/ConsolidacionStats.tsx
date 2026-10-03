@@ -80,7 +80,7 @@ export function ConsolidacionStats({
                 value={consolidacion.IdConsolidacion.toString()} 
                 onValueChange={onConsolidacionChange}
               >
-                <SelectTrigger className="w-[340px] mt-1 bg-background border-border font-semibold shadow-sm text-xs h-9">
+                <SelectTrigger className="mt-1 h-9 w-full max-w-full border-border bg-background font-semibold shadow-sm text-xs sm:w-[340px]">
                   <SelectValue placeholder="Seleccionar Período" />
                 </SelectTrigger>
                 <SelectContent>

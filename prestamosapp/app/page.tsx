@@ -15,8 +15,7 @@ import {
   Users,
   DollarSign,
   PieChart,
-  Calendar,
-  Building2
+  Calendar
 } from "lucide-react";
 
 // ==========================================
@@ -39,9 +38,7 @@ function Header() {
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-muted sticky top-0 z-50">
       <div className="flex items-center gap-2">
-        <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#384b92] text-[#dbeafe]">
-          <Building2 className="size-5" />
-        </div>
+        <img src="/logo-symbol.png" alt="CreditWay" width={32} height={32} className="size-8 rounded-lg object-cover" />
         <span className="text-xl font-bold text-[#384b92]">CreditWay</span>
       </div>
       <nav className="hidden md:flex gap-6 text-sm font-medium text-muted-foreground">

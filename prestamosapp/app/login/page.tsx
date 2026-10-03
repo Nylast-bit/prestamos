@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Building2, Loader2, Lock, Mail, ArrowLeft } from "lucide-react";
+import { Loader2, Lock, Mail, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -61,8 +61,8 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4 relative">
-            <div className="absolute top-8 left-4 md:left-8 z-20">
+        <div className="relative flex min-h-screen flex-col items-center justify-center overflow-y-auto bg-zinc-50 dark:bg-zinc-950 p-4 py-10">
+            <div className="absolute top-4 left-4 z-20">
                 <Button variant="ghost" asChild className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
                     <Link href="/">
                         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -70,9 +70,10 @@ export default function LoginPage() {
                     </Link>
                 </Button>
             </div>
-            <div className="absolute top-8 text-center w-full pointer-events-none z-10">
-                <h1 className="text-3xl font-bold flex justify-center items-center gap-2 text-zinc-800 dark:text-zinc-100">
-                    <Building2 className="w-8 h-8 text-blue-600" />
+
+            <div className="mb-6 flex flex-col items-center gap-2 text-center">
+                <img src="/logo-symbol.png" alt="CreditWay" width={80} height={80} className="h-20 w-20 rounded-2xl" />
+                <h1 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">
                     CreditWay Préstamos
                 </h1>
             </div>
@@ -100,7 +101,7 @@ export default function LoginPage() {
                                     id="email"
                                     type="email"
                                     placeholder="admin@prueba.com"
-                                    className="pl-9"
+                                    className="pl-9 text-base"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     required
@@ -116,7 +117,7 @@ export default function LoginPage() {
                                     id="password"
                                     type="password"
                                     placeholder="••••••••"
-                                    className="pl-9"
+                                    className="pl-9 text-base"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
@@ -140,9 +141,9 @@ export default function LoginPage() {
                 </form>
             </Card>
 
-            <div className="absolute bottom-8 text-center text-sm text-zinc-500 w-full">
+            <p className="mt-6 text-center text-sm text-zinc-500">
                 &copy; {new Date().getFullYear()} CreditWay Platform. Todos los derechos reservados.
-            </div>
+            </p>
         </div>
     );
 }

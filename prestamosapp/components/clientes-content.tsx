@@ -497,7 +497,7 @@ export function ClientesContent() {
                   Nuevo Cliente
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
+              <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[600px]">
                 <DialogHeader>
                   <DialogTitle>
                     {editingCliente ? "Editar Cliente" : "Nuevo Cliente"}
@@ -521,7 +521,7 @@ export function ClientesContent() {
                         required
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="cedula">Cédula (Opcional)</Label>
                         <Input
@@ -546,7 +546,7 @@ export function ClientesContent() {
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="email">Email (Opcional)</Label>
                         <Input
@@ -783,7 +783,7 @@ export function ClientesContent() {
       </AlertDialog>
 
       <Dialog open={loansModalOpen} onOpenChange={setLoansModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle className="text-red-600 flex items-center gap-2">
               <Trash2 className="h-5 w-5" />
@@ -833,7 +833,7 @@ export function ClientesContent() {
       </Dialog>
 
       <Dialog open={mapOpen} onOpenChange={setMapOpen}>
-        <DialogContent className="sm:max-w-[600px] h-[500px] flex flex-col">
+        <DialogContent className="flex max-h-[85vh] flex-col overflow-y-auto sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Seleccionar Ubicación</DialogTitle>
             <DialogDescription>

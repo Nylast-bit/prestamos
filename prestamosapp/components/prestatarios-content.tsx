@@ -402,7 +402,7 @@ export function PrestatariosContent() {
                   Nuevo Prestamista
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>
                     {editingPrestatario ? "Editar Prestamista" : "Nuevo Prestamista"}
@@ -416,7 +416,7 @@ export function PrestatariosContent() {
                 </DialogHeader>
                 
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="nombre">Nombre Completo *</Label>
                       <Input
@@ -469,7 +469,7 @@ export function PrestatariosContent() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="telefono">Teléfono</Label>
                         <Input
@@ -686,7 +686,7 @@ export function PrestatariosContent() {
 
       {/* === MODAL EDITAR MI PERFIL === */}
       <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[480px]">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-1">
               <div className="h-10 w-10 rounded-full bg-indigo-600 text-white dark:text-white flex items-center justify-center text-white font-bold shadow">
@@ -717,7 +717,7 @@ export function PrestatariosContent() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="profile-telefono" className="text-xs font-semibold">Teléfono</Label>
                   <Input
@@ -768,7 +768,7 @@ export function PrestatariosContent() {
                       className="h-9"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
                       <Label htmlFor="clave-nueva" className="text-[11px] text-muted-foreground">Nueva Contraseña</Label>
                       <Input

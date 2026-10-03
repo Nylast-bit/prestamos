@@ -196,10 +196,10 @@ export function GastoFijoContent() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
                             <CardTitle className="flex items-center gap-2">
-                                <TrendingDown className="h-5 w-5 text-red-600"/>
+                                <TrendingDown className="h-5 w-5 text-red-600 shrink-0"/>
                                 Gastos Fijos Recurrentes
                             </CardTitle>
                             <CardDescription>
@@ -216,7 +216,7 @@ export function GastoFijoContent() {
                                     Nuevo Gasto Fijo
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-[500px]">
+                            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[500px]">
                                 <DialogHeader>
                                     <DialogTitle>{editingGasto ? "Editar" : "Nuevo"} Gasto Fijo</DialogTitle>
                                     <DialogDescription>
@@ -234,7 +234,7 @@ export function GastoFijoContent() {
                                                 required
                                             />
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                             <div className="space-y-2">
                                                 <Label htmlFor="monto">Monto (RD$)</Label>
                                                 <Input
@@ -265,7 +265,7 @@ export function GastoFijoContent() {
                                                 </Select>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                                             <div className="space-y-2">
                                                 <Label htmlFor="dia1">Día 1 (Obligatorio)</Label>
                                                 <Input

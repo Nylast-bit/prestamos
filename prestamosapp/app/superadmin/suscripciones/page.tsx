@@ -100,8 +100,8 @@ export default function SuscripcionesPage() {
         </Button>
       </div>
       
-      <div className="rounded-md border bg-background">
-        <table className="w-full text-sm text-left">
+      <div className="overflow-x-auto rounded-md border bg-background">
+        <table className="w-full min-w-[720px] text-sm text-left">
           <thead className="bg-muted border-b">
             <tr>
               <th className="p-4 font-medium">Empresa</th>

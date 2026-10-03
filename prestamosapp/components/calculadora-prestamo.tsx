@@ -97,7 +97,7 @@ export function CalculadoraPrestamo() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="monto">Monto a Prestar</Label>
               <Input
@@ -119,7 +119,7 @@ export function CalculadoraPrestamo() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="tipo">Tipo de Cálculo</Label>
               <Select 

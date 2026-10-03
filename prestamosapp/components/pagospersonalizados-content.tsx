@@ -319,7 +319,7 @@ export function PagosPersonalizadosContent() {
             />
           </div>
 
-          <div className="rounded-md border auto-scroll overflow-x-auto">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted">

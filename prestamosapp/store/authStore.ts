@@ -36,7 +36,20 @@ export const useAuthStore = create<AuthState>()(
             token: null,
             user: null,
             loginState: (token, user) => set({ token, user }),
-            logout: () => set({ token: null, user: null }),
+            logout: () => {
+                set({ token: null, user: null });
+                // Borra los datos cacheados por el Service Worker (modo offline)
+                // para que el siguiente usuario de este dispositivo no los vea.
+                try {
+                    if (typeof window !== "undefined" && "caches" in window) {
+                        caches.keys().then((keys) => {
+                            keys.forEach((key) => {
+                                if (key === "api-data") caches.delete(key);
+                            });
+                        });
+                    }
+                } catch { /* sin Service Worker disponible */ }
+            },
             isAuthenticated: () => {
                 const { token } = get();
                 if (!token) return false;

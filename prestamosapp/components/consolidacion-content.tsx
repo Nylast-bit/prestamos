@@ -265,13 +265,13 @@ export function ConsolidacionContent() {
                   <Plus className="h-4 w-4 mr-2" /> Nuevo Registro
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>{editingRegistro ? "Editar Registro" : "Nuevo Registro"}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit}>
                   <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="fecha">Fecha</Label>
                         <Input id="fecha" type="date" value={formData.FechaRegistro} onChange={(e) => setFormData({...formData, FechaRegistro: e.target.value})} required />
@@ -287,7 +287,7 @@ export function ConsolidacionContent() {
                         </Select>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="monto">Monto</Label>
                         <Input id="monto" type="number" step="0.01" value={formData.Monto} onChange={(e) => setFormData({...formData, Monto: e.target.value})} required />
@@ -361,7 +361,7 @@ export function ConsolidacionContent() {
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <h4 className="font-medium mb-2">OBSERVACIONES</h4>
             <p className="text-sm text-muted-foreground mb-2">{consolidacion.Observaciones || 'Sin observaciones registradas.'}</p>
-            <div className="grid grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
               <div><span className="font-medium">INGRESOS TOTALES: </span><span className="text-green-600">RD${ingresosTotales.toLocaleString()}</span></div>
               <div><span className="font-medium">GASTOS TOTALES: </span><span className="text-red-600">-RD${gastosTotales.toLocaleString()}</span></div>
               <div><span className="font-medium">BALANCE: </span><span className={`font-bold ${balanceNeto >= 0 ? 'text-green-600' : 'text-red-600'}`}>RD${balanceNeto.toLocaleString()}</span></div>

@@ -213,7 +213,7 @@ export function ConfiguracionContent() {
         <CardContent className="space-y-6">
           <div className="space-y-4">
             <Label className="text-base font-medium">Modo de Color</Label>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Button
                 variant={theme === "light" ? "default" : "outline"}
                 className={`h-20 flex-col gap-2 ${theme === "light" ? "bg-[#213685] text-white hover:bg-[#213685]/90" : "hover:bg-[#213685] hover:text-white"}`}
@@ -316,7 +316,7 @@ export function ConfiguracionContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-0.5">
               <Label className="text-base">Notificaciones Push</Label>
               <p className="text-sm text-muted-foreground">
@@ -331,7 +331,7 @@ export function ConfiguracionContent() {
 
           <Separator />
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-0.5">
               <Label className="text-base">Sonidos</Label>
               <p className="text-sm text-muted-foreground">
@@ -358,7 +358,7 @@ export function ConfiguracionContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-0.5">
               <Label className="text-base">Respaldo Automático</Label>
               <p className="text-sm text-muted-foreground">

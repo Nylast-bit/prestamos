@@ -55,7 +55,7 @@ export function SolicitudFormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[500px]">
         <form onSubmit={handleSubmitWrapper}>
           <DialogHeader className="border-b pb-4 mb-4">
             <DialogTitle className="flex items-center gap-2 text-[#213685]">
@@ -95,7 +95,7 @@ export function SolicitudFormDialog({
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {/* Monto Solicitado */}
               <div className="space-y-2">
                 <Label htmlFor="MontoSolicitado" className="flex items-center gap-1 text-card-foreground">
@@ -172,7 +172,7 @@ export function SolicitudFormDialog({
             </Button>
             <Button 
               type="submit" 
-              className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 min-w-[120px]" 
+              className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 sm:min-w-[120px]" 
               disabled={isSubmitting || !formData.IdCliente || !formData.MontoSolicitado}
             >
               {isSubmitting ? "Guardando..." : (isEditing ? "Actualizar" : "Crear Solicitud")}

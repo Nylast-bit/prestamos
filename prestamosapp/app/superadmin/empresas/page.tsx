@@ -121,8 +121,8 @@ export default function EmpresasPage() {
         </Button>
       </div>
       
-      <div className="rounded-md border bg-background">
-        <table className="w-full text-sm text-left">
+      <div className="overflow-x-auto rounded-md border bg-background">
+        <table className="w-full min-w-[720px] text-sm text-left">
           <thead className="bg-muted border-b">
             <tr>
               <th className="p-4 font-medium">Nombre</th>
@@ -209,7 +209,7 @@ export default function EmpresasPage() {
       
       {/* Visualización de Usuarios */}
       <Dialog open={isUsersModalOpen} onOpenChange={setIsUsersModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[85vh] overflow-y-auto max-w-2xl">
           <DialogHeader>
             <DialogTitle>Prestamistas Asociados: {selectedEmpresa?.Nombre}</DialogTitle>
             <DialogDescription>Listado actual frente al límite de su Plan.</DialogDescription>
@@ -226,8 +226,8 @@ export default function EmpresasPage() {
               </div>
           </div>
 
-          <div className="max-h-60 overflow-y-auto mt-4 rounded-md border">
-              <table className="w-full text-sm text-left">
+          <div className="mt-4 max-h-60 overflow-auto rounded-md border">
+              <table className="w-full min-w-[560px] text-sm text-left">
                   <thead className="bg-accent">
                     <tr>
                         <th className="p-2">Nombre</th>

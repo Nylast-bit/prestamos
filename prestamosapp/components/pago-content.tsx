@@ -418,7 +418,7 @@ export function PagosContent() {
               />
             </div>
             
-            <div className="flex items-center gap-1 bg-background p-1 rounded-md border border-border shadow-sm">
+            <div className="flex flex-wrap items-center gap-1 bg-background p-1 rounded-md border border-border shadow-sm">
               <button
                 onClick={() => setFiltroTipo('todos')}
                 className={`px-3 py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'todos' ? 'bg-[#213685] text-white shadow-sm' : 'text-muted-foreground hover:text-card-foreground'}`}

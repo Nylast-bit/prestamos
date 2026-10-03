@@ -81,7 +81,7 @@ export function HistorialAuditoriaModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[550px]">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-1">
             <div className="h-10 w-10 rounded-full bg-blue-100 text-[#213685] flex items-center justify-center font-bold shadow-inner">

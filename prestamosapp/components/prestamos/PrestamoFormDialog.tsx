@@ -240,7 +240,7 @@ export function PrestamoFormDialog({
               </div>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <div className="flex items-center justify-start gap-2">
                 <Label className="text-xs font-semibold uppercase text-muted-foreground">Cliente</Label>
@@ -287,7 +287,7 @@ export function PrestamoFormDialog({
           </div>
 
           {/* SECCIÓN 2: TÉRMINOS FINANCIEROS */}
-          <div className="grid grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="MontoPrestado" className="text-blue-700 font-semibold text-xs">Monto Principal ($)</Label>
               <div className="relative">
@@ -341,7 +341,7 @@ export function PrestamoFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Modalidad de Pago</Label>
               <Select
@@ -381,7 +381,7 @@ export function PrestamoFormDialog({
 
           {/* SECCIÓN 3: FECHAS Y CALENDARIO DE PAGO */}
           <div className="bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-3 rounded-xl border border-blue-100 space-y-2.5">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="FechaInicio" className="flex items-center gap-1.5 font-semibold text-blue-900 text-xs cursor-pointer">
@@ -536,7 +536,7 @@ export function PrestamoFormDialog({
           </Button>
           <Button
             onClick={() => onSubmit()}
-            className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 min-w-[140px] h-9 text-xs font-semibold"
+            className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 h-9 text-xs font-semibold sm:min-w-[140px]"
             disabled={isSubmitting}
           >
             {isSubmitting ? "Procesando..." : (isEditing ? "Guardar Cambios" : "Crear Préstamo")}

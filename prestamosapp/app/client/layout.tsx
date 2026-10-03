@@ -92,9 +92,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-background z-10">
-          <SidebarTrigger className="-ml-1" />
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold">{getSectionTitle()}</h1>
+          <SidebarTrigger className="-ml-1 shrink-0" />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <h1 className="truncate text-base font-semibold sm:text-lg">{getSectionTitle()}</h1>
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">

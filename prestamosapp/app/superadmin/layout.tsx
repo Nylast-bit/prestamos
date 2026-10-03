@@ -33,9 +33,9 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
       <SuperAdminSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-orange-50">
-          <SidebarTrigger className="-ml-1" />
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold text-orange-950">Panel SuperAdmin SaaS</h1>
+          <SidebarTrigger className="-ml-1 shrink-0" />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <h1 className="truncate text-base font-semibold text-orange-950 sm:text-lg">Panel SuperAdmin SaaS</h1>
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 bg-muted">

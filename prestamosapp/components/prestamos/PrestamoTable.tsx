@@ -754,7 +754,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
       {/* --- MODAL DE PAGO (3 MODOS) --- */}
       <Dialog open={isPayOpen} onOpenChange={setIsPayOpen}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Banknote className="text-green-600" />
@@ -1039,10 +1039,10 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
               {/* === CAMPOS COMUNES (MÉTODO Y NOTAS) === */}
               {payMode !== 'reenganche' && (
                 <div className="grid gap-4 pt-1">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="metodo" className="text-right text-xs font-semibold">Método</Label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                    <Label htmlFor="metodo" className="text-left text-xs font-semibold sm:text-right">Método</Label>
                     <Select value={paymentType} onValueChange={setPaymentType}>
-                      <SelectTrigger className="col-span-3 h-9 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-9 text-xs sm:col-span-3"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Efectivo">Efectivo</SelectItem>
                         <SelectItem value="Transferencia">Transferencia</SelectItem>

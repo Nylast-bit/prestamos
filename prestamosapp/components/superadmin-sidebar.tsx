@@ -65,9 +65,7 @@ export function SuperAdminSidebar({ ...props }: React.ComponentProps<typeof Side
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/superadmin">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-orange-600 text-white">
-                  <Shield className="size-4" />
-                </div>
+                <img src="/logo-symbol.png" alt="CreditWay" width={32} height={32} className="size-8 shrink-0 rounded-lg object-cover" />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">CreditWay Global</span>
                   <span className="truncate text-xs">SuperAdmin</span>

@@ -1,9 +1,8 @@
-// ./next.config.ts
+import { withSerwist } from "@serwist/turbopack";
+import type { NextConfig } from "next";
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  // Ahora solo incluye las opciones válidas de NextConfig
-  // La configuración de ESLint se ha movido
+const nextConfig: NextConfig = {
+  reactStrictMode: true,
 };
 
-module.exports = nextConfig;
+export default withSerwist(nextConfig);

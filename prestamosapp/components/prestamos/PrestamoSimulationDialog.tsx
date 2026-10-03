@@ -224,7 +224,7 @@ export function PrestamoSimulationDialog({
         <DialogFooter className="p-4 border-t bg-background z-20">
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
             <Button 
-                className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 min-w-[150px]" 
+                className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90 sm:min-w-[150px]" 
                 onClick={onConfirm} 
                 disabled={isSubmitting}
             >
