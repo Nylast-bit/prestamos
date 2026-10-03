@@ -15,7 +15,8 @@ import {
   Users,
   DollarSign,
   PieChart,
-  Calendar
+  Calendar,
+  Smartphone
 } from "lucide-react";
 
 // ==========================================
@@ -42,6 +43,7 @@ function Header() {
         <span className="text-xl font-bold text-[#384b92]">CreditWay</span>
       </div>
       <nav className="hidden md:flex gap-6 text-sm font-medium text-muted-foreground">
+        <Link href="#movil" className="hover:text-[#384b92] transition-colors">Móvil</Link>
         <Link href="#features" className="hover:text-[#384b92] transition-colors">Características</Link>
         <Link href="#pricing" className="hover:text-[#384b92] transition-colors">Precios</Link>
       </nav>
@@ -96,6 +98,54 @@ function HeroSection() {
         <div className="bg-[#dbeafe] rounded-3xl p-6 flex flex-col justify-center min-h-[200px] md:min-h-0">
            <h3 className="text-3xl font-bold text-[#384b92]">100%</h3>
            <p className="text-sm text-[#384b92]">Control de tus finanzas</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MobileSection() {
+  const steps = [
+    { n: 1, title: "Abre en tu navegador", desc: "Entra a CreditWay desde Chrome o Safari en tu teléfono." },
+    { n: 2, title: "Instálala como app", desc: "Toca Compartir en iPhone o el menú de opciones en Android y elige «Añadir a pantalla de inicio»." },
+    { n: 3, title: "Ábrela con un toque", desc: "Desde su ícono, como cualquier app. Tus datos de consulta quedan guardados y siguen disponibles aunque te quedes sin internet." },
+  ];
+
+  return (
+    <section id="movil" className="px-4 md:px-8 py-16 md:py-24">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+        <div>
+          <span className="inline-flex items-center gap-2 text-sm font-medium text-[#384b92] bg-[#dbeafe] rounded-full px-4 py-1.5">
+            <Smartphone size={14} /> También en tu teléfono
+          </span>
+          <h2 className="text-3xl font-bold mt-4">Gestiona tus préstamos desde el celular</h2>
+          <p className="text-muted-foreground mt-4 max-w-lg">
+            CreditWay es una app web instalable: se ve y funciona como una aplicación nativa en tu teléfono, sin tiendas ni descargas pesadas.
+          </p>
+          <ol className="mt-8 space-y-4">
+            {steps.map((s) => (
+              <li key={s.n} className="flex gap-4 bg-background border rounded-2xl p-4">
+                <span className="size-8 rounded-full bg-[#384b92] text-white font-bold flex items-center justify-center shrink-0">
+                  {s.n}
+                </span>
+                <div>
+                  <h3 className="font-semibold text-foreground">{s.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{s.desc}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <div className="flex justify-center">
+          <div className="w-56 h-[26rem] rounded-[2.5rem] border-8 border-slate-900 bg-slate-900 shadow-2xl p-2 relative">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-20 h-4 bg-slate-900 rounded-full z-10" />
+            <div className="w-full h-full rounded-[2rem] bg-[#384b92] flex flex-col items-center justify-center gap-3">
+              <img src="/logo-symbol.png" alt="CreditWay" className="size-16 rounded-2xl object-cover" />
+              <span className="text-white font-bold">CreditWay</span>
+              <span className="text-xs text-blue-200">Toca para abrir</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -200,6 +250,7 @@ export default function LandingPage() {
       <Header />
       <main>
         <HeroSection />
+        <MobileSection />
         <FeaturesSection />
         <PricingSection />
         
