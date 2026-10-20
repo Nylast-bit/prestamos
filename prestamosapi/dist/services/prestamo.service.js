@@ -608,6 +608,7 @@ const reengancharPrestamoService = async (idPrestamoOriginal, nuevoPrestamoData,
                 if (!c.pagado) {
                     c.pagado = true;
                     c.fechaPago = hoyISO;
+                    c.montoEsperado = c.cuota;
                     c.observacion = `Saldado por Reenganche a Préstamo #${nuevoPrestamo.NumeroEmpresa ?? nuevoPrestamo.IdPrestamo}`;
                 }
             });

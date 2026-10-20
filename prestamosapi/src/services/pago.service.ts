@@ -72,16 +72,13 @@ export const createPagoService = async (data: any, idEmpresa: number) => {
   if (tablaPagosString) {
     try {
       const tabla = JSON.parse(tablaPagosString);
-      const cuotaIndex = tabla.findIndex((c: any) => c.numeroCuota === numeroCuotaReal || (!c.pagado && c.numeroCuota !== undefined));
+      let cuotaIndex = tabla.findIndex((c: any) => c.numeroCuota === numeroCuotaReal || (!c.pagado && c.numeroCuota !== undefined));
+      if (cuotaIndex === -1) cuotaIndex = tabla.findIndex((c: any) => !c.pagado);
       if (cuotaIndex !== -1) {
         tabla[cuotaIndex].pagado = true;
         tabla[cuotaIndex].fechaPago = nowISO;
-      } else {
-        const firstUnpaid = tabla.findIndex((c: any) => !c.pagado);
-        if (firstUnpaid !== -1) {
-          tabla[firstUnpaid].pagado = true;
-          tabla[firstUnpaid].fechaPago = nowISO;
-        }
+        tabla[cuotaIndex].montoEsperado = tabla[cuotaIndex].cuota;
+        tabla[cuotaIndex].montoPagado = Number(MontoPagado);
       }
       tablaPagosString = JSON.stringify(tabla);
       const pendientes = tabla.filter((c: any) => !c.pagado).length;
@@ -387,6 +384,9 @@ export const deletePagoService = async (idPago: number, idEmpresa: number) => {
       if (cuotaIndex !== -1) {
         tabla[cuotaIndex].pagado = false;
         delete tabla[cuotaIndex].fechaPago;
+        if (tabla[cuotaIndex].montoEsperado !== undefined) tabla[cuotaIndex].cuota = tabla[cuotaIndex].montoEsperado;
+        delete tabla[cuotaIndex].montoPagado;
+        delete tabla[cuotaIndex].montoEsperado;
       }
       nuevaTablaPagosString = JSON.stringify(tabla);
     } catch (e) {

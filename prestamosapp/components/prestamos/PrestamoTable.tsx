@@ -364,6 +364,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
             const pagoReal = pagoIdx !== -1 ? pagosDisponibles.splice(pagoIdx, 1)[0] : null;
             return {
                 ...cuotaProyectada,
+                montoPagado: cuotaProyectada.montoPagado ?? (pagoReal ? Number(pagoReal.MontoPagado) : cuotaProyectada.cuota),
                 estado: 'Pagado',
                 fechaPagoReal: pagoReal ? pagoReal.FechaPago : (cuotaProyectada.fechaPago || null),
                 metodoPago: pagoReal ? pagoReal.TipoPago : (cuotaProyectada.tipo === 'extraordinario' ? 'Extraordinario' : cuotaProyectada.tipo === 'personalizado' ? 'Personalizado' : null),
@@ -373,6 +374,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
         const pagoReal = pagosDisponibles.find((p: any) => p.NumeroCuota === cuotaProyectada.numeroCuota);
         return {
             ...cuotaProyectada,
+            montoPagado: pagoReal ? Number(pagoReal.MontoPagado) : null,
             estado: pagoReal ? 'Pagado' : 'Pendiente',
             fechaPagoReal: pagoReal ? pagoReal.FechaPago : null,
             metodoPago: pagoReal ? pagoReal.TipoPago : null,
@@ -1173,7 +1175,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                       <TableRow className="border-b-2 border-border">
                         <TableHead className="w-[60px] text-center font-bold text-foreground">#</TableHead>
                         <TableHead className="font-bold text-foreground">Estado</TableHead>
-                        <TableHead className="font-bold text-foreground text-right">Cuota</TableHead>
+                        <TableHead className="font-bold text-foreground text-right">Esperado</TableHead>
+                        <TableHead className="font-bold text-foreground text-right">Pagado</TableHead>
                         <TableHead className="font-bold text-foreground text-right">Interés</TableHead>
                         <TableHead className="font-bold text-foreground text-right">Capital</TableHead>
                         <TableHead className="font-bold text-foreground text-right">Saldo</TableHead>
@@ -1183,6 +1186,15 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                     <TableBody>
                       {getTablaAmortizacionFusionada().map((fila: any) => {
                         const esPagado = fila.estado === 'Pagado';
+                        // Abonos extraordinarios y liquidaciones no tienen un monto esperado
+                        const esPagoSuelto = fila.tipo === 'extraordinario' || fila.tipo === 'liquidar';
+                        // Pagos personalizados anteriores a este campo sobrescribían "cuota" con lo pagado
+                        const montoEsperado: number | null = esPagoSuelto
+                          ? null
+                          : fila.montoEsperado ?? (esPagado && fila.tipo === 'personalizado' ? null : fila.cuota);
+                        const diferencia = esPagado && montoEsperado !== null && fila.montoPagado !== null
+                          ? montoEsperado - fila.montoPagado
+                          : 0;
                         return (
                           <TableRow 
                             key={fila.numeroCuota} 
@@ -1206,7 +1218,26 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                               )}
                             </TableCell>
                             <TableCell className="text-right font-mono text-card-foreground font-semibold">
-                              {formatMoney(fila.cuota)}
+                              {montoEsperado !== null ? formatMoney(montoEsperado) : <span className="text-muted-foreground">-</span>}
+                              {!esPagado && Math.abs(fila.montoArrastrado || 0) > 0.01 && (
+                                <div className={`text-[10px] font-sans font-medium ${fila.montoArrastrado > 0 ? "text-orange-600 dark:text-orange-400" : "text-green-700 dark:text-green-400"}`}>
+                                  {fila.montoArrastrado > 0 ? "Incluye " : "Descuenta "}{formatMoney(Math.abs(fila.montoArrastrado))} arrastrado
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-semibold">
+                              {esPagado && fila.montoPagado !== null ? (
+                                <>
+                                  <span className="text-green-700 dark:text-green-400">{formatMoney(fila.montoPagado)}</span>
+                                  {Math.abs(diferencia) > 0.01 && (
+                                    <div className={`text-[10px] font-sans font-medium ${diferencia > 0 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}`}>
+                                      {diferencia > 0 ? `Faltó ${formatMoney(diferencia)} → siguiente` : `Excedente ${formatMoney(-diferencia)}`}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right font-mono text-muted-foreground text-sm">
                               {formatMoney(fila.interes)}

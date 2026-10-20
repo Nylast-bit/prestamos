@@ -112,6 +112,7 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
         const entradaPagoRealizado = {
             numeroCuota: 0, // se renumerará abajo
             cuota: montoPagado,
+            montoPagado: montoPagado,
             interes: abonoInteres,
             capital: abonoCapital,
             saldo: nuevoCapitalRestante,
@@ -177,8 +178,11 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
             const deficit = originalCuota - montoPagado;
             
             // Marcar cuota actual como pagada y registrar lo que realmente se pagó
+            // (montoEsperado guarda lo que se debía cobrar, incluyendo arrastres previos)
             currentQuota.pagado = true;
             currentQuota.fechaPago = fechaPago;
+            currentQuota.montoEsperado = originalCuota;
+            currentQuota.montoPagado = montoPagado;
             currentQuota.cuota = montoPagado;
             currentQuota.interes = abonoInteres;
             currentQuota.capital = abonoCapital;
@@ -192,6 +196,7 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
                     const nextQuota = cuotasActualizadas[currentQuotaIndex + 1];
                     nextQuota.capital += deficit;
                     nextQuota.cuota += deficit;
+                    nextQuota.montoArrastrado = (nextQuota.montoArrastrado || 0) + deficit;
                     // Si deficit es negativo (pago con excedente), reduce la cuota y capital siguiente
                 } else if (deficit > 0) {
                     // Es la última cuota y quedó un déficit. Creamos una cuota nueva para cobrar el resto.
@@ -205,7 +210,8 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
                         cuota: deficit + interesSiguiente,
                         interes: interesSiguiente,
                         capital: deficit,
-                        saldo: 0, 
+                        montoArrastrado: deficit,
+                        saldo: 0,
                         pagado: false
                     });
                 }

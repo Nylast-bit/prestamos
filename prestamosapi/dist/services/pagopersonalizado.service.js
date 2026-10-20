@@ -91,6 +91,7 @@ const createPagoPersonalizadoService = async (data) => {
         const entradaPagoRealizado = {
             numeroCuota: 0, // se renumerará abajo
             cuota: montoPagado,
+            montoPagado: montoPagado,
             interes: abonoInteres,
             capital: abonoCapital,
             saldo: nuevoCapitalRestante,
@@ -155,8 +156,11 @@ const createPagoPersonalizadoService = async (data) => {
             const originalCuota = currentQuota.cuota;
             const deficit = originalCuota - montoPagado;
             // Marcar cuota actual como pagada y registrar lo que realmente se pagó
+            // (montoEsperado guarda lo que se debía cobrar, incluyendo arrastres previos)
             currentQuota.pagado = true;
             currentQuota.fechaPago = fechaPago;
+            currentQuota.montoEsperado = originalCuota;
+            currentQuota.montoPagado = montoPagado;
             currentQuota.cuota = montoPagado;
             currentQuota.interes = abonoInteres;
             currentQuota.capital = abonoCapital;
@@ -169,6 +173,7 @@ const createPagoPersonalizadoService = async (data) => {
                     const nextQuota = cuotasActualizadas[currentQuotaIndex + 1];
                     nextQuota.capital += deficit;
                     nextQuota.cuota += deficit;
+                    nextQuota.montoArrastrado = (nextQuota.montoArrastrado || 0) + deficit;
                     // Si deficit es negativo (pago con excedente), reduce la cuota y capital siguiente
                 }
                 else if (deficit > 0) {
@@ -182,6 +187,7 @@ const createPagoPersonalizadoService = async (data) => {
                         cuota: deficit + interesSiguiente,
                         interes: interesSiguiente,
                         capital: deficit,
+                        montoArrastrado: deficit,
                         saldo: 0,
                         pagado: false
                     });
