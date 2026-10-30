@@ -28,6 +28,7 @@ interface Pago {
   MontoInteresPagado: number
   MontoCapitalAbonado: number
   CuotasRestantes: number
+  SaldoPendiente?: number // Lo que se debía justo después de este pago (calculado en el backend)
   Observaciones: string
   NumeroCuota: number
   Prestamo?: {
@@ -100,9 +101,12 @@ export function PagosContent() {
     const capRestante = pago.Prestamo?.CapitalRestante !== undefined && pago.Prestamo?.CapitalRestante !== null ? Number(pago.Prestamo.CapitalRestante) : 0;
     const interesPorc = pago.Prestamo?.InteresPorcentaje !== undefined ? Number(pago.Prestamo.InteresPorcentaje) : 0;
 
-    let montoPendienteCalculado = esSoloInteres
-      ? (capRestante + (capRestante * (interesPorc / 100)))
-      : (montoCuota * cuotasRestantes);
+    // El backend calcula el saldo real (respeta arrastres y abonos); MontoCuota × CuotasRestantes es solo respaldo
+    let montoPendienteCalculado = pago.SaldoPendiente !== undefined && pago.SaldoPendiente !== null
+      ? Number(pago.SaldoPendiente)
+      : esSoloInteres
+        ? (capRestante + (capRestante * (interesPorc / 100)))
+        : (montoCuota * cuotasRestantes);
 
     if (montoPendienteCalculado === 0 && pago.Prestamo?.CapitalRestante && Number(pago.Prestamo.CapitalRestante) > 0) {
       montoPendienteCalculado = Number(pago.Prestamo.CapitalRestante);

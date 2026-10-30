@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAllPagosPersonalizadosService = exports.createPagoPersonalizadoService = void 0;
 const logger_1 = require("../utils/logger");
 const supabaseClient_1 = require("../config/supabaseClient");
+const pago_service_1 = require("./pago.service");
 const createPagoPersonalizadoService = async (data) => {
     const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion, esAbonoExtraordinario } = data;
     logger_1.logger.info(`🔥 [PagoPersonalizado] ENTRADA → idPrestamo=${idPrestamo}, monto=${montoPagado}, esAbonoExtraordinario=${esAbonoExtraordinario} (type: ${typeof esAbonoExtraordinario}), esLiquidacion=${esLiquidacion}`);
@@ -23,7 +24,20 @@ const createPagoPersonalizadoService = async (data) => {
     const baseInteres = (tipoCalculo.includes('amortiza') || tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo'))
         ? (prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? prestamo.CapitalRestante : prestamo.MontoPrestado)
         : prestamo.MontoPrestado;
-    const interesGenerado = baseInteres * (prestamo.InteresPorcentaje / 100);
+    let interesGenerado = baseInteres * (prestamo.InteresPorcentaje / 100);
+    // En capital+interes el interés por cuota es fijo y ya está en la tabla (InteresMontoTotal / cuotas).
+    // Usarlo evita descuadres por el redondeo de InteresPorcentaje (ej. 6.83% → 683 vs 683.33 real).
+    if (!tipoCalculo.includes('amortiza') && !tipoCalculo.includes('solo')) {
+        try {
+            const cuotaPendiente = JSON.parse(prestamo.TablaPagos || "[]").find((c) => !c.pagado);
+            if (cuotaPendiente && Number(cuotaPendiente.interes) > 0) {
+                interesGenerado = Number(cuotaPendiente.interes);
+            }
+        }
+        catch (e) {
+            logger_1.logger.error("Error parseando TablaPagos para el interés de la cuota", e);
+        }
+    }
     const capitalRestanteActual = prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? prestamo.CapitalRestante : prestamo.MontoPrestado;
     const minimoLiquidacion = interesGenerado + (capitalRestanteActual * 0.5);
     // 2.5 Verificar si ya se cubrió el interés del período en la consolidación activa
@@ -75,7 +89,9 @@ const createPagoPersonalizadoService = async (data) => {
         abonoCapital = montoPagado - interesGenerado;
     }
     // Si es liquidación o el abono cubre todo el capital restante, el préstamo se marca como Pagado
-    const nuevoCapitalRestante = (esLiquidacion || (capitalRestanteActual - abonoCapital <= 0)) ? 0 : Math.max(0, capitalRestanteActual - abonoCapital);
+    abonoInteres = Math.round(abonoInteres * 100) / 100;
+    abonoCapital = Math.round(abonoCapital * 100) / 100;
+    const nuevoCapitalRestante = (esLiquidacion || (capitalRestanteActual - abonoCapital <= 0)) ? 0 : Math.round(Math.max(0, capitalRestanteActual - abonoCapital) * 100) / 100;
     const estadoPrestamo = (esLiquidacion || nuevoCapitalRestante === 0) ? "Pagado" : prestamo.Estado;
     // 5. La magia del JSON (TablaPagos)
     let cuotasActualizadas = [];
@@ -348,6 +364,12 @@ const getAllPagosPersonalizadosService = async (idEmpresa) => {
         .order("FechaPago", { ascending: false });
     if (error) {
         throw new Error(`Error al obtener los pagos personalizados: ${error.message}`);
+    }
+    // El saldo pendiente depende de TODOS los pagos del préstamo, no solo los personalizados
+    const todos = await (0, pago_service_1.getAllPagosService)(idEmpresa);
+    const saldoPorPago = new Map(todos.map((p) => [p.IdPago, p.SaldoPendiente]));
+    for (const p of pagos || []) {
+        p.SaldoPendiente = saldoPorPago.get(p.IdPago);
     }
     return pagos;
 };

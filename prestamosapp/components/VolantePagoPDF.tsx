@@ -222,7 +222,7 @@ export const VolantePago = forwardRef<HTMLDivElement, { data: PagoData | null }>
                 <p style={{ color: '#64748b', margin: '0 0 2px 0' }}>Monto Pendiente:</p>
                 <p style={{ fontWeight: 600, color: '#b91c1c', margin: 0 }}>
                   {formatoMoneda(
-                    data.MontoPendiente && data.MontoPendiente > 0
+                    data.MontoPendiente !== undefined && data.MontoPendiente !== null && data.MontoPendiente >= 0
                       ? data.MontoPendiente
                       : (data.MontoCuota && data.MontoCuota > 0
                           ? data.MontoCuota * (data.CuotasRestantes !== undefined && data.CuotasRestantes !== null ? data.CuotasRestantes : Math.max(0, data.CuotasTotales - data.NumeroCuota))

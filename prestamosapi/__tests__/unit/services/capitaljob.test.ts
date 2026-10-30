@@ -127,5 +127,53 @@ describe('capitaljob.service', () => {
             1
         );
     });
+
+    it('deberia calcular el balance neto sumando los registros de RegistroConsolidacion de la consolidacion anterior', async () => {
+        const maybeSingleMock = jest.fn()
+          .mockResolvedValueOnce({ data: null }) // no existe actual
+          .mockResolvedValueOnce({ data: { IdConsolidacion: 38, CapitalEntrante: 0, CapitalSaliente: 0 } }); // existe anterior
+
+        const singleMock = jest.fn().mockResolvedValue({ data: { IdConsolidacion: 40 } });
+        const insertMock = jest.fn().mockReturnThis();
+
+        (supabase.from as jest.Mock).mockImplementation((table: string): any => {
+            if (table === 'RegistroConsolidacion') {
+                return {
+                    select: jest.fn().mockReturnThis(),
+                    eq: jest.fn().mockResolvedValue({
+                        data: [
+                            { Monto: 5000, TipoRegistro: 'Ingreso' },
+                            { Monto: 2000, TipoRegistro: 'Ingreso' },
+                            { Monto: 3000, TipoRegistro: 'Egreso' }
+                        ],
+                        error: null
+                    })
+                };
+            }
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              lt: jest.fn().mockReturnThis(),
+              order: jest.fn().mockReturnThis(),
+              limit: jest.fn().mockReturnThis(),
+              maybeSingle: maybeSingleMock,
+              insert: insertMock,
+              single: singleMock,
+            };
+        });
+
+        const result = await checkAndCreateConsolidation(1);
+
+        expect(result).toEqual({ IdConsolidacion: 40 });
+        // (5000 + 2000) - 3000 = 4000 de Ingreso
+        expect(registroConsolidacionService.createRegistroConsolidacionService).toHaveBeenCalledWith(
+            expect.objectContaining({
+                IdConsolidacion: 40,
+                TipoRegistro: "Ingreso",
+                Monto: 4000
+            }),
+            1
+        );
+    });
   });
 });

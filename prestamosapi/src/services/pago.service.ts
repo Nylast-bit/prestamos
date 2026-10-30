@@ -283,6 +283,7 @@ export const getAllPagosService = async (idEmpresa: number) => {
         MontoCuota,
         TipoCalculo,
         InteresPorcentaje,
+        TablaPagos,
         Cliente (
           Nombre
         )
@@ -295,7 +296,66 @@ export const getAllPagosService = async (idEmpresa: number) => {
     throw new Error(`Error al obtener el historial de pagos: ${error.message}`);
   }
 
-  return data;
+  return agregarSaldoPendiente(data || []);
+};
+
+/**
+ * Calcula para cada pago el saldo que el préstamo debía JUSTO DESPUÉS de ese pago
+ * (lo que muestra el volante como "Monto Pendiente").
+ *
+ * saldo después del pago P = lo pendiente hoy en TablaPagos + lo pagado después de P.
+ * Así respeta arrastres, abonos extraordinarios y cuotas agregadas, en vez de
+ * asumir MontoCuota × CuotasRestantes. Recibe pagos con Prestamo.TablaPagos y lo
+ * quita de la respuesta para no inflar el payload.
+ */
+export const agregarSaldoPendiente = (pagos: any[]) => {
+  const pagosPorPrestamo = new Map<number, any[]>();
+  for (const p of pagos) {
+    const lista = pagosPorPrestamo.get(p.IdPrestamo) || [];
+    lista.push(p);
+    pagosPorPrestamo.set(p.IdPrestamo, lista);
+  }
+
+  const redondear = (n: number) => Math.round(n * 100) / 100;
+
+  for (const lista of pagosPorPrestamo.values()) {
+    const prestamo = lista[0].Prestamo || {};
+    const tipoCalculo = (prestamo.TipoCalculo || '').toLowerCase();
+    const esSoloInteres = tipoCalculo.includes('solo');
+
+    let tabla: any[] = [];
+    try {
+      tabla = typeof prestamo.TablaPagos === 'string' ? JSON.parse(prestamo.TablaPagos || '[]') : (prestamo.TablaPagos || []);
+    } catch (e) {
+      tabla = [];
+    }
+
+    // Las cuotas saldadas por reenganche no tienen un Pago real: cuentan como pendientes antes del reenganche
+    const pendienteHoy = tabla
+      .filter((c: any) => !c.pagado || String(c.observacion || '').startsWith('Saldado por Reenganche'))
+      .reduce((sum: number, c: any) => sum + Number(c.cuota || 0), 0);
+    const capitalHoy = Number(prestamo.CapitalRestante || 0);
+    const tasa = Number(prestamo.InteresPorcentaje || 0) / 100;
+
+    // Del más reciente al más antiguo, acumulando lo pagado después de cada pago
+    const ordenados = [...lista].sort((a, b) =>
+      new Date(b.FechaPago).getTime() - new Date(a.FechaPago).getTime() || b.IdPago - a.IdPago
+    );
+    let pagadoDespues = 0;
+    let capitalDespues = 0;
+    for (const p of ordenados) {
+      p.SaldoPendiente = esSoloInteres
+        ? redondear((capitalHoy + capitalDespues) * (1 + tasa))
+        : redondear(pendienteHoy + pagadoDespues);
+      pagadoDespues += Number(p.MontoPagado || 0);
+      capitalDespues += Number(p.MontoCapitalAbonado || 0);
+    }
+  }
+
+  for (const p of pagos) {
+    if (p.Prestamo) delete p.Prestamo.TablaPagos;
+  }
+  return pagos;
 };
 // 2. Obtener un pago por ID
 export const getPagoByIdService = async (id: number, idEmpresa: number) => {

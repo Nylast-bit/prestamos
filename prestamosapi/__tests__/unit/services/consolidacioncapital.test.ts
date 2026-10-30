@@ -78,6 +78,8 @@ describe('consolidacioncapital.service', () => {
             };
           } else if (table === 'RegistroConsolidacion') {
             return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockResolvedValue({ data: [], error: null }),
               insert: jest.fn().mockResolvedValue({ error: null })
             };
           } else if (table === 'GastoFijo') {

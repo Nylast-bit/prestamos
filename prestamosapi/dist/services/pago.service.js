@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getHistorialPagosService = exports.updatePagoService = exports.deletePagoService = exports.getProximaCuotaService = exports.getPagoByIdService = exports.getAllPagosService = exports.createPagoService = void 0;
+exports.getHistorialPagosService = exports.updatePagoService = exports.deletePagoService = exports.getProximaCuotaService = exports.getPagoByIdService = exports.agregarSaldoPendiente = exports.getAllPagosService = exports.createPagoService = void 0;
 const logger_1 = require("../utils/logger");
 const supabaseClient_1 = require("../config/supabaseClient");
 // Asegúrate de importar el servicio de consolidación desde la ruta correcta
@@ -249,6 +249,7 @@ const getAllPagosService = async (idEmpresa) => {
         MontoCuota,
         TipoCalculo,
         InteresPorcentaje,
+        TablaPagos,
         Cliente (
           Nombre
         )
@@ -259,9 +260,62 @@ const getAllPagosService = async (idEmpresa) => {
     if (error) {
         throw new Error(`Error al obtener el historial de pagos: ${error.message}`);
     }
-    return data;
+    return (0, exports.agregarSaldoPendiente)(data || []);
 };
 exports.getAllPagosService = getAllPagosService;
+/**
+ * Calcula para cada pago el saldo que el préstamo debía JUSTO DESPUÉS de ese pago
+ * (lo que muestra el volante como "Monto Pendiente").
+ *
+ * saldo después del pago P = lo pendiente hoy en TablaPagos + lo pagado después de P.
+ * Así respeta arrastres, abonos extraordinarios y cuotas agregadas, en vez de
+ * asumir MontoCuota × CuotasRestantes. Recibe pagos con Prestamo.TablaPagos y lo
+ * quita de la respuesta para no inflar el payload.
+ */
+const agregarSaldoPendiente = (pagos) => {
+    const pagosPorPrestamo = new Map();
+    for (const p of pagos) {
+        const lista = pagosPorPrestamo.get(p.IdPrestamo) || [];
+        lista.push(p);
+        pagosPorPrestamo.set(p.IdPrestamo, lista);
+    }
+    const redondear = (n) => Math.round(n * 100) / 100;
+    for (const lista of pagosPorPrestamo.values()) {
+        const prestamo = lista[0].Prestamo || {};
+        const tipoCalculo = (prestamo.TipoCalculo || '').toLowerCase();
+        const esSoloInteres = tipoCalculo.includes('solo');
+        let tabla = [];
+        try {
+            tabla = typeof prestamo.TablaPagos === 'string' ? JSON.parse(prestamo.TablaPagos || '[]') : (prestamo.TablaPagos || []);
+        }
+        catch (e) {
+            tabla = [];
+        }
+        // Las cuotas saldadas por reenganche no tienen un Pago real: cuentan como pendientes antes del reenganche
+        const pendienteHoy = tabla
+            .filter((c) => !c.pagado || String(c.observacion || '').startsWith('Saldado por Reenganche'))
+            .reduce((sum, c) => sum + Number(c.cuota || 0), 0);
+        const capitalHoy = Number(prestamo.CapitalRestante || 0);
+        const tasa = Number(prestamo.InteresPorcentaje || 0) / 100;
+        // Del más reciente al más antiguo, acumulando lo pagado después de cada pago
+        const ordenados = [...lista].sort((a, b) => new Date(b.FechaPago).getTime() - new Date(a.FechaPago).getTime() || b.IdPago - a.IdPago);
+        let pagadoDespues = 0;
+        let capitalDespues = 0;
+        for (const p of ordenados) {
+            p.SaldoPendiente = esSoloInteres
+                ? redondear((capitalHoy + capitalDespues) * (1 + tasa))
+                : redondear(pendienteHoy + pagadoDespues);
+            pagadoDespues += Number(p.MontoPagado || 0);
+            capitalDespues += Number(p.MontoCapitalAbonado || 0);
+        }
+    }
+    for (const p of pagos) {
+        if (p.Prestamo)
+            delete p.Prestamo.TablaPagos;
+    }
+    return pagos;
+};
+exports.agregarSaldoPendiente = agregarSaldoPendiente;
 // 2. Obtener un pago por ID
 const getPagoByIdService = async (id, idEmpresa) => {
     const { data, error } = await supabaseClient_1.supabase
