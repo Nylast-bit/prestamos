@@ -349,6 +349,21 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
     }
   };
 
+  // Monto esperado y diferencia de una fila de la tabla de amortización (tabla y lista móvil)
+  const datosFilaAmortizacion = (fila: any) => {
+    const esPagado = fila.estado === 'Pagado';
+    // Abonos extraordinarios y liquidaciones no tienen un monto esperado
+    const esPagoSuelto = fila.tipo === 'extraordinario' || fila.tipo === 'liquidar';
+    // Pagos personalizados anteriores a este campo sobrescribían "cuota" con lo pagado
+    const montoEsperado: number | null = esPagoSuelto
+      ? null
+      : fila.montoEsperado ?? (esPagado && fila.tipo === 'personalizado' ? null : fila.cuota);
+    const diferencia = esPagado && montoEsperado !== null && fila.montoPagado !== null
+      ? montoEsperado - fila.montoPagado
+      : 0;
+    return { esPagado, montoEsperado, diferencia };
+  };
+
   const getTablaAmortizacionFusionada = () => {
     if (!selectedPrestamo || !selectedPrestamo.TablaPagos) return [];
     let tablaProyeccion = [];
@@ -551,7 +566,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
   return (
     <>
-      <div className="rounded-xl border-2 border-border shadow-lg bg-background overflow-hidden">
+      <div className="lg:rounded-xl lg:border-2 lg:border-border lg:shadow-lg bg-background overflow-hidden">
         <div className="hidden lg:block overflow-x-auto">
           <Table className="min-w-max">
             <TableHeader>
@@ -701,7 +716,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
               <p className="text-sm">Los préstamos aparecerán aquí una vez creados</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-3">
               {paginatedPrestamos.map((prestamo: any) => {
                 const { cuotasTotales, cuotasPagadas, progreso, capRestante, interesActual, restanteAPagar, montoProximaCuota } = calcularFila(prestamo);
                 const pagado = prestamo.Estado === 'Pagado';
@@ -745,14 +760,14 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                       )}
 
                       {/* Lo que más importa al cobrar: saldo y próxima cuota */}
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
                         <div>
                           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Saldo restante</p>
-                          <p className="text-lg font-bold text-[#213685] dark:text-blue-300 tabular-nums">{formatMoney(restanteAPagar)}</p>
+                          <p className="text-base min-[400px]:text-lg font-bold text-[#213685] dark:text-blue-300 tabular-nums whitespace-nowrap">{formatMoney(restanteAPagar)}</p>
                         </div>
-                        <div className="text-right">
+                        <div className="ml-auto text-right">
                           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{pagado ? 'Cuota' : 'Próxima cuota'}</p>
-                          <p className="text-lg font-bold text-foreground tabular-nums">{formatMoney(pagado ? prestamo.MontoCuota : montoProximaCuota)}</p>
+                          <p className="text-base min-[400px]:text-lg font-bold text-foreground tabular-nums whitespace-nowrap">{formatMoney(pagado ? prestamo.MontoCuota : montoProximaCuota)}</p>
                         </div>
                       </div>
 
@@ -768,7 +783,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                       </div>
 
                       {/* Detalle secundario */}
-                      <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="flex flex-wrap justify-between gap-x-4 gap-y-2 text-xs [&_p:last-child]:whitespace-nowrap">
                         <div>
                           <p className="text-muted-foreground">Capital</p>
                           <p className="font-semibold text-foreground tabular-nums">{formatMoney(capRestante)}</p>
@@ -797,7 +812,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
         {/* --- BARRA DE PAGINACIÓN DE PRÉSTAMOS --- */}
         {prestamosVisibles.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-muted border-t border-border text-xs font-medium text-muted-foreground">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-muted border lg:border-x-0 lg:border-b-0 border-border rounded-lg lg:rounded-none text-xs font-medium text-muted-foreground">
             <div className="flex items-center gap-2">
               <span>Mostrar</span>
               <select
@@ -1293,7 +1308,51 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
             ) : (
               <ScrollArea className="lg:h-full w-full">
                 <div className="p-3 sm:p-6">
-                  <Table>
+                  {/* Teléfono: lista compacta por cuota (la tabla no cabe a lo ancho) */}
+                  <div className="sm:hidden divide-y divide-border rounded-lg border border-border">
+                    {getTablaAmortizacionFusionada().map((fila: any) => {
+                      const { esPagado, montoEsperado, diferencia } = datosFilaAmortizacion(fila);
+                      return (
+                        <div key={fila.numeroCuota} className={`flex flex-col gap-1.5 p-3 ${esPagado ? 'bg-green-50/70 dark:bg-green-950/40' : ''}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-muted-foreground">#{fila.numeroCuota}</span>
+                            {esPagado ? (
+                              <Badge variant="outline" className="bg-background text-green-700 border-green-300 font-bold flex items-center gap-1">
+                                <CheckCircle2 className="h-3.5 w-3.5" /> Pagado {fila.fechaPagoReal ? formatDate(fila.fechaPagoReal) : ''}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground border-border font-medium">Pendiente</Badge>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div className="min-w-0">
+                              <p className="text-muted-foreground">Esperado</p>
+                              <p className="font-semibold tabular-nums [overflow-wrap:anywhere]">{montoEsperado !== null ? formatMoney(montoEsperado) : '-'}</p>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-muted-foreground">Pagado</p>
+                              <p className="font-semibold tabular-nums text-green-700 dark:text-green-400 [overflow-wrap:anywhere]">{esPagado && fila.montoPagado !== null ? formatMoney(fila.montoPagado) : '-'}</p>
+                            </div>
+                            <div className="min-w-0 text-right">
+                              <p className="text-muted-foreground">Saldo</p>
+                              <p className="font-bold tabular-nums [overflow-wrap:anywhere]">{formatMoney(fila.saldo)}</p>
+                            </div>
+                          </div>
+                          {Math.abs(diferencia) > 0.01 && (
+                            <p className={`text-[11px] font-medium ${diferencia > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>
+                              {diferencia > 0 ? `Faltó ${formatMoney(diferencia)} → siguiente` : `Excedente ${formatMoney(-diferencia)}`}
+                            </p>
+                          )}
+                          {!esPagado && Math.abs(fila.montoArrastrado || 0) > 0.01 && (
+                            <p className="text-[11px] font-medium text-orange-600 dark:text-orange-400">
+                              Incluye {formatMoney(Math.abs(fila.montoArrastrado))} arrastrado
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <Table className="hidden sm:table">
                     <TableHeader className="bg-gradient-to-r from-slate-50 dark:from-slate-900 to-slate-100 dark:to-slate-800 sticky top-0 z-10 shadow-sm">
                       <TableRow className="border-b-2 border-border">
                         <TableHead className="w-[60px] text-center font-bold text-foreground">#</TableHead>
@@ -1308,16 +1367,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                     </TableHeader>
                     <TableBody>
                       {getTablaAmortizacionFusionada().map((fila: any) => {
-                        const esPagado = fila.estado === 'Pagado';
-                        // Abonos extraordinarios y liquidaciones no tienen un monto esperado
-                        const esPagoSuelto = fila.tipo === 'extraordinario' || fila.tipo === 'liquidar';
-                        // Pagos personalizados anteriores a este campo sobrescribían "cuota" con lo pagado
-                        const montoEsperado: number | null = esPagoSuelto
-                          ? null
-                          : fila.montoEsperado ?? (esPagado && fila.tipo === 'personalizado' ? null : fila.cuota);
-                        const diferencia = esPagado && montoEsperado !== null && fila.montoPagado !== null
-                          ? montoEsperado - fila.montoPagado
-                          : 0;
+                        const { esPagado, montoEsperado, diferencia } = datosFilaAmortizacion(fila);
                         return (
                           <TableRow 
                             key={fila.numeroCuota} 

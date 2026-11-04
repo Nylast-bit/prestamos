@@ -107,7 +107,7 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
         </CardDescription>
       </div>
       <CardContent className="p-0 flex-1">
-        <ScrollArea className="h-[280px]">
+        <ScrollArea className="h-[280px] [&_[data-radix-scroll-area-viewport]>div]:!block">
           <div className="p-3 space-y-2.5">
             {listaRadar.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
@@ -123,10 +123,10 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
                 return (
                   <div
                     key={prestamo.IdPrestamo}
-                    className={`flex items-center gap-3 p-3 rounded-lg border border-slate-100 border-l-4 bg-background transition-all hover:shadow-md ${getLeftBorderColor(dias)}`}
+                    className={`flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border border-slate-100 dark:border-slate-800 border-l-4 bg-background transition-all hover:shadow-md ${getLeftBorderColor(dias)}`}
                   >
                     {/* Avatar */}
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${getAvatarStyle(dias)}`}>
+                    <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${getAvatarStyle(dias)}`}>
                       {inicial}
                     </div>
                     
@@ -145,7 +145,7 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
                           {prestamo.clienteTelefono}
                         </a>
                       )}
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
                         <span className="text-xs font-medium text-muted-foreground">
                           Cuota: {formatMoney(prestamo.MontoCuota)}
                         </span>

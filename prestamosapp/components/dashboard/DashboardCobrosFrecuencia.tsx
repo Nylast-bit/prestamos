@@ -124,8 +124,8 @@ export function DashboardCobrosFrecuencia({ prestamos }: Props) {
 
   return (
     <Card className="w-full shadow-md border-border/60">
-      <CardHeader className="flex flex-row items-center justify-between pb-4">
-        <CardTitle className="text-xl font-bold flex items-center gap-2">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-4">
+        <CardTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
           <Wallet className="w-5 h-5 text-primary" />
           Cobros por Frecuencia
         </CardTitle>
@@ -156,13 +156,13 @@ export function DashboardCobrosFrecuencia({ prestamos }: Props) {
               {/* Group Header */}
               <button
                 onClick={() => toggleGroup(group.key)}
-                className={`w-full flex items-center justify-between p-4 border-l-4 ${config.colors.border} transition-colors`}
+                className={`w-full flex items-center justify-between gap-2 p-3 sm:p-4 border-l-4 ${config.colors.border} transition-colors`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   <div className={`p-2 rounded-md ${config.colors.bg} ${config.colors.text}`}>
                     <Icon className="w-5 h-5" />
                   </div>
-                  <div className="text-left flex flex-col">
+                  <div className="text-left flex flex-col min-w-0">
                     <span className="font-semibold text-foreground">
                       {config.label}
                     </span>
@@ -172,7 +172,7 @@ export function DashboardCobrosFrecuencia({ prestamos }: Props) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                   <Badge variant="secondary" className={`font-semibold ${config.colors.badge}`}>
                     {formatMoney(group.total)}
                   </Badge>
@@ -185,14 +185,14 @@ export function DashboardCobrosFrecuencia({ prestamos }: Props) {
               {/* Expanded Content */}
               {isExpanded && (
                 <div className="bg-muted/30 border-t border-border/50">
-                  <ScrollArea className="max-h-[180px]">
+                  <ScrollArea className="max-h-[180px] [&_[data-radix-scroll-area-viewport]>div]:!block">
                     <div className="p-2">
                       {group.items.map((prestamo, idx) => (
                         <div
                           key={`${prestamo.IdPrestamo}-${idx}`}
-                          className="flex items-center justify-between py-2 px-3 hover:bg-accent/50 rounded-md transition-colors"
+                          className="flex items-center justify-between gap-2 py-2 px-3 hover:bg-accent/50 rounded-md transition-colors"
                         >
-                          <div className="flex flex-col">
+                          <div className="flex flex-col min-w-0">
                             <span className="text-sm font-medium text-foreground">
                               {prestamo.clienteNombre || 'Cliente Desconocido'}
                             </span>
@@ -207,7 +207,7 @@ export function DashboardCobrosFrecuencia({ prestamos }: Props) {
                               </a>
                             )}
                           </div>
-                          <span className="text-sm font-semibold text-foreground">
+                          <span className="text-sm font-semibold text-foreground shrink-0 tabular-nums">
                             {formatMoney(prestamo.MontoCuota)}
                           </span>
                         </div>

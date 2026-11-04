@@ -76,23 +76,23 @@ export function DashboardStats({
             key={i}
             className="group overflow-hidden border border-slate-100 bg-gradient-to-b from-slate-50 dark:from-slate-900/50 to-white transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:border-slate-800 dark:from-slate-900/50 dark:to-slate-950"
           >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-start sm:items-center justify-between gap-2">
+                <div className="space-y-1 min-w-0 flex-1">
                   <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     {stat.label}
                   </p>
-                  <h3 className="text-2xl font-bold tracking-tight text-foreground dark:text-slate-50">
+                  <h3 className="text-lg sm:text-2xl font-bold tracking-tight tabular-nums text-foreground dark:text-slate-50 [overflow-wrap:anywhere]">
                     {stat.value}
                   </h3>
                 </div>
                 <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110 ${stat.iconBg}`}
+                  className={`flex h-8 w-8 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full transition-transform duration-300 group-hover:scale-110 ${stat.iconBg}`}
                 >
-                  <Icon className={`h-6 w-6 ${stat.iconColor}`} />
+                  <Icon className={`h-4 w-4 sm:h-6 sm:w-6 ${stat.iconColor}`} />
                 </div>
               </div>
-              <div className="mt-4 flex items-center text-xs text-muted-foreground dark:text-muted-foreground">
+              <div className="mt-2 sm:mt-4 flex items-center text-xs text-muted-foreground dark:text-muted-foreground">
                 {stat.trend === "up" && (
                   <ArrowUpRight className="mr-1 h-3 w-3 text-emerald-500" />
                 )}

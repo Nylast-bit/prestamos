@@ -69,9 +69,9 @@ export function ConsolidacionStats({
     <div className="space-y-6">
       {/* TARJETA AZUL PRINCIPAL (Selector y Totales Macro) */}
       <Card className="border-l-4 border-l-[#213685] shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex flex-col gap-1">
+        <CardHeader className="pb-3 px-4 sm:px-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0">
+            <div className="flex flex-col gap-1 min-w-0 w-full md:w-auto">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Calendar className="h-5 w-5 text-[#213685]" />
                 Consolidación de Capital
@@ -80,7 +80,7 @@ export function ConsolidacionStats({
                 value={consolidacion.IdConsolidacion.toString()} 
                 onValueChange={onConsolidacionChange}
               >
-                <SelectTrigger className="mt-1 h-9 w-full max-w-full border-border bg-background font-semibold shadow-sm text-xs sm:w-[340px]">
+                <SelectTrigger className="mt-1 h-9 w-full max-w-full min-w-0 [&>span]:truncate border-border bg-background font-semibold shadow-sm text-xs sm:w-[340px]">
                   <SelectValue placeholder="Seleccionar Período" />
                 </SelectTrigger>
                 <SelectContent>
@@ -139,24 +139,24 @@ export function ConsolidacionStats({
           </div>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           <div className="kpi-grid grid gap-4 md:grid-cols-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-100">
-              <div className="text-2xl font-bold text-green-600">RD${consolidacion.CapitalEntrante.toLocaleString()}</div>
+            <div className="text-center p-3 sm:p-4 bg-green-50 rounded-lg border border-green-100">
+              <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-green-600">RD${consolidacion.CapitalEntrante.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground font-medium">Capital Entrante</div>
             </div>
-            <div className="text-center p-4 bg-red-50 rounded-lg border border-red-100">
-              <div className="text-2xl font-bold text-red-600">-RD${consolidacion.CapitalSaliente.toLocaleString()}</div>
+            <div className="text-center p-3 sm:p-4 bg-red-50 rounded-lg border border-red-100">
+              <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-red-600">-RD${consolidacion.CapitalSaliente.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground font-medium">Capital Saliente</div>
             </div>
-            <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900/50">
-              <div className={`text-2xl font-bold ${balanceNeto >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            <div className="text-center p-3 sm:p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900/50">
+              <div className={`text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] ${balanceNeto >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 RD${balanceNeto.toLocaleString()}
               </div>
               <div className="text-sm text-muted-foreground font-medium">Balance Neto</div>
             </div>
-            <div className="text-center p-4 bg-muted rounded-lg border border-border">
-              <div className="text-2xl font-bold text-muted-foreground">{totalRegistros}</div>
+            <div className="text-center p-3 sm:p-4 bg-muted rounded-lg border border-border">
+              <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-muted-foreground">{totalRegistros}</div>
               <div className="text-sm text-muted-foreground font-medium">Total Registros</div>
             </div>
           </div>
@@ -171,7 +171,7 @@ export function ConsolidacionStats({
             <DollarSign className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">RD${totalesPorEstado.Depositado.toLocaleString()}</div>
+            <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-green-600">RD${totalesPorEstado.Depositado.toLocaleString()}</div>
           </CardContent>
         </Card>
         
@@ -181,7 +181,7 @@ export function ConsolidacionStats({
             <AlertCircle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">RD${totalesPorEstado.Pendiente.toLocaleString()}</div>
+            <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-orange-600">RD${totalesPorEstado.Pendiente.toLocaleString()}</div>
           </CardContent>
         </Card>
         
@@ -191,7 +191,7 @@ export function ConsolidacionStats({
             <TrendingUp className="h-4 w-4 text-[#213685]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[#213685]">RD${totalesPorEstado.Prestado.toLocaleString()}</div>
+            <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-[#213685]">RD${totalesPorEstado.Prestado.toLocaleString()}</div>
           </CardContent>
         </Card>
         
@@ -201,7 +201,7 @@ export function ConsolidacionStats({
             <TrendingDown className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">RD${totalesPorEstado.Pagado.toLocaleString()}</div>
+            <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-blue-600">RD${totalesPorEstado.Pagado.toLocaleString()}</div>
           </CardContent>
         </Card>
       </div>
