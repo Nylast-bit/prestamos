@@ -477,38 +477,38 @@ export function PrestamosContent() {
 
       {/* 2. Tabla Principal y Filtros */}
       <Card>
-        <CardHeader>
+        <CardHeader className="px-4 sm:px-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <CardTitle>Gestión de Préstamos</CardTitle>
               <CardDescription>Administra todos los préstamos de la plataforma</CardDescription>
             </div>
             {user?.rol !== 'Cajero' && (
-              <Button onClick={openNewForm} className="bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90">
+              <Button onClick={openNewForm} className="w-full sm:w-auto bg-[#213685] text-white dark:text-white hover:bg-[#213685] text-white dark:text-white/90">
                 <Plus className="h-4 w-4 mr-2" /> Nuevo Préstamo
               </Button>
             )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-3 sm:px-6">
           
           {/* 🎛️ BARRA DE FILTROS AVANZADA */}
-          <div className="bg-muted p-3 rounded-lg border border-border mb-4 flex flex-col md:flex-row gap-3 items-center">
+          <div className="bg-muted p-3 rounded-lg border border-border mb-4 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-row gap-2 lg:gap-3 items-center">
             
             {/* Buscador de Texto */}
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <div className="relative col-span-2 sm:col-span-3 lg:flex-1 w-full">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar cliente o responsable..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-background"
+                className="pl-9 h-11 lg:h-9 text-base lg:text-sm bg-background"
               />
             </div>
 
             {/* Filtro: Prestatario (Responsable) */}
             <Select value={filtroPrestatario} onValueChange={setFiltroPrestatario}>
-                <SelectTrigger className="w-full md:w-[180px] bg-background">
+                <SelectTrigger className="w-full lg:w-[180px] bg-background">
                     <SelectValue placeholder="Responsable" />
                 </SelectTrigger>
                 <SelectContent>
@@ -523,7 +523,7 @@ export function PrestamosContent() {
 
             {/* Filtro: Modalidad de Pago */}
             <Select value={filtroModalidad} onValueChange={setFiltroModalidad}>
-                <SelectTrigger className="w-full md:w-[160px] bg-background">
+                <SelectTrigger className="w-full lg:w-[160px] bg-background">
                     <SelectValue placeholder="Modalidad" />
                 </SelectTrigger>
                 <SelectContent>
@@ -537,7 +537,7 @@ export function PrestamosContent() {
 
             {/* Filtro: Estado */}
             <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-                <SelectTrigger className="w-full md:w-[160px] bg-background">
+                <SelectTrigger className="w-full lg:w-[160px] bg-background">
                     <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>

@@ -320,7 +320,7 @@ export function PagosContent() {
       </div>
 
       {/* --- DASHBOARD DE INSIGHTS FINANCIEROS (4 CARDS) --- */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="kpi-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-l-4 border-l-[#213685] shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Histórico</CardTitle>
@@ -411,34 +411,110 @@ export function PagosContent() {
 
         <CardContent className="p-0">
           {/* Buscador y Filtros */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-6 py-3 bg-muted border-y border-border">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-3 sm:px-6 py-3 bg-muted border-y border-border">
             <div className="flex items-center space-x-2 flex-1 bg-background px-3 py-1.5 rounded-md border border-border shadow-sm focus-within:ring-1 focus-within:ring-blue-500">
               <Search className="h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por cliente, recibo o préstamo..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="border-0 bg-transparent text-xs focus-visible:ring-0 focus-visible:ring-offset-0 h-7"
+                className="border-0 bg-transparent text-base sm:text-xs focus-visible:ring-0 focus-visible:ring-offset-0 h-7"
               />
             </div>
             
-            <div className="flex flex-wrap items-center gap-1 bg-background p-1 rounded-md border border-border shadow-sm">
+            <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1 bg-background p-1 rounded-md border border-border shadow-sm">
               <button
                 onClick={() => setFiltroTipo('todos')}
-                className={`px-3 py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'todos' ? 'bg-[#213685] text-white shadow-sm' : 'text-muted-foreground hover:text-card-foreground'}`}
+                className={`px-2 sm:px-3 py-2 sm:py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'todos' ? 'bg-[#213685] text-white shadow-sm' : 'text-muted-foreground hover:text-card-foreground'}`}
               >Todos ({pagos.length})</button>
               <button
                 onClick={() => setFiltroTipo('cuota')}
-                className={`px-3 py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'cuota' ? 'bg-emerald-600 text-white shadow-sm' : 'text-muted-foreground hover:text-card-foreground'}`}
+                className={`px-2 sm:px-3 py-2 sm:py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'cuota' ? 'bg-emerald-600 text-white shadow-sm' : 'text-muted-foreground hover:text-card-foreground'}`}
               >Cuotas Regular</button>
               <button
                 onClick={() => setFiltroTipo('personalizado')}
-                className={`px-3 py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'personalizado' ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:text-card-foreground'}`}
+                className={`px-2 sm:px-3 py-2 sm:py-1 rounded text-xs font-semibold transition-all ${filtroTipo === 'personalizado' ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:text-card-foreground'}`}
               >Personalizados / Liq.</button>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* --- LISTA DE CARDS (tablet y teléfono) --- */}
+          <div className="lg:hidden">
+            {paginatedPagos.length === 0 ? (
+              <p className="text-center py-12 px-4 text-sm text-muted-foreground">
+                No se encontraron pagos con los criterios seleccionados.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3">
+                {paginatedPagos.map((pago) => (
+                  <div key={pago.IdPago} className="flex flex-col rounded-xl border border-border bg-card shadow-sm">
+                    <div className="flex flex-col gap-2.5 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-[#213685] dark:text-blue-300 truncate">
+                            {pago.Prestamo?.Cliente?.Nombre || "Cliente Desconocido"}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            Recibo #{(pago.NumeroEmpresa ?? pago.IdPago).toString().padStart(4, '0')} · Préstamo #{pago.Prestamo?.NumeroEmpresa ?? pago.IdPrestamo}
+                          </p>
+                        </div>
+                        <span className="font-bold text-emerald-700 text-lg font-mono shrink-0">
+                          {formatMoney(pago.MontoPagado)}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge variant="outline" className="font-mono text-[11px] px-2 py-0.5 bg-muted">
+                          {pago.TipoPago === 'Liquidación' ? 'Liquidación' : `Cuota ${pago.NumeroCuota}`}
+                        </Badge>
+                        <Badge
+                          variant="secondary"
+                          className={`text-[11px] font-semibold px-2 py-0.5 ${
+                            pago.TipoPago === 'Personalizado' ? 'bg-blue-100 text-blue-800' :
+                            pago.TipoPago === 'Liquidación' ? 'bg-orange-100 text-orange-800' :
+                            'bg-accent text-card-foreground'
+                          }`}
+                        >
+                          {pago.TipoPago}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {new Date(pago.FechaPago).toLocaleDateString()} · {new Date(pago.FechaPago).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </span>
+                      </div>
+                      <div className="flex gap-4 text-xs">
+                        <span className="text-card-foreground">Capital: <b>{formatMoney(pago.MontoCapitalAbonado)}</b></span>
+                        <span className="text-muted-foreground">Interés: {formatMoney(pago.MontoInteresPagado)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 border-t border-border p-3 mt-auto">
+                      <Button
+                        variant="outline"
+                        disabled={copiandoPagoId === pago.IdPago}
+                        onClick={() => copiarReciboComoImagen(pago)}
+                        className="h-11 flex-1 gap-2"
+                      >
+                        {copiandoPagoId === pago.IdPago ? <Loader2 className="h-4 w-4 animate-spin text-emerald-600" /> : <Clipboard className="h-4 w-4" />}
+                        Copiar
+                      </Button>
+                      <Button variant="outline" onClick={() => prepararImpresion(pago)} className="h-11 flex-1 gap-2">
+                        <Printer className="h-4 w-4" /> Imprimir
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => confirmDelete(pago.IdPago)}
+                        className="h-11 w-11 p-0 text-red-600 hover:bg-red-50"
+                        title="Revertir Pago"
+                        aria-label="Revertir Pago"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="hidden lg:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted border-b border-border">

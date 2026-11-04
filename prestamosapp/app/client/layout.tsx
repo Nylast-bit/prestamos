@@ -97,7 +97,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <h1 className="truncate text-base font-semibold sm:text-lg">{getSectionTitle()}</h1>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 p-3 sm:p-4">
           {children}
         </div>
       </SidebarInset>

@@ -68,7 +68,7 @@ export function DashboardStats({
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="kpi-grid grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {stats.map((stat, i) => {
         const Icon = stat.icon;
         return (

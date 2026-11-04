@@ -198,7 +198,7 @@ export function SolicitudesContent() {
     <div className="space-y-6">
       
       {/* 1. ESTADÍSTICAS */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="kpi-grid grid gap-4 md:grid-cols-3">
         <Card className="border-l-4 border-l-yellow-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Pendientes</CardTitle>

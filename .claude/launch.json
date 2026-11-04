@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "prestamosapp",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "prestamosapp", "run", "dev"],
+      "port": 3000,
+      "env": { "NEXT_PUBLIC_API_BASE_URL": "http://localhost:3001" }
+    }
+  ]
+}

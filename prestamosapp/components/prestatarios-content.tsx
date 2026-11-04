@@ -289,19 +289,19 @@ export function PrestatariosContent() {
       {user && (
         <Card className="border-l-4 border-l-indigo-500 shadow-md bg-gradient-to-r from-indigo-50/80 dark:from-indigo-950/30 to-slate-50 dark:to-slate-900">
           <CardContent className="py-4 px-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-4 min-w-0">
                 <div className="h-12 w-12 rounded-full bg-indigo-600 text-white dark:text-white flex items-center justify-center text-white font-bold text-lg shadow-md">
                   {user.nombre?.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-bold text-foreground text-base">{user.nombre}</h3>
                     <Badge className="bg-indigo-100 text-indigo-700 dark:text-indigo-300 border-indigo-200 text-[10px] font-semibold">
                       {user.rol === 'admin_empresa' ? '🏢 Admin' : user.rol === 'Cajero' ? '💼 Cajero' : '🛡️ Prestamista'}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-3 mt-0.5">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Mail className="h-3 w-3" /> {user.email}
                     </span>
@@ -316,7 +316,7 @@ export function PrestatariosContent() {
                 variant="outline"
                 size="sm"
                 onClick={handleOpenProfile}
-                className="border-indigo-200 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 hover:border-indigo-300 font-medium"
+                className="w-full sm:w-auto border-indigo-200 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 hover:border-indigo-300 font-medium"
               >
                 <Edit className="h-3.5 w-3.5 mr-1.5" />
                 Editar Mi Perfil
@@ -327,7 +327,7 @@ export function PrestatariosContent() {
       )}
 
       {/* Header con estadísticas */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="kpi-grid grid gap-4 md:grid-cols-4">
         <Card className="border-l-4 border-l-[#213685] shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Prestamistas</CardTitle>

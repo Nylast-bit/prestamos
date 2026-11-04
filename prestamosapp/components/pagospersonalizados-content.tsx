@@ -266,7 +266,7 @@ export function PagosPersonalizadosContent() {
       </div>
 
       {/* --- DASHBOARD DE RESUMEN --- */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="kpi-grid grid gap-4 md:grid-cols-3">
         <Card className="border-l-4 border-l-[#213685] shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Cobrado (P. Personalizados)</CardTitle>

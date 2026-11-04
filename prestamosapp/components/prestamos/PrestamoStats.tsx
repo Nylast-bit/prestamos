@@ -11,7 +11,7 @@ interface PrestamoStatsProps {
 export function PrestamoStats({ activos, restanteAPagar, interes, mora }: PrestamoStatsProps) {
   
   return (
-    <div className="grid gap-4 md:grid-cols-4">
+    <div className="kpi-grid grid gap-4 md:grid-cols-4">
       {/* 1. Préstamos Activos */}
       <Card className="border-l-4 border-l-[#213685] shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

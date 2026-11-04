@@ -399,7 +399,7 @@ export function ClientesContent() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="kpi-grid grid gap-4 md:grid-cols-4">
         <Card className="border-l-4 border-l-[#213685] shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Clientes</CardTitle>
@@ -608,11 +608,76 @@ export function ClientesContent() {
               placeholder="Buscar por nombre, cédula o email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="max-w-sm text-base sm:text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
           
-          <div className="rounded-md border mb-4">
+          {/* --- LISTA DE CARDS (tablet y teléfono) --- */}
+          <div className="lg:hidden mb-4">
+            {currentItems.length === 0 ? (
+              <p className="text-center py-8 text-sm text-muted-foreground">No se encontraron clientes</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {currentItems.map((cliente) => {
+                  const tienePrestamos = (cliente.cantidadPrestamosActivos || 0) > 0;
+                  const score = getScoreBadge(cliente.PuntajeCredito);
+                  return (
+                    <div key={cliente.IdCliente} className="flex flex-col rounded-xl border border-border bg-card shadow-sm">
+                      <div className="flex flex-col gap-2 p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{cliente.Nombre}</p>
+                            <p className="text-xs text-muted-foreground">#{cliente.IdCliente} · {cliente.Cedula || "Sin cédula"}</p>
+                          </div>
+                          <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm tracking-wide ${score.bg}`}>
+                            {score.label}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                          {cliente.Telefono && (
+                            <a href={`tel:${cliente.Telefono}`} className="flex items-center gap-1.5 w-fit text-[#213685] dark:text-blue-300">
+                              <Phone className="h-3.5 w-3.5" /> {cliente.Telefono}
+                            </a>
+                          )}
+                          {cliente.Email && (
+                            <span className="flex items-center gap-1.5 min-w-0"><Mail className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{cliente.Email}</span></span>
+                          )}
+                          <span className="flex items-center gap-1.5 min-w-0 text-xs"><MapPin className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{cliente.Direccion || "Sin dirección"}</span></span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={tienePrestamos ? "default" : "secondary"}
+                            className={tienePrestamos
+                              ? "bg-green-100 text-green-700 hover:bg-green-200 border-green-200"
+                              : "bg-accent text-muted-foreground hover:bg-gray-200 border-border"}
+                          >
+                            {tienePrestamos ? "Activo" : "Sin Deuda"}
+                          </Badge>
+                          <Badge variant="outline" className="font-mono">{cliente.cantidadPrestamosActivos || 0} activos</Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 border-t border-border p-3 mt-auto">
+                        <Button variant="outline" onClick={() => handleEdit(cliente)} className="h-11 flex-1 gap-2">
+                          <Edit className="h-4 w-4" /> Editar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => confirmDelete(cliente)}
+                          className="h-11 w-11 p-0 text-red-600 hover:bg-red-50"
+                          title="Eliminar Cliente"
+                          aria-label="Eliminar Cliente"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="hidden lg:block rounded-md border mb-4">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted">

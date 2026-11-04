@@ -26,7 +26,10 @@ Este archivo actúa como nuestra "memoria" a largo plazo.
 - [x] **Superadmin**: tablas raw de empresas/suscripciones envueltas en `overflow-x-auto` + `min-w`.
 - [x] Roturas 375px: filtros de pagos con `flex-wrap`, dashboard header stackeable, `w-[340px]`→`w-full sm:`, header de gastos fijos, clase muerta `auto-scroll` eliminada.
 - [x] **Vistas de Cliente**: grids de forms → `grid-cols-1 sm:grid-cols-N`; diálogos con `max-h-[85vh] overflow-y-auto`; `min-w` de botones → `sm:min-w`.
-- [x] Estrategia de tablas densas: **scroll horizontal** (decisión del usuario; `ui/table.tsx` ya trae wrapper).
+- [x] ~~Estrategia de tablas densas: scroll horizontal~~ → **reemplazada (nov 2026)**: debajo de `lg` (1024px) Préstamos, Pagos y Clientes muestran **lista de cards** (tabla `hidden lg:block`, cards `lg:hidden`, 2 columnas en tablet). En `PrestamoTable`, `calcularFila` y `renderAcciones` son compartidos por tabla y cards: cambiar permisos/botones ahí.
+- [x] Sidebar fijo solo desde `lg`: `MOBILE_BREAKPOINT = 1024` en `hooks/use-mobile.ts` y clases `lg:` en `ui/sidebar.tsx` (tablet usa el Sheet).
+- [x] KPIs en teléfono: clase `kpi-grid` (definida en `globals.css`) → 2 columnas compactas <640px.
+- [x] Screenshots responsivos con Playwright sin backend: sesión falsa en `localStorage['auth-storage']` + `context.route('/api/')` con fixtures anonimizados. Ojo: el `.env` local tiene `NEXT_PUBLIC_API_BASE_URL` sin protocolo; para dev se pasa `http://localhost:3001` desde `.claude/launch.json`.
 
 ### Fase 3: Transformación a PWA ✅
 - [x] Serwist vía `@serwist/turbopack` (NO `next-pwa`: muerto y rompe con Turbopack de Next 16).

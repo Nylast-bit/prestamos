@@ -26,6 +26,25 @@ const formatDate = (dateString: string | null) => {
   return new Date(dateString).toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+// Primera cuota pendiente de la tabla (la misma que el backend marca como pagada)
+const obtenerCuotaPendiente = (prestamo: any) => {
+  let tabla: any[] = [];
+  try { tabla = JSON.parse(prestamo?.TablaPagos || '[]'); } catch (e) { /* sin tabla */ }
+  const cuota = tabla.find((c: any) => !c.pagado);
+  if (!cuota) {
+    return {
+      monto: Number(prestamo?.MontoCuota || 0), interes: 0, capital: 0, arrastrado: 0,
+      numeroCuota: (prestamo?.CantidadCuotas || 0) - (prestamo?.CuotasRestantes || 0) + 1,
+      total: prestamo?.CantidadCuotas || 0, restantes: prestamo?.CuotasRestantes || 0,
+    };
+  }
+  return {
+    monto: Number(cuota.cuota), interes: Number(cuota.interes), capital: Number(cuota.capital),
+    arrastrado: Number(cuota.montoArrastrado || 0), numeroCuota: Number(cuota.numeroCuota),
+    total: tabla.length, restantes: tabla.filter((c: any) => !c.pagado).length,
+  };
+};
+
 const getProximoPago = (fechaInicioStr: string, modalidad: string, cuotasPagadas: number) => {
   if (!fechaInicioStr) return "----";
   const fechaISO = fechaInicioStr.split('T')[0]; 
@@ -96,8 +115,11 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
   const baseInteres = (tipoCalculo.includes('amortiza') || tipoCalculo.includes('solo_interes') || tipoCalculo.includes('solo')) 
     ? capitalRestanteReal 
     : (selectedPrestamo?.MontoPrestado || 0);
-  const interesMinimo = selectedPrestamo 
-    ? baseInteres * (selectedPrestamo.InteresPorcentaje / 100)
+  // En capital+interes el interés es el de la cuota pendiente (igual que el backend; evita 683 vs 683.33)
+  const interesCuotaPendiente = selectedPrestamo ? obtenerCuotaPendiente(selectedPrestamo).interes : 0;
+  const esCapitalMasInteres = selectedPrestamo && !(selectedPrestamo.TipoCalculo || '').toLowerCase().includes('amortiza') && !(selectedPrestamo.TipoCalculo || '').toLowerCase().includes('solo');
+  const interesMinimo = selectedPrestamo
+    ? (esCapitalMasInteres && interesCuotaPendiente > 0 ? interesCuotaPendiente : baseInteres * (selectedPrestamo.InteresPorcentaje / 100))
     : 0;
 
   const yaPagoInteresPeriodo = interesPagadoEnPeriodo >= (interesMinimo - 0.01);
@@ -172,25 +194,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
       if (payMode === 'cuota') {
         // === MODO 1: CUOTA ESTÁNDAR ===
-        let interesAPagar = 0;
-        let capitalAPagar = 0;
-        let numeroCuotaActual = 1;
-        let cuotaTotalAPagar = Number(selectedPrestamo.MontoCuota);
-
-        if (selectedPrestamo.TablaPagos) {
-           try {
-               const tabla = JSON.parse(selectedPrestamo.TablaPagos);
-               const indiceCuota = selectedPrestamo.CantidadCuotas - selectedPrestamo.CuotasRestantes;
-               if (tabla[indiceCuota]) {
-                   interesAPagar = Number(tabla[indiceCuota].interes);
-                   capitalAPagar = Number(tabla[indiceCuota].capital);
-                   numeroCuotaActual = Number(tabla[indiceCuota].numeroCuota);
-                   cuotaTotalAPagar = Number(tabla[indiceCuota].cuota);
-               }
-           } catch (e) {
-               console.error("Error al parsear TablaPagos", e);
-           }
-        }
+        // Mismo cálculo que se muestra en pantalla: la primera cuota pendiente (incluye arrastres)
+        const { monto: cuotaTotalAPagar, interes: interesAPagar, capital: capitalAPagar, numeroCuota: numeroCuotaActual } = obtenerCuotaPendiente(selectedPrestamo);
 
         const payload = {
           IdPrestamo: Number(selectedPrestamo.IdPrestamo),
@@ -419,11 +424,135 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
   const startIndex = (validPage - 1) * pageSize;
   const endIndex = Math.min(totalItems, validPage * pageSize);
   const paginatedPrestamos = prestamosVisibles.slice(startIndex, endIndex);
+  const cuotaPendienteSel = obtenerCuotaPendiente(selectedPrestamo);
+
+  // Valores calculados de cada préstamo (compartidos por la tabla de escritorio y las cards móviles)
+  const calcularFila = (prestamo: any) => {
+    // Contar progreso desde TablaPagos para incluir pagos personalizados insertados
+    let cuotasTotales = prestamo.CantidadCuotas || 0;
+    let cuotasPagadas = cuotasTotales - (prestamo.CuotasRestantes || 0);
+    let tabla: any[] = [];
+    try { tabla = JSON.parse(prestamo.TablaPagos || '[]'); } catch (e) { /* fallback a CantidadCuotas */ }
+    const pagadasEnTabla = tabla.filter((c: any) => c.pagado).length;
+    if (pagadasEnTabla > 0) {
+      cuotasTotales = tabla.length;
+      cuotasPagadas = pagadasEnTabla;
+    }
+    const progreso = cuotasTotales > 0 ? (cuotasPagadas / cuotasTotales) * 100 : 0;
+
+    const capRestante = prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? Number(prestamo.CapitalRestante) : Number(prestamo.MontoPrestado);
+    const tipoCalcRow = (prestamo.TipoCalculo || '').toLowerCase();
+    const esVariable = tipoCalcRow.includes('amortiza') || tipoCalcRow.includes('solo_interes') || tipoCalcRow.includes('solo');
+    const baseInteresRow = esVariable ? capRestante : Number(prestamo.MontoPrestado);
+    const interesActual = baseInteresRow * (Number(prestamo.InteresPorcentaje) / 100);
+
+    const restanteAPagar = tabla.length > 0
+      ? tabla.filter((c: any) => !c.pagado).reduce((sum: number, c: any) => sum + Number(c.cuota || 0), 0)
+      : prestamo.TipoCalculo === "solo_interes"
+        ? (capRestante + (capRestante * (Number(prestamo.InteresPorcentaje) / 100)))
+        : (prestamo.MontoCuota * (prestamo.CuotasRestantes || 0));
+
+    // Monto de la próxima cuota pendiente (incluye arrastres)
+    const proximaCuota = tabla.find((c: any) => !c.pagado);
+    const montoProximaCuota = proximaCuota ? Number(proximaCuota.cuota) : Number(prestamo.MontoCuota);
+
+    return { cuotasTotales, cuotasPagadas, progreso, capRestante, interesActual, restanteAPagar, montoProximaCuota };
+  };
+
+  // Botones de acción con sus permisos; en las cards el botón Cobrar es grande y con texto
+  const renderAcciones = (prestamo: any, enCard = false) => {
+    const isCajero = user?.rol === 'Cajero';
+    const isPrestamista = user?.rol === 'Prestamista';
+    const esMio = prestamo.IdPrestatario === user?.idPrestatario;
+    const puedeCobrar = !isPrestamista || esMio;
+    const puedeEditarOEliminar = !isCajero && (!isPrestamista || esMio);
+    const alto = enCard ? 'h-11' : 'h-9';
+
+    return (
+      <>
+        {prestamo.Estado !== 'Pagado' && (
+          <>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={!puedeCobrar}
+              className={`shadow-md hover:shadow-lg transition-all ${alto} flex items-center justify-center ${enCard ? 'flex-1 gap-2 px-4 text-base font-semibold' : 'w-9 p-0'} ${
+                puedeCobrar
+                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
+                  : 'bg-slate-200 text-muted-foreground cursor-not-allowed opacity-60'
+              } ${enCard ? '' : 'order-2'}`}
+              onClick={(e) => puedeCobrar && handleOpenPay(e, prestamo)}
+              title={puedeCobrar ? "Registrar Cobro u Opciones de Pago" : "Solo el prestamista asignado puede cobrar este préstamo"}
+              aria-label="Cobrar"
+            >
+              <Banknote className={enCard ? "h-5 w-5" : "h-4 w-4"} />
+              {enCard && "Cobrar"}
+            </Button>
+            {prestamo.MontoMoraAcumulado > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className={`${alto} px-3 border-red-200 dark:border-red-900/50 text-red-600 hover:bg-red-50 dark:bg-red-950/40 ${enCard ? '' : 'order-1'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMoraToPerdonar(prestamo);
+                  setIsPerdonarMoraOpen(true);
+                }}
+                disabled={!puedeEditarOEliminar}
+              >
+                Perdonar Mora
+              </Button>
+            )}
+          </>
+        )}
+        {puedeEditarOEliminar && (
+          <>
+            {(prestamo.Observaciones || "").includes("Creado por Reenganche") && !prestamo.FechaUltimoPago && (
+              <Button
+                variant="outline"
+                size="sm"
+                className={`${alto} px-3 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300 transition-all order-3`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPrestamoARevertir(prestamo);
+                  setIsRevertirReengancheOpen(true);
+                }}
+                title="Anular Reenganche"
+                aria-label="Anular Reenganche"
+              >
+                <History className="h-4 w-4 text-orange-500" />
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className={`${alto} ${enCard ? 'w-11' : ''} px-3 border-border hover:bg-accent hover:border-slate-400 transition-all order-4`}
+              onClick={(e) => { e.stopPropagation(); onEdit(prestamo); }}
+              title="Editar Préstamo"
+              aria-label="Editar Préstamo"
+            >
+              <Edit className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`${alto} ${enCard ? 'w-11' : ''} px-3 border-border hover:bg-red-50 dark:bg-red-950/40 hover:border-red-300 transition-all order-5`}
+              onClick={(e) => { e.stopPropagation(); onDelete(prestamo.IdPrestamo); }}
+              title="Eliminar Préstamo"
+              aria-label="Eliminar Préstamo"
+            >
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </Button>
+          </>
+        )}
+      </>
+    );
+  };
 
   return (
     <>
       <div className="rounded-xl border-2 border-border shadow-lg bg-background overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden lg:block overflow-x-auto">
           <Table className="min-w-max">
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-slate-50 dark:from-slate-900 to-slate-100 dark:to-slate-800 border-b-2 border-border hover:bg-gradient-to-r">
@@ -457,41 +586,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                 </TableRow>
               ) : (
                 paginatedPrestamos.map((prestamo: any, idx: number) => {
-                  // Contar progreso desde TablaPagos para incluir pagos personalizados insertados
-                  let cuotasTotales = prestamo.CantidadCuotas || 0;
-                  let cuotasPagadas = cuotasTotales - (prestamo.CuotasRestantes || 0);
-                  try {
-                    const tabla = JSON.parse(prestamo.TablaPagos || '[]');
-                    const pagadasEnTabla = tabla.filter((c: any) => c.pagado).length;
-                    if (pagadasEnTabla > 0) {
-                      cuotasTotales = tabla.length;
-                      cuotasPagadas = pagadasEnTabla;
-                    }
-                  } catch (e) { /* fallback a CantidadCuotas */ }
-                  const progreso = cuotasTotales > 0 ? (cuotasPagadas / cuotasTotales) * 100 : 0;
-                  
-                  const capRestante = prestamo.CapitalRestante !== undefined && prestamo.CapitalRestante !== null ? Number(prestamo.CapitalRestante) : Number(prestamo.MontoPrestado);
-                  const tipoCalcRow = (prestamo.TipoCalculo || '').toLowerCase();
-                  const esVariable = tipoCalcRow.includes('amortiza') || tipoCalcRow.includes('solo_interes') || tipoCalcRow.includes('solo');
-                  const baseInteresRow = esVariable ? capRestante : Number(prestamo.MontoPrestado);
-                  const interesActual = baseInteresRow * (Number(prestamo.InteresPorcentaje) / 100);
-                  
-                  let restanteAPagar = 0;
-                  let tablaUsada = false;
-                  try {
-                    const tabla = JSON.parse(prestamo.TablaPagos || '[]');
-                    if (tabla.length > 0) {
-                      const pendientes = tabla.filter((c: any) => !c.pagado);
-                      restanteAPagar = pendientes.reduce((sum: number, c: any) => sum + Number(c.cuota || 0), 0);
-                      tablaUsada = true;
-                    }
-                  } catch (e) { /* fallback */ }
-                  
-                  if (!tablaUsada) {
-                    restanteAPagar = prestamo.TipoCalculo === "solo_interes"
-                      ? (capRestante + (capRestante * (Number(prestamo.InteresPorcentaje) / 100)))
-                      : (prestamo.MontoCuota * (prestamo.CuotasRestantes || 0));
-                  }
+                  const { cuotasTotales, cuotasPagadas, progreso, capRestante, interesActual, restanteAPagar } = calcularFila(prestamo);
 
                   return (
                     <TableRow 
@@ -584,89 +679,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
                       <TableCell className="text-right sticky right-0 bg-background group-hover:bg-accent shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.15)] transition-colors">
                         <div className="flex justify-end gap-2">
-                          {(() => {
-                            const isCajero = user?.rol === 'Cajero';
-                            const isPrestamista = user?.rol === 'Prestamista';
-                            const esMio = prestamo.IdPrestatario === user?.idPrestatario;
-                            const puedeCobrar = !isPrestamista || esMio;
-                            const puedeEditarOEliminar = !isCajero && (!isPrestamista || esMio);
-
-                            return (
-                              <>
-                                {prestamo.Estado !== 'Pagado' && (
-                                  <>
-                                    {prestamo.MontoMoraAcumulado > 0 && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-9 px-3 border-red-200 dark:border-red-900/50 text-red-600 hover:bg-red-50 dark:bg-red-950/40"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setMoraToPerdonar(prestamo);
-                                          setIsPerdonarMoraOpen(true);
-                                        }}
-                                        disabled={!puedeEditarOEliminar}
-                                      >
-                                        Perdonar Mora
-                                      </Button>
-                                    )}
-                                    <Button 
-                                      variant="default" 
-                                      size="sm" 
-                                      disabled={!puedeCobrar}
-                                      className={`shadow-md hover:shadow-lg transition-all h-9 w-9 p-0 flex items-center justify-center ${
-                                        puedeCobrar 
-                                          ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white' 
-                                          : 'bg-slate-200 text-muted-foreground cursor-not-allowed opacity-60'
-                                      }`}
-                                      onClick={(e) => puedeCobrar && handleOpenPay(e, prestamo)}
-                                      title={puedeCobrar ? "Registrar Cobro u Opciones de Pago" : "Solo el prestamista asignado puede cobrar este préstamo"}
-                                      aria-label="Cobrar"
-                                    >
-                                      <Banknote className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                                {puedeEditarOEliminar && (
-                                  <>
-                                    {(prestamo.Observaciones || "").includes("Creado por Reenganche") && !prestamo.FechaUltimoPago && (
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        className="h-9 px-3 border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300 transition-all"
-                                        onClick={(e) => { 
-                                          e.stopPropagation(); 
-                                          setPrestamoARevertir(prestamo);
-                                          setIsRevertirReengancheOpen(true);
-                                        }}
-                                        title="Anular Reenganche"
-                                      >
-                                        <History className="h-4 w-4 text-orange-500" />
-                                      </Button>
-                                    )}
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
-                                      className="h-9 px-3 border-border hover:bg-accent hover:border-slate-400 transition-all"
-                                      onClick={(e) => { e.stopPropagation(); onEdit(prestamo); }}
-                                      title="Editar Préstamo"
-                                    >
-                                      <Edit className="h-4 w-4 text-muted-foreground" />
-                                    </Button>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
-                                      className="h-9 px-3 border-border hover:bg-red-50 dark:bg-red-950/40 hover:border-red-300 transition-all"
-                                      onClick={(e) => { e.stopPropagation(); onDelete(prestamo.IdPrestamo); }}
-                                      title="Eliminar Préstamo"
-                                    >
-                                      <Trash2 className="h-4 w-4 text-red-500" />
-                                    </Button>
-                                  </>
-                                )}
-                              </>
-                            );
-                          })()}
+                          {renderAcciones(prestamo)}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -675,6 +688,111 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
               )}
             </TableBody>
           </Table>
+        </div>
+
+        {/* --- LISTA DE CARDS (tablet y teléfono): más fácil de leer y cobrar que la tabla --- */}
+        <div className="lg:hidden">
+          {paginatedPrestamos.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-12 px-4 text-center text-muted-foreground">
+              <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center">
+                <Banknote className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <p className="text-lg font-medium">No hay préstamos activos</p>
+              <p className="text-sm">Los préstamos aparecerán aquí una vez creados</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3">
+              {paginatedPrestamos.map((prestamo: any) => {
+                const { cuotasTotales, cuotasPagadas, progreso, capRestante, interesActual, restanteAPagar, montoProximaCuota } = calcularFila(prestamo);
+                const pagado = prestamo.Estado === 'Pagado';
+
+                return (
+                  <div
+                    key={prestamo.IdPrestamo}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleRowClick(prestamo)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleRowClick(prestamo); }}
+                    className={`flex flex-col rounded-xl border bg-card shadow-sm active:bg-accent transition-colors cursor-pointer ${pagado ? 'border-border opacity-80' : 'border-border'}`}
+                  >
+                    <div className="flex flex-col gap-3 p-4">
+                      {/* Encabezado: cliente, número y modalidad */}
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 shrink-0 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
+                          {prestamo.clienteNombre?.charAt(0) || '?'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-foreground truncate">{prestamo.clienteNombre}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            #{prestamo.NumeroEmpresa ?? prestamo.IdPrestamo}
+                            {prestamo.prestatarioNombre ? ` · ${prestamo.prestatarioNombre}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <Badge variant="outline" className="capitalize text-[11px] font-medium text-muted-foreground border-border">
+                            {prestamo.ModalidadPago}
+                          </Badge>
+                          {pagado && (
+                            <Badge className="bg-green-100 text-green-700 border-green-300 text-[11px]">Pagado</Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {prestamo.MontoMoraAcumulado > 0 && (
+                        <Badge className="bg-red-100 text-red-700 dark:text-red-400 border-red-300 w-fit text-xs">
+                          En Mora: {formatMoney(prestamo.MontoMoraAcumulado)}
+                        </Badge>
+                      )}
+
+                      {/* Lo que más importa al cobrar: saldo y próxima cuota */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Saldo restante</p>
+                          <p className="text-lg font-bold text-[#213685] dark:text-blue-300 tabular-nums">{formatMoney(restanteAPagar)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{pagado ? 'Cuota' : 'Próxima cuota'}</p>
+                          <p className="text-lg font-bold text-foreground tabular-nums">{formatMoney(pagado ? prestamo.MontoCuota : montoProximaCuota)}</p>
+                        </div>
+                      </div>
+
+                      {/* Progreso */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${progreso === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
+                            style={{ width: `${progreso}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-mono font-bold text-muted-foreground">{cuotasPagadas}/{cuotasTotales}</span>
+                      </div>
+
+                      {/* Detalle secundario */}
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">Capital</p>
+                          <p className="font-semibold text-foreground tabular-nums">{formatMoney(capRestante)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Interés</p>
+                          <p className="font-semibold text-foreground tabular-nums">{formatMoney(interesActual)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-muted-foreground">Último pago</p>
+                          <p className="font-semibold text-foreground">{formatDate(prestamo.FechaUltimoPago)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Botones existentes, con área táctil grande */}
+                    <div className="flex items-center gap-2 border-t border-border p-3 mt-auto">
+                      {renderAcciones(prestamo, true)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* --- BARRA DE PAGINACIÓN DE PRÉSTAMOS --- */}
@@ -839,15 +957,20 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
               {payMode === 'cuota' && (
                 <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200 space-y-3">
                   <div className="flex justify-between items-center border-b border-emerald-200 pb-2">
-                    <span className="text-sm text-emerald-700 dark:text-emerald-400">Cuota #{(selectedPrestamo.CantidadCuotas - selectedPrestamo.CuotasRestantes) + 1} de {selectedPrestamo.CantidadCuotas}</span>
-                    <Badge className="bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300">{selectedPrestamo.CuotasRestantes} restantes</Badge>
+                    <span className="text-sm text-emerald-700 dark:text-emerald-400">Cuota #{cuotaPendienteSel.numeroCuota} de {cuotaPendienteSel.total}</span>
+                    <Badge className="bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300">{cuotaPendienteSel.restantes} restantes</Badge>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">Monto a cobrar</span>
                     <span className="text-2xl font-bold text-emerald-800">
-                      {formatMoney(selectedPrestamo.MontoCuota)}
+                      {formatMoney(cuotaPendienteSel.monto)}
                     </span>
                   </div>
+                  {cuotaPendienteSel.arrastrado > 0.01 && (
+                    <p className="text-xs text-orange-700 dark:text-orange-400">
+                      Incluye {formatMoney(cuotaPendienteSel.arrastrado)} arrastrado de pagos anteriores
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1061,7 +1184,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
             </div>
           )}
 
-          <DialogFooter className="gap-2 pt-2 border-t">
+          <DialogFooter className="gap-2 pt-3 pb-4 border-t sticky -bottom-6 -mx-6 -mb-6 px-6 bg-background z-10">
             <Button variant="outline" size="sm" onClick={() => setIsPayOpen(false)} disabled={isPaying}>Cancelar</Button>
             {payMode !== 'reenganche' && (
               <Button 
@@ -1090,45 +1213,45 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
 
       {/* --- MODAL DE DETALLES E HISTORIAL --- */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-[95vw] md:max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="bg-gradient-to-r from-slate-50 dark:from-slate-900 to-slate-100 dark:to-slate-800 border-b-2 border-border p-6">
-            <div className="flex justify-between items-start mb-4">
+        <DialogContent className="max-w-[95vw] md:max-w-5xl h-[90vh] flex flex-col p-0 overflow-y-auto lg:overflow-hidden">
+          <div className="bg-gradient-to-r from-slate-50 dark:from-slate-900 to-slate-100 dark:to-slate-800 border-b-2 border-border p-4 sm:p-6">
+            <div className="flex justify-between items-start gap-2 mb-4">
               <div>
-                <DialogTitle className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <DialogTitle className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
                   {selectedPrestamo?.clienteNombre}
                 </DialogTitle>
                 <DialogDescription className="text-muted-foreground mt-1">
                   Detalle de movimientos y tabla de amortización
                 </DialogDescription>
               </div>
-              <Badge variant="outline" className="text-md px-4 mr-4 py-1.5 bg-background shadow-sm font-semibold">
+              <Badge variant="outline" className="text-md px-3 sm:px-4 mr-6 py-1.5 bg-background shadow-sm font-semibold shrink-0">
                 {selectedPrestamo?.Estado}
               </Badge>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="shadow-sm border-2 border-border bg-background">
-                <CardContent className="p-4">
-                  <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-1">Monto Prestado</div>
-                  <div className="text-xl font-bold text-foreground">{selectedPrestamo ? formatMoney(selectedPrestamo.MontoPrestado) : 0}</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
+              <Card className="py-0 shadow-sm border-2 border-border bg-background">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-[10px] sm:text-xs text-muted-foreground font-bold uppercase tracking-wider mb-1">Monto Prestado</div>
+                  <div className="text-base sm:text-xl font-bold tabular-nums text-foreground">{selectedPrestamo ? formatMoney(selectedPrestamo.MontoPrestado) : 0}</div>
                 </CardContent>
               </Card>
-              <Card className="shadow-sm border-2 border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/40 dark:bg-blue-950/40">
-                <CardContent className="p-4">
-                  <div className="text-xs text-blue-700 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Capital Restante</div>
-                  <div className="text-xl font-bold text-[#213685] dark:text-blue-300">{selectedPrestamo ? formatMoney(selectedPrestamo.CapitalRestante || selectedPrestamo.MontoPrestado) : 0}</div>
+              <Card className="py-0 shadow-sm border-2 border-blue-200 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-950/40 dark:bg-blue-950/40">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-[10px] sm:text-xs text-blue-700 dark:text-blue-400 font-bold uppercase tracking-wider mb-1">Capital Restante</div>
+                  <div className="text-base sm:text-xl font-bold tabular-nums text-[#213685] dark:text-blue-300">{selectedPrestamo ? formatMoney(selectedPrestamo.CapitalRestante || selectedPrestamo.MontoPrestado) : 0}</div>
                 </CardContent>
               </Card>
-              <Card className="shadow-sm border-2 border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/40 dark:bg-emerald-950/40">
-                <CardContent className="p-4">
-                  <div className="text-xs text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider mb-1">Cuota Actual</div>
-                  <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{selectedPrestamo ? formatMoney(selectedPrestamo.MontoCuota) : 0}</div>
+              <Card className="py-0 shadow-sm border-2 border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/40 dark:bg-emerald-950/40">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-[10px] sm:text-xs text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider mb-1">Cuota Actual</div>
+                  <div className="text-base sm:text-xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{selectedPrestamo ? formatMoney(cuotaPendienteSel.monto) : 0}</div>
                 </CardContent>
               </Card>
-              <Card className="shadow-sm border-2 border-orange-200 dark:border-orange-900/50 bg-orange-50 dark:bg-orange-950/40 dark:bg-orange-950/40">
-                <CardContent className="p-4">
-                  <div className="text-xs text-orange-700 dark:text-orange-400 font-bold uppercase tracking-wider mb-1">Próx. Vencimiento</div>
-                  <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
+              <Card className="py-0 shadow-sm border-2 border-orange-200 dark:border-orange-900/50 bg-orange-50 dark:bg-orange-950/40 dark:bg-orange-950/40">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="text-[10px] sm:text-xs text-orange-700 dark:text-orange-400 font-bold uppercase tracking-wider mb-1">Próx. Vencimiento</div>
+                  <div className="text-base sm:text-xl font-bold tabular-nums text-orange-600 dark:text-orange-400">
                     {selectedPrestamo && selectedPrestamo.Estado !== 'Pagado' 
                       ? getProximoPago(selectedPrestamo.FechaInicio, selectedPrestamo.ModalidadPago, (selectedPrestamo.CantidadCuotas - selectedPrestamo.CuotasRestantes))
                       : '---'
@@ -1161,15 +1284,15 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
             )}
           </div>
           
-          <div className="flex-1 overflow-hidden bg-background">
+          <div className="flex-1 lg:overflow-hidden bg-background">
             {isLoadingHistorial ? (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
                 <Loader2 className="h-10 w-10 animate-spin mb-3 text-[#213685] dark:text-blue-300" />
                 <p>Cargando historial financiero...</p>
               </div>
             ) : (
-              <ScrollArea className="h-full w-full">
-                <div className="p-6">
+              <ScrollArea className="lg:h-full w-full">
+                <div className="p-3 sm:p-6">
                   <Table>
                     <TableHeader className="bg-gradient-to-r from-slate-50 dark:from-slate-900 to-slate-100 dark:to-slate-800 sticky top-0 z-10 shadow-sm">
                       <TableRow className="border-b-2 border-border">
@@ -1177,8 +1300,8 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                         <TableHead className="font-bold text-foreground">Estado</TableHead>
                         <TableHead className="font-bold text-foreground text-right">Esperado</TableHead>
                         <TableHead className="font-bold text-foreground text-right">Pagado</TableHead>
-                        <TableHead className="font-bold text-foreground text-right">Interés</TableHead>
-                        <TableHead className="font-bold text-foreground text-right">Capital</TableHead>
+                        <TableHead className="hidden sm:table-cell font-bold text-foreground text-right">Interés</TableHead>
+                        <TableHead className="hidden sm:table-cell font-bold text-foreground text-right">Capital</TableHead>
                         <TableHead className="font-bold text-foreground text-right">Saldo</TableHead>
                         <TableHead className="text-right font-bold text-foreground">Detalle Pago</TableHead>
                       </TableRow>
@@ -1239,10 +1362,10 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                                 <span className="text-muted-foreground">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right font-mono text-muted-foreground text-sm">
+                            <TableCell className="hidden sm:table-cell text-right font-mono text-muted-foreground text-sm">
                               {formatMoney(fila.interes)}
                             </TableCell>
-                            <TableCell className="text-right font-mono text-muted-foreground text-sm">
+                            <TableCell className="hidden sm:table-cell text-right font-mono text-muted-foreground text-sm">
                               {formatMoney(fila.capital)}
                             </TableCell>
                             <TableCell className="text-right font-mono font-bold text-foreground">
