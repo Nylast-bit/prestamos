@@ -1,9 +1,43 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.revertirReengancheService = exports.reengancharPrestamoService = exports.calcularSaldoPendientePrestamo = exports.countPrestamosActivosByPrestatarioService = exports.obtenerRangoCuotasService = exports.calcularTasaPorCuotaService = exports.opcionesSimularPrestamoService = exports.simularPrestamoService = exports.getPrestamoConDetallesService = exports.deletePrestamoService = exports.updatePrestamoService = exports.getPrestamoByIdService = exports.getPrestamosService = exports.createPrestamoService = void 0;
+exports.revertirReengancheService = exports.reengancharPrestamoService = exports.calcularSaldoPendientePrestamo = exports.countPrestamosActivosByPrestatarioService = exports.obtenerRangoCuotasService = exports.calcularTasaPorCuotaService = exports.opcionesSimularPrestamoService = exports.simularPrestamoService = exports.getPrestamoConDetallesService = exports.deletePrestamoService = exports.actualizarDiasPagoService = exports.updatePrestamoService = exports.getPrestamoByIdService = exports.getPrestamosService = exports.createPrestamoService = exports.aplicarCalendarioDePagos = void 0;
 const logger_1 = require("../utils/logger");
 const supabaseClient_1 = require("../config/supabaseClient");
 const consolidacioncapital_service_1 = require("./consolidacioncapital.service");
+const fechasPago_1 = require("../utils/fechasPago");
+/**
+ * Agrega fechaVencimiento a cada cuota según los días acordados y devuelve la tabla y la fecha final.
+ * DiaPago1/DiaPago2/FechaPrimerPago no existen en la tabla Prestamo: se consumen aquí.
+ */
+const aplicarCalendarioDePagos = (params) => {
+    const dias = (0, fechasPago_1.normalizarDiasPago)(params.modalidad, params.fechaInicio, { dia1: params.diaPago1, dia2: params.diaPago2 });
+    let tabla = [];
+    try {
+        tabla = JSON.parse(params.tablaPagos || '[]');
+    }
+    catch (e) {
+        tabla = [];
+    }
+    let fechaFin;
+    if (tabla.length > 0) {
+        fechaFin = (0, fechasPago_1.asignarFechasVencimiento)(tabla, {
+            fechaInicio: params.fechaInicio, modalidad: params.modalidad, dias,
+            primerPago: params.fechaPrimerPago || null, sobrescribir: true,
+        });
+    }
+    else {
+        const fechas = (0, fechasPago_1.generarFechasVencimiento)({
+            fechaInicio: params.fechaInicio, cantidad: params.cantidadCuotas, modalidad: params.modalidad, dias,
+            primerPago: params.fechaPrimerPago || null,
+        });
+        fechaFin = fechas[fechas.length - 1] ?? null;
+    }
+    return {
+        tablaPagos: tabla.length > 0 ? JSON.stringify(tabla) : params.tablaPagos,
+        fechaFinEstimada: fechaFin ? (0, fechasPago_1.parseFecha)(fechaFin).toISOString() : null,
+    };
+};
+exports.aplicarCalendarioDePagos = aplicarCalendarioDePagos;
 // ==========================================
 // 1. CRUD BÁSICO (Ya lo tenías, lo mantengo)
 // ==========================================
@@ -76,8 +110,19 @@ const createPrestamoService = async (data, idEmpresa, isSuperAdmin = false) => {
         .limit(1)
         .maybeSingle();
     const nextNumeroEmpresa = ((maxPrestamo?.NumeroEmpresa) || 0) + 1;
+    // 2.6 Calendario de pagos: fechaVencimiento por cuota según los días acordados
+    const { DiaPago1, DiaPago2, FechaPrimerPago, ...datosPrestamo } = data;
+    const calendario = (0, exports.aplicarCalendarioDePagos)({
+        tablaPagos: datosPrestamo.TablaPagos,
+        fechaInicio: datosPrestamo.FechaInicio || hoy,
+        modalidad: datosPrestamo.ModalidadPago,
+        cantidadCuotas: Number(datosPrestamo.CantidadCuotas || 0),
+        diaPago1: DiaPago1, diaPago2: DiaPago2, fechaPrimerPago: FechaPrimerPago,
+    });
     const prestamoToInsert = {
-        ...data,
+        ...datosPrestamo,
+        TablaPagos: calendario.tablaPagos,
+        FechaFinEstimada: calendario.fechaFinEstimada || datosPrestamo.FechaFinEstimada,
         NumeroEmpresa: nextNumeroEmpresa
     };
     // 3. Crear Préstamo
@@ -209,9 +254,23 @@ const getPrestamoByIdService = async (id, idEmpresa) => {
 };
 exports.getPrestamoByIdService = getPrestamoByIdService;
 const updatePrestamoService = async (id, idEmpresa, data) => {
+    // Los días de pago no son columnas: si llegan (o cambia la tabla), se recalcula el calendario
+    const { DiaPago1, DiaPago2, FechaPrimerPago, ...cambios } = data || {};
+    if (cambios.TablaPagos && cambios.FechaInicio && cambios.ModalidadPago) {
+        const calendario = (0, exports.aplicarCalendarioDePagos)({
+            tablaPagos: cambios.TablaPagos,
+            fechaInicio: cambios.FechaInicio,
+            modalidad: cambios.ModalidadPago,
+            cantidadCuotas: Number(cambios.CantidadCuotas || 0),
+            diaPago1: DiaPago1, diaPago2: DiaPago2, fechaPrimerPago: FechaPrimerPago,
+        });
+        cambios.TablaPagos = calendario.tablaPagos;
+        if (calendario.fechaFinEstimada)
+            cambios.FechaFinEstimada = calendario.fechaFinEstimada;
+    }
     const { data: updated, error } = await supabaseClient_1.supabase
         .from("Prestamo")
-        .update(data)
+        .update(cambios)
         .eq("IdPrestamo", id)
         .eq("IdEmpresa", idEmpresa)
         .select()
@@ -221,6 +280,56 @@ const updatePrestamoService = async (id, idEmpresa, data) => {
     return updated;
 };
 exports.updatePrestamoService = updatePrestamoService;
+/**
+ * Cambia los días de pago acordados de un préstamo activo (ej. quincenal 13 y 27).
+ * Recalcula fechaVencimiento solo de las cuotas pendientes, empezando en `FechaProximoPago`
+ * (o en la siguiente fecha según los días). Las cuotas ya pagadas no se tocan.
+ */
+const actualizarDiasPagoService = async (id, idEmpresa, datos) => {
+    const { data: prestamo, error } = await supabaseClient_1.supabase
+        .from("Prestamo")
+        .select("IdPrestamo, Estado, FechaInicio, ModalidadPago, TablaPagos")
+        .eq("IdPrestamo", id)
+        .eq("IdEmpresa", idEmpresa)
+        .single();
+    if (error || !prestamo)
+        throw new Error("Préstamo no encontrado");
+    if (prestamo.Estado === "Pagado")
+        throw new Error("El préstamo ya está saldado.");
+    let tabla = [];
+    try {
+        tabla = JSON.parse(prestamo.TablaPagos || "[]");
+    }
+    catch (e) {
+        tabla = [];
+    }
+    if (tabla.length === 0)
+        throw new Error("El préstamo no tiene tabla de pagos.");
+    const modalidad = prestamo.ModalidadPago || "mensual";
+    const dias = (0, fechasPago_1.normalizarDiasPago)(modalidad, prestamo.FechaInicio, { dia1: datos.DiaPago1, dia2: datos.DiaPago2 });
+    // Sin fecha explícita: la siguiente fecha acordada después de hoy
+    const proximoPago = datos.FechaProximoPago
+        ? datos.FechaProximoPago
+        : (0, fechasPago_1.toISODate)((0, fechasPago_1.siguienteFechaPago)((0, fechasPago_1.toISODate)(new Date(Date.now() - 24 * 60 * 60 * 1000)), modalidad, dias));
+    const ultima = (0, fechasPago_1.asignarFechasVencimiento)(tabla, {
+        fechaInicio: prestamo.FechaInicio, modalidad, dias,
+        primerPago: proximoPago, soloPendientes: true, sobrescribir: true,
+    });
+    const { data: updated, error: errUpdate } = await supabaseClient_1.supabase
+        .from("Prestamo")
+        .update({
+        TablaPagos: JSON.stringify(tabla),
+        ...(ultima ? { FechaFinEstimada: (0, fechasPago_1.parseFecha)(ultima).toISOString() } : {}),
+    })
+        .eq("IdPrestamo", id)
+        .eq("IdEmpresa", idEmpresa)
+        .select()
+        .single();
+    if (errUpdate)
+        throw new Error(errUpdate.message);
+    return updated;
+};
+exports.actualizarDiasPagoService = actualizarDiasPagoService;
 const deletePrestamoService = async (id, idEmpresa) => {
     // Verificamos propiedad de la empresa primero
     const prest = await (0, exports.getPrestamoByIdService)(id, idEmpresa);
@@ -541,28 +650,18 @@ const reengancharPrestamoService = async (idPrestamoOriginal, nuevoPrestamoData,
     const interesMontoTotal = nuevoPrestamoData.InteresMontoTotal ?? simulacion.montoTotalInteres;
     const capitalTotalPagar = nuevoPrestamoData.CapitalTotalPagar ?? simulacion.montoTotalAPagar;
     const montoCuota = nuevoPrestamoData.MontoCuota ?? simulacion.montoCuota;
-    const tablaPagos = nuevoPrestamoData.TablaPagos || JSON.stringify(simulacion.tablaAmortizacion);
     const fechaInicioFinal = nuevoPrestamoData.FechaInicio || hoyISO;
-    // Auto-calcular FechaFinEstimada según modalidad y cantidad de cuotas si no viene provista
-    let fechaFinEstimadaFinal = nuevoPrestamoData.FechaFinEstimada;
-    if (!fechaFinEstimadaFinal) {
-        const dFin = new Date(fechaInicioFinal);
-        const cuotasNum = Number(nuevoPrestamoData.CantidadCuotas || 1);
-        const mod = (nuevoPrestamoData.ModalidadPago || "mensual").toLowerCase().trim();
-        if (mod === "diario") {
-            dFin.setDate(dFin.getDate() + cuotasNum);
-        }
-        else if (mod === "semanal") {
-            dFin.setDate(dFin.getDate() + (cuotasNum * 7));
-        }
-        else if (mod === "quincenal") {
-            dFin.setDate(dFin.getDate() + (cuotasNum * 15));
-        }
-        else {
-            dFin.setMonth(dFin.getMonth() + cuotasNum);
-        }
-        fechaFinEstimadaFinal = dFin.toISOString();
-    }
+    // Calendario de pagos del nuevo préstamo: fechaVencimiento por cuota según los días acordados
+    const calendario = (0, exports.aplicarCalendarioDePagos)({
+        tablaPagos: nuevoPrestamoData.TablaPagos || JSON.stringify(simulacion.tablaAmortizacion),
+        fechaInicio: fechaInicioFinal,
+        modalidad: nuevoPrestamoData.ModalidadPago || "mensual",
+        cantidadCuotas: Number(nuevoPrestamoData.CantidadCuotas || 1),
+        diaPago1: nuevoPrestamoData.DiaPago1, diaPago2: nuevoPrestamoData.DiaPago2,
+        fechaPrimerPago: nuevoPrestamoData.FechaPrimerPago,
+    });
+    const tablaPagos = calendario.tablaPagos;
+    const fechaFinEstimadaFinal = nuevoPrestamoData.FechaFinEstimada || calendario.fechaFinEstimada || fechaInicioFinal;
     const { data: maxPrestamo } = await supabaseClient_1.supabase
         .from("Prestamo")
         .select("NumeroEmpresa")
@@ -572,8 +671,10 @@ const reengancharPrestamoService = async (idPrestamoOriginal, nuevoPrestamoData,
         .limit(1)
         .maybeSingle();
     const nextNumeroEmpresa = ((maxPrestamo?.NumeroEmpresa) || 0) + 1;
+    // DiaPago1/DiaPago2/FechaPrimerPago ya se aplicaron al calendario: no son columnas de Prestamo
+    const { DiaPago1: _d1, DiaPago2: _d2, FechaPrimerPago: _fp, ...datosNuevoPrestamo } = nuevoPrestamoData;
     const nuevoPrestamoPayload = {
-        ...nuevoPrestamoData,
+        ...datosNuevoPrestamo,
         IdCliente: prestamoOriginal.IdCliente,
         IdEmpresa: idEmpresa,
         NumeroEmpresa: nextNumeroEmpresa,

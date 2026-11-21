@@ -125,6 +125,40 @@ export const updatePrestamo = asyncHandler(async (req: any, res: Response) => {
   res.json(prestamo);
 });
 
+// Cambiar los días de pago acordados (recalcula vencimientos de las cuotas pendientes)
+export const actualizarDiasPago = asyncHandler(async (req: any, res: Response) => {
+  if (req.user?.Rol === 'Cajero') {
+    res.status(403).json({ error: 'Acceso denegado. Los cajeros no pueden cambiar los días de pago.' });
+    return;
+  }
+
+  const { id } = req.params;
+  const idEmpresa = req.user.IdEmpresa;
+
+  if (req.user?.Rol === 'Prestamista') {
+    const { data: prestamoActual } = await supabase
+      .from('Prestamo')
+      .select('IdPrestatario')
+      .eq('IdPrestamo', Number(id))
+      .eq('IdEmpresa', idEmpresa)
+      .maybeSingle();
+
+    if (prestamoActual && req.user.IdPrestatario && prestamoActual.IdPrestatario !== req.user.IdPrestatario) {
+      res.status(403).json({ error: 'Acceso denegado. Solo el prestamista asignado puede modificar este préstamo.' });
+      return;
+    }
+  }
+
+  const { DiaPago1, DiaPago2, FechaProximoPago } = req.body || {};
+  if (FechaProximoPago && isNaN(Date.parse(FechaProximoPago))) {
+    res.status(400).json({ error: 'FechaProximoPago debe ser una fecha válida' });
+    return;
+  }
+
+  const prestamo = await prestamoService.actualizarDiasPagoService(Number(id), idEmpresa, { DiaPago1, DiaPago2, FechaProximoPago });
+  res.json(prestamo);
+});
+
 // Eliminar préstamo
 export const deletePrestamo = asyncHandler(async (req: any, res: Response) => {
   if (req.user?.Rol === 'Cajero') {

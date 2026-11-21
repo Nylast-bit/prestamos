@@ -16,6 +16,7 @@ import { PrestamoTable } from "@/components/prestamos/PrestamoTable"
 import { PrestamoFormDialog } from "@/components/prestamos/PrestamoFormDialog"
 import { PrestamoSimulationDialog } from "@/components/prestamos/PrestamoSimulationDialog"
 import { ReengancheModal } from "@/components/prestamos/ReengancheModal"
+import { esCuotaProgramada, generarFechasVencimiento, inferirDiasPago } from "@/lib/fechasPago"
 
 // --- INTERFACES ---
 interface Prestamo {
@@ -62,6 +63,15 @@ interface SimulacionResumen {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
+// Días de pago y primer vencimiento guardados en la tabla (para precargar el formulario al editar)
+const diasPagoDeTabla = (prestamo: any) => {
+  let tabla: any[] = [];
+  try { tabla = JSON.parse(prestamo?.TablaPagos || '[]'); } catch (e) { /* sin tabla */ }
+  const dias = inferirDiasPago(tabla, prestamo?.ModalidadPago || 'mensual', prestamo?.FechaInicio || new Date());
+  const primera = tabla.find((c: any) => esCuotaProgramada(c) && c.fechaVencimiento);
+  return { DiaPago1: dias.dia1 ?? null, DiaPago2: dias.dia2 ?? null, FechaPrimerPago: primera?.fechaVencimiento || '' };
+};
+
 export function PrestamosContent() {
   const { user } = useAuthStore();
   // --- ESTADOS ---
@@ -103,7 +113,11 @@ export function PrestamosContent() {
     ModalidadPago: "mensual",
     FechaInicio: "",
     FechaFinEstimada: "",
-    Observaciones: ""
+    Observaciones: "",
+    // Días de pago acordados (quincenal: 2 días del mes; mensual: día del mes; semanal: día de la semana)
+    DiaPago1: null as number | null,
+    DiaPago2: null as number | null,
+    FechaPrimerPago: ""
   }
   const [formData, setFormData] = useState(initialFormState)
 
@@ -362,7 +376,16 @@ export function PrestamosContent() {
         FechaInicio: safeISO(formData.FechaInicio, 0),
         FechaFinEstimada: safeISO(formData.FechaFinEstimada, cuotasTotal * 30 || 30),
         Observaciones: formData.Observaciones || null,
-        Estado: editingPrestamo ? editingPrestamo.Estado : "Activo"
+        Estado: editingPrestamo ? editingPrestamo.Estado : "Activo",
+        // El backend los convierte en fechaVencimiento por cuota (no son columnas)
+        DiaPago1: formData.DiaPago1,
+        DiaPago2: formData.DiaPago2,
+        FechaPrimerPago: formData.FechaPrimerPago || null,
+      }
+
+      // Editar sin volver a simular: se reenvía la tabla actual para recalcular sus vencimientos
+      if (editingPrestamo && !simulacionResumen && editingPrestamo.TablaPagos) {
+        prestamoData.TablaPagos = editingPrestamo.TablaPagos;
       }
 
       if (simulacionResumen) {
@@ -448,7 +471,8 @@ export function PrestamosContent() {
       ModalidadPago: prestamo.ModalidadPago,
       FechaInicio: prestamo.FechaInicio.split('T')[0],
       FechaFinEstimada: prestamo.FechaFinEstimada.split('T')[0],
-      Observaciones: prestamo.Observaciones || ""
+      Observaciones: prestamo.Observaciones || "",
+      ...diasPagoDeTabla(prestamo),
     })
     setIsFormOpen(true)
   }
@@ -592,6 +616,15 @@ export function PrestamosContent() {
         onConfirm={() => handleSubmit()} 
         resumen={simulacionResumen}
         cuotas={simulacionCuotas}
+        fechas={formData.FechaInicio && simulacionCuotas.length > 0
+          ? generarFechasVencimiento({
+              fechaInicio: formData.FechaInicio,
+              cantidad: simulacionCuotas.length,
+              modalidad: formData.ModalidadPago,
+              dias: { dia1: formData.DiaPago1, dia2: formData.DiaPago2 },
+              primerPago: formData.FechaPrimerPago || null,
+            })
+          : []}
         isSubmitting={submitting}
         onRecalcularCuota={handleRecalcularCuota}
       />

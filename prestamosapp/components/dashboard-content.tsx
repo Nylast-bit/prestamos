@@ -32,7 +32,7 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
   const [clientes, setClientes] = useState<any[]>([])
   const [prestatarios, setPrestatarios] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [resumenConsolidacion, setResumenConsolidacion] = useState({ ingresos: 0, egresos: 0, fechaInicio: '', fechaFin: '' })
+  const [resumenConsolidacion, setResumenConsolidacion] = useState({ ingresos: 0, egresos: 0, gastosPendientes: 0, fechaInicio: '', fechaFin: '' })
   const [filtroPrestatario, setFiltroPrestatario] = useState("todos")
   const [solicitudes, setSolicitudes] = useState<any[]>([])
 
@@ -57,6 +57,7 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
           setResumenConsolidacion({
             ingresos: consData.ingresosTotal || 0,
             egresos: consData.egresosTotal || 0,
+            gastosPendientes: consData.gastosPendientesTotal || 0,
             fechaInicio: consData.FechaInicio,
             fechaFin: consData.FechaFin
           });
@@ -196,6 +197,7 @@ export function DashboardContent({ onNavigate }: DashboardContentProps) {
         <DashboardConsolidacion
           ingresos={resumenConsolidacion.ingresos}
           egresos={resumenConsolidacion.egresos}
+          gastosPendientes={resumenConsolidacion.gastosPendientes}
           fechaInicio={resumenConsolidacion.fechaInicio}
           fechaFin={resumenConsolidacion.fechaFin}
           onNavigate={onNavigate}

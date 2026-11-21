@@ -6,6 +6,7 @@ const supabaseClient_1 = require("../config/supabaseClient");
 // Asegúrate de importar el servicio de consolidación desde la ruta correcta
 const registroconsolidacion_service_1 = require("./registroconsolidacion.service");
 const score_service_1 = require("./score.service");
+const fechasPago_1 = require("../utils/fechasPago");
 const createPagoService = async (data, idEmpresa) => {
     const { IdPrestamo, MontoPagado, TipoPago, Observaciones, MontoInteresPagado, MontoCapitalAbonado, NumeroCuota } = data;
     const totalDistribuido = Number(MontoCapitalAbonado || 0) + Number(MontoInteresPagado || 0);
@@ -146,39 +147,19 @@ const createPagoService = async (data, idEmpresa) => {
     // 7. INTEGRACIÓN CON SISTEMA DE SCORE
     if (prestamo.IdCliente) {
         try {
-            let cuotaPagada = null;
+            let fechaVenc = null;
             if (tablaPagosString) {
                 const tabla = JSON.parse(tablaPagosString);
-                // Buscar la cuota recién pagada
-                cuotaPagada = tabla.find((c) => c.numeroCuota === numeroCuotaReal) || tabla.find((c) => c.fechaPago === nowISO);
+                // Buscar la cuota recién pagada y su vencimiento según los días de pago acordados
+                let idxPagada = tabla.findIndex((c) => c.numeroCuota === numeroCuotaReal);
+                if (idxPagada === -1)
+                    idxPagada = tabla.findIndex((c) => c.fechaPago === nowISO);
+                const fechasVencimiento = (0, fechasPago_1.obtenerFechasVencimiento)(prestamo, tabla);
+                if (idxPagada !== -1 && fechasVencimiento[idxPagada])
+                    fechaVenc = (0, fechasPago_1.parseFecha)(fechasVencimiento[idxPagada]);
             }
             let puntajeCambio = 0;
             let motivo = '';
-            let fechaVenc = null;
-            if (cuotaPagada) {
-                if (cuotaPagada.fechaVencimiento) {
-                    fechaVenc = new Date(cuotaPagada.fechaVencimiento);
-                }
-                else if (prestamo.FechaInicio && prestamo.ModalidadPago) {
-                    const date = new Date(prestamo.FechaInicio);
-                    date.setUTCHours(12, 0, 0, 0);
-                    const modalidad = prestamo.ModalidadPago.toLowerCase();
-                    const n = Number(cuotaPagada.numeroCuota || numeroCuotaReal || 1);
-                    if (modalidad === 'diario')
-                        date.setDate(date.getDate() + n);
-                    else if (modalidad === 'semanal')
-                        date.setDate(date.getDate() + (n * 7));
-                    else if (modalidad === 'quincenal')
-                        date.setDate(date.getDate() + (n * 15));
-                    else if (modalidad === 'mensual')
-                        date.setMonth(date.getMonth() + n);
-                    else if (modalidad === 'anual')
-                        date.setFullYear(date.getFullYear() + n);
-                    else
-                        date.setMonth(date.getMonth() + n);
-                    fechaVenc = date;
-                }
-            }
             if (fechaVenc) {
                 const hoy = new Date();
                 fechaVenc.setUTCHours(0, 0, 0, 0);

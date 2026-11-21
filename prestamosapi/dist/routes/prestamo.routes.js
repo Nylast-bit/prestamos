@@ -20,6 +20,7 @@ router.post("/", (0, validate_1.validate)(prestamo_validator_1.prestamoSchema), 
 // ✅ RUTAS DINÁMICAS (VAN AL FINAL)
 router.post("/:id/reenganchar", prestamo_controller_1.reengancharPrestamo);
 router.post("/:id/revertir-reenganche", prestamo_controller_1.revertirReenganche);
+router.put("/:id/dias-pago", prestamo_controller_1.actualizarDiasPago);
 router.get("/:id", prestamo_controller_1.getPrestamoById);
 router.put("/:id", prestamo_controller_1.updatePrestamo);
 router.delete("/:id", prestamo_controller_1.deletePrestamo);

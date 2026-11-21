@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DollarSign, TrendingUp, TrendingDown, Calendar, AlertCircle, ShieldCheck, History, CheckCircle2 } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, Calendar, AlertCircle, ShieldCheck, History, CheckCircle2, Clock } from 'lucide-react'
 
 export interface AuditMeta {
   idRegistro: number
@@ -28,12 +28,16 @@ interface ConsolidacionStatsProps {
   consolidacion: ConsolidacionCapital;
   allConsolidaciones: ConsolidacionCapital[];
   balanceNeto: number;
+  // Calculados de los registros (sin egresos pendientes)
+  capitalEntrante: number;
+  capitalSaliente: number;
   totalRegistros: number;
   totalesPorEstado: {
     Depositado: number;
     Pendiente: number;
     Prestado: number;
     Pagado: number;
+    GastosPendientes: number;
   };
   onConsolidacionChange: (idString: string) => void;
   formatDate: (isoString: string) => string;
@@ -45,6 +49,8 @@ export function ConsolidacionStats({
   consolidacion,
   allConsolidaciones,
   balanceNeto,
+  capitalEntrante,
+  capitalSaliente,
   totalRegistros,
   totalesPorEstado,
   onConsolidacionChange,
@@ -142,11 +148,11 @@ export function ConsolidacionStats({
         <CardContent className="px-4 sm:px-6">
           <div className="kpi-grid grid gap-4 md:grid-cols-4">
             <div className="text-center p-3 sm:p-4 bg-green-50 rounded-lg border border-green-100">
-              <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-green-600">RD${consolidacion.CapitalEntrante.toLocaleString()}</div>
+              <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-green-600">RD${capitalEntrante.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground font-medium">Capital Entrante</div>
             </div>
             <div className="text-center p-3 sm:p-4 bg-red-50 rounded-lg border border-red-100">
-              <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-red-600">-RD${consolidacion.CapitalSaliente.toLocaleString()}</div>
+              <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-red-600">-RD${capitalSaliente.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground font-medium">Capital Saliente</div>
             </div>
             <div className="text-center p-3 sm:p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900/50">
@@ -164,7 +170,7 @@ export function ConsolidacionStats({
       </Card>
 
       {/* TARJETAS DE ESTADOS MICRO */}
-      <div className="kpi-grid grid gap-4 md:grid-cols-4">
+      <div className="kpi-grid grid gap-4 md:grid-cols-3 xl:grid-cols-5">
         <Card className="border-l-4 border-l-green-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Depositado</CardTitle>
@@ -202,6 +208,18 @@ export function ConsolidacionStats({
           </CardHeader>
           <CardContent>
             <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-blue-600">RD${totalesPorEstado.Pagado.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+
+        {/* Gastos fijos (o manuales) en estado Pendiente: se ven aquí, pero no restan del balance neto */}
+        <Card className="border-l-4 border-l-amber-500 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Gastos fijos por pagar</CardTitle>
+            <Clock className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg sm:text-2xl font-bold tabular-nums [overflow-wrap:anywhere] text-amber-600">RD${totalesPorEstado.GastosPendientes.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">No afecta el balance neto</p>
           </CardContent>
         </Card>
       </div>

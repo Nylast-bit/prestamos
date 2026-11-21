@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Edit, Trash2, CalendarClock, Banknote, CheckCircle2, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Zap, TrendingDown, AlertCircle, History } from 'lucide-react'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
+import { proximaCuotaPendiente, obtenerFechasVencimiento, inferirDiasPago, describirDiasPago, parseFecha } from "@/lib/fechasPago"
+import { DiasPagoDialog } from "@/components/prestamos/DiasPagoDialog"
 
 // --- HELPERS (Formato Moneda y Fecha) ---
 const formatMoney = (amount: number) => {
@@ -23,7 +25,9 @@ const formatMoney = (amount: number) => {
 
 const formatDate = (dateString: string | null) => {
   if (!dateString) return "----";
-  return new Date(dateString).toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  // "YYYY-MM-DD" (vencimientos) se interpreta como fecha local; new Date() la tomaría como UTC y mostraría el día anterior
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(dateString) ? parseFecha(dateString) : new Date(dateString);
+  return fecha.toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 // Primera cuota pendiente de la tabla (la misma que el backend marca como pagada)
@@ -45,29 +49,12 @@ const obtenerCuotaPendiente = (prestamo: any) => {
   };
 };
 
-const getProximoPago = (fechaInicioStr: string, modalidad: string, cuotasPagadas: number) => {
-  if (!fechaInicioStr) return "----";
-  const fechaISO = fechaInicioStr.split('T')[0]; 
-  let fechaCalculada = new Date(`${fechaISO}T12:00:00`); 
-  const saltosNecesarios = cuotasPagadas + 1;
-
-  for (let i = 0; i < saltosNecesarios; i++) {
-    if (modalidad.toLowerCase() === 'quincenal') {
-      const year = fechaCalculada.getFullYear();
-      const mes = fechaCalculada.getMonth();
-      const dia = fechaCalculada.getDate();
-      const ultimoDiaDelMes = new Date(year, mes + 1, 0).getDate();
-      if (dia < 15) { fechaCalculada = new Date(year, mes, 15, 12, 0, 0); } 
-      else if (dia >= 15 && dia < ultimoDiaDelMes) { fechaCalculada = new Date(year, mes + 1, 0, 12, 0, 0); } 
-      else { fechaCalculada = new Date(year, mes + 1, 15, 12, 0, 0); }
-    } else if (modalidad.toLowerCase() === 'mensual') {
-      fechaCalculada.setMonth(fechaCalculada.getMonth() + 1);
-    } else if (modalidad.toLowerCase() === 'semanal') {
-      fechaCalculada.setDate(fechaCalculada.getDate() + 7);
-    }
-  }
-  return fechaCalculada.toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
+// Días de pago vigentes del préstamo (deducidos de los vencimientos guardados en la tabla)
+const diasPagoActuales = (prestamo: any) => {
+  let tabla: any[] = [];
+  try { tabla = JSON.parse(prestamo?.TablaPagos || '[]'); } catch (e) { /* sin tabla */ }
+  return inferirDiasPago(tabla, prestamo?.ModalidadPago || 'mensual', prestamo?.FechaInicio || new Date());
+};
 
 // --- COMPONENTE PRINCIPAL ---
 export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, onReenganchar }: any) {
@@ -78,6 +65,14 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
   const [selectedPrestamo, setSelectedPrestamo] = useState<any>(null);
   const [moraToPerdonar, setMoraToPerdonar] = useState<any>(null);
   const [isPerdonarMoraOpen, setIsPerdonarMoraOpen] = useState(false);
+  const [prestamoDiasPago, setPrestamoDiasPago] = useState<any>(null);
+
+  // Mismos permisos que editar: ni cajeros ni prestamistas sobre préstamos ajenos
+  const puedeCambiarDiasPago = (prestamo: any) => {
+    if (user?.rol === 'Cajero') return false;
+    return user?.rol !== 'Prestamista' || prestamo?.IdPrestatario === user?.idPrestatario;
+  };
+  const abrirDiasPago = (prestamo: any) => setPrestamoDiasPago(prestamo);
   const [paymentType, setPaymentType] = useState("Efectivo");
   const [observaciones, setObservaciones] = useState("");
   const [isPaying, setIsPaying] = useState(false);
@@ -373,7 +368,10 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
     // Crear copia del historial para ir consumiendo matches (evitar duplicados)
     const pagosDisponibles = [...historialPagos];
 
-    return tablaProyeccion.map((cuotaProyectada: any) => {
+    // Vencimiento de cada cuota según los días de pago acordados
+    const fechasVenc = obtenerFechasVencimiento(selectedPrestamo, tablaProyeccion);
+
+    return tablaProyeccion.map((cuotaProyectada: any, i: number) => {
         if (cuotaProyectada.pagado) {
             // Intentar match por NumeroCuota primero
             let pagoIdx = pagosDisponibles.findIndex((p: any) => p.NumeroCuota === cuotaProyectada.numeroCuota);
@@ -384,6 +382,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
             const pagoReal = pagoIdx !== -1 ? pagosDisponibles.splice(pagoIdx, 1)[0] : null;
             return {
                 ...cuotaProyectada,
+                vence: fechasVenc[i],
                 montoPagado: cuotaProyectada.montoPagado ?? (pagoReal ? Number(pagoReal.MontoPagado) : cuotaProyectada.cuota),
                 estado: 'Pagado',
                 fechaPagoReal: pagoReal ? pagoReal.FechaPago : (cuotaProyectada.fechaPago || null),
@@ -394,6 +393,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
         const pagoReal = pagosDisponibles.find((p: any) => p.NumeroCuota === cuotaProyectada.numeroCuota);
         return {
             ...cuotaProyectada,
+            vence: fechasVenc[i],
             montoPagado: pagoReal ? Number(pagoReal.MontoPagado) : null,
             estado: pagoReal ? 'Pagado' : 'Pendiente',
             fechaPagoReal: pagoReal ? pagoReal.FechaPago : null,
@@ -768,6 +768,9 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                         <div className="ml-auto text-right">
                           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{pagado ? 'Cuota' : 'Próxima cuota'}</p>
                           <p className="text-base min-[400px]:text-lg font-bold text-foreground tabular-nums whitespace-nowrap">{formatMoney(pagado ? prestamo.MontoCuota : montoProximaCuota)}</p>
+                          {!pagado && proximaCuotaPendiente(prestamo) && (
+                            <p className="text-[11px] text-muted-foreground">vence {formatDate(proximaCuotaPendiente(prestamo)!.fechaISO)}</p>
+                          )}
                         </div>
                       </div>
 
@@ -1267,11 +1270,25 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                 <CardContent className="p-3 sm:p-4">
                   <div className="text-[10px] sm:text-xs text-orange-700 dark:text-orange-400 font-bold uppercase tracking-wider mb-1">Próx. Vencimiento</div>
                   <div className="text-base sm:text-xl font-bold tabular-nums text-orange-600 dark:text-orange-400">
-                    {selectedPrestamo && selectedPrestamo.Estado !== 'Pagado' 
-                      ? getProximoPago(selectedPrestamo.FechaInicio, selectedPrestamo.ModalidadPago, (selectedPrestamo.CantidadCuotas - selectedPrestamo.CuotasRestantes))
+                    {selectedPrestamo && selectedPrestamo.Estado !== 'Pagado' && proximaCuotaPendiente(selectedPrestamo)
+                      ? formatDate(proximaCuotaPendiente(selectedPrestamo)!.fechaISO)
                       : '---'
                     }
                   </div>
+                  {selectedPrestamo && selectedPrestamo.Estado !== 'Pagado' && selectedPrestamo.ModalidadPago?.toLowerCase() !== 'diario' && (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-[11px] text-orange-700/80 dark:text-orange-300/80">{describirDiasPago(selectedPrestamo.ModalidadPago, diasPagoActuales(selectedPrestamo))}</span>
+                      {puedeCambiarDiasPago(selectedPrestamo) && (
+                        <button
+                          type="button"
+                          onClick={() => abrirDiasPago(selectedPrestamo)}
+                          className="text-[11px] font-semibold text-orange-700 dark:text-orange-300 underline underline-offset-2"
+                        >
+                          Cambiar días
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1315,7 +1332,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                       return (
                         <div key={fila.numeroCuota} className={`flex flex-col gap-1.5 p-3 ${esPagado ? 'bg-green-50/70 dark:bg-green-950/40' : ''}`}>
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-muted-foreground">#{fila.numeroCuota}</span>
+                            <span className="font-bold text-muted-foreground">#{fila.numeroCuota}{fila.vence && <span className="ml-1.5 text-xs font-medium">· vence {formatDate(fila.vence)}</span>}</span>
                             {esPagado ? (
                               <Badge variant="outline" className="bg-background text-green-700 border-green-300 font-bold flex items-center gap-1">
                                 <CheckCircle2 className="h-3.5 w-3.5" /> Pagado {fila.fechaPagoReal ? formatDate(fila.fechaPagoReal) : ''}
@@ -1356,6 +1373,7 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                     <TableHeader className="bg-gradient-to-r from-slate-50 dark:from-slate-900 to-slate-100 dark:to-slate-800 sticky top-0 z-10 shadow-sm">
                       <TableRow className="border-b-2 border-border">
                         <TableHead className="w-[60px] text-center font-bold text-foreground">#</TableHead>
+                        <TableHead className="font-bold text-foreground">Vence</TableHead>
                         <TableHead className="font-bold text-foreground">Estado</TableHead>
                         <TableHead className="font-bold text-foreground text-right">Esperado</TableHead>
                         <TableHead className="font-bold text-foreground text-right">Pagado</TableHead>
@@ -1378,6 +1396,9 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
                           >
                             <TableCell className="text-center font-bold text-muted-foreground">
                               {fila.numeroCuota}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                              {fila.vence ? formatDate(fila.vence) : '-'}
                             </TableCell>
                             <TableCell>
                               {esPagado ? (
@@ -1491,6 +1512,12 @@ export function PrestamoTable({ prestamos, onEdit, onDelete, onPaymentSuccess, o
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <DiasPagoDialog
+        prestamo={prestamoDiasPago}
+        isOpen={!!prestamoDiasPago}
+        onClose={() => setPrestamoDiasPago(null)}
+        onSuccess={() => { setIsDetailsOpen(false); if (onPaymentSuccess) onPaymentSuccess(); }}
+      />
     </>
   )
 }

@@ -5,6 +5,7 @@ import { supabase } from "../config/supabaseClient";
 // Asegúrate de importar el servicio de consolidación desde la ruta correcta
 import { createRegistroConsolidacionService } from "./registroconsolidacion.service";
 import { actualizarScoreService } from "./score.service";
+import { obtenerFechasVencimiento, parseFecha } from "../utils/fechasPago";
 
 
 export const createPagoService = async (data: any, idEmpresa: number) => {
@@ -173,36 +174,18 @@ export const createPagoService = async (data: any, idEmpresa: number) => {
   // 7. INTEGRACIÓN CON SISTEMA DE SCORE
   if (prestamo.IdCliente) {
     try {
-      let cuotaPagada = null;
+      let fechaVenc: Date | null = null;
       if (tablaPagosString) {
         const tabla = JSON.parse(tablaPagosString);
-        // Buscar la cuota recién pagada
-        cuotaPagada = tabla.find((c: any) => c.numeroCuota === numeroCuotaReal) || tabla.find((c: any) => c.fechaPago === nowISO);
+        // Buscar la cuota recién pagada y su vencimiento según los días de pago acordados
+        let idxPagada = tabla.findIndex((c: any) => c.numeroCuota === numeroCuotaReal);
+        if (idxPagada === -1) idxPagada = tabla.findIndex((c: any) => c.fechaPago === nowISO);
+        const fechasVencimiento = obtenerFechasVencimiento(prestamo, tabla);
+        if (idxPagada !== -1 && fechasVencimiento[idxPagada]) fechaVenc = parseFecha(fechasVencimiento[idxPagada] as string);
       }
 
       let puntajeCambio = 0;
       let motivo = '';
-      
-      let fechaVenc = null;
-      if (cuotaPagada) {
-        if (cuotaPagada.fechaVencimiento) {
-          fechaVenc = new Date(cuotaPagada.fechaVencimiento);
-        } else if (prestamo.FechaInicio && prestamo.ModalidadPago) {
-          const date = new Date(prestamo.FechaInicio);
-          date.setUTCHours(12, 0, 0, 0);
-          const modalidad = prestamo.ModalidadPago.toLowerCase();
-          const n = Number(cuotaPagada.numeroCuota || numeroCuotaReal || 1);
-          
-          if (modalidad === 'diario') date.setDate(date.getDate() + n);
-          else if (modalidad === 'semanal') date.setDate(date.getDate() + (n * 7));
-          else if (modalidad === 'quincenal') date.setDate(date.getDate() + (n * 15));
-          else if (modalidad === 'mensual') date.setMonth(date.getMonth() + n);
-          else if (modalidad === 'anual') date.setFullYear(date.getFullYear() + n);
-          else date.setMonth(date.getMonth() + n);
-          
-          fechaVenc = date;
-        }
-      }
       
       if (fechaVenc) {
         const hoy = new Date();

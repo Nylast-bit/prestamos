@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPrestamosActivosCount = exports.obtenerRangoCuotas = exports.calcularTasaPorCuota = exports.opcionesSimularPrestamoCapitalInteres = exports.simularPrestamo = exports.getPrestamoParaEliminar = exports.deletePrestamo = exports.updatePrestamo = exports.revertirReenganche = exports.reengancharPrestamo = exports.createPrestamo = exports.getPrestamoById = exports.getPrestamos = void 0;
+exports.getPrestamosActivosCount = exports.obtenerRangoCuotas = exports.calcularTasaPorCuota = exports.opcionesSimularPrestamoCapitalInteres = exports.simularPrestamo = exports.getPrestamoParaEliminar = exports.deletePrestamo = exports.actualizarDiasPago = exports.updatePrestamo = exports.revertirReenganche = exports.reengancharPrestamo = exports.createPrestamo = exports.getPrestamoById = exports.getPrestamos = void 0;
 const logger_1 = require("../utils/logger");
 const asyncHandler_1 = require("../middlewares/asyncHandler");
 const prestamoService = __importStar(require("../services/prestamo.service"));
@@ -135,6 +135,34 @@ exports.updatePrestamo = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     if (data.IdEmpresa)
         delete data.IdEmpresa;
     const prestamo = await prestamoService.updatePrestamoService(Number(id), idEmpresa, data);
+    res.json(prestamo);
+});
+// Cambiar los días de pago acordados (recalcula vencimientos de las cuotas pendientes)
+exports.actualizarDiasPago = (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+    if (req.user?.Rol === 'Cajero') {
+        res.status(403).json({ error: 'Acceso denegado. Los cajeros no pueden cambiar los días de pago.' });
+        return;
+    }
+    const { id } = req.params;
+    const idEmpresa = req.user.IdEmpresa;
+    if (req.user?.Rol === 'Prestamista') {
+        const { data: prestamoActual } = await supabaseClient_1.supabase
+            .from('Prestamo')
+            .select('IdPrestatario')
+            .eq('IdPrestamo', Number(id))
+            .eq('IdEmpresa', idEmpresa)
+            .maybeSingle();
+        if (prestamoActual && req.user.IdPrestatario && prestamoActual.IdPrestatario !== req.user.IdPrestatario) {
+            res.status(403).json({ error: 'Acceso denegado. Solo el prestamista asignado puede modificar este préstamo.' });
+            return;
+        }
+    }
+    const { DiaPago1, DiaPago2, FechaProximoPago } = req.body || {};
+    if (FechaProximoPago && isNaN(Date.parse(FechaProximoPago))) {
+        res.status(400).json({ error: 'FechaProximoPago debe ser una fecha válida' });
+        return;
+    }
+    const prestamo = await prestamoService.actualizarDiasPagoService(Number(id), idEmpresa, { DiaPago1, DiaPago2, FechaProximoPago });
     res.json(prestamo);
 });
 // Eliminar préstamo

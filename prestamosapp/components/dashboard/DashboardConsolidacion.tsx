@@ -14,6 +14,8 @@ import {
 interface DashboardConsolidacionProps {
   ingresos: number;
   egresos: number;
+  // Gastos fijos en estado Pendiente: se muestran aparte y no restan del balance neto
+  gastosPendientes?: number;
   fechaInicio?: string;
   fechaFin?: string;
   onNavigate: (section: string) => void;
@@ -22,6 +24,7 @@ interface DashboardConsolidacionProps {
 export function DashboardConsolidacion({
   ingresos,
   egresos,
+  gastosPendientes = 0,
   fechaInicio,
   fechaFin,
   onNavigate,
@@ -114,6 +117,15 @@ export function DashboardConsolidacion({
               <TrendingUp className={`h-5 w-5 ${!isPositive ? 'rotate-180' : ''}`} />
             </div>
           </div>
+
+          {gastosPendientes > 0 && (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/30 px-3 py-2 text-xs">
+              <span className="flex items-center gap-1.5 font-medium text-amber-800 dark:text-amber-300">
+                <Clock className="h-3.5 w-3.5" /> Gastos fijos por pagar
+              </span>
+              <span className="font-bold tabular-nums text-amber-700 dark:text-amber-300 whitespace-nowrap">{formatMoney(gastosPendientes)}</span>
+            </div>
+          )}
 
           {/* Visual Progress Indicator (Ingresos vs Egresos Ratio) */}
           <div className="space-y-1.5">

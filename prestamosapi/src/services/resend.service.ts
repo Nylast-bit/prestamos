@@ -4,10 +4,17 @@ import { logger } from '../utils/logger';
 const resendApiKey = process.env.RESEND_API_KEY 
 const resendFromEmail = process.env.RESEND_FROM_EMAIL 
 
-const resend = new Resend(resendApiKey);
+// El cliente se crea al enviar: sin RESEND_API_KEY (ej. entorno local) el servidor arranca igual
+// y solo falla el envío del correo, en vez de caerse todo el backend al cargar este archivo.
+let resend: Resend | null = null;
 
 export const sendOtpEmail = async (email: string, code: string): Promise<boolean> => {
+    if (!resendApiKey) {
+        logger.error('RESEND_API_KEY no está configurada: no se puede enviar el email OTP.');
+        return false;
+    }
     try {
+        resend = resend ?? new Resend(resendApiKey);
         const { data, error } = await resend.emails.send({
             from: `Sistema de Préstamos <${resendFromEmail}>`,
             to: [email],

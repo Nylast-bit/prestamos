@@ -59,3 +59,11 @@ Este archivo actúa como nuestra "memoria" a largo plazo.
 ## 📝 Bitácora de Progreso (Log)
 * **[2026-10-03]**: Inicialización del plan de acción Responsive + PWA.
 * **[2026-10-03]**: Fases 1-6 ejecutadas: responsive completo (login, shell, superadmin, grids/dialogs), logo `Logo.jfif` como favicon/iconos PWA/UI, Serwist offline-con-datos GET, Docker build-time env. Verificado: `npx tsc --noEmit` ✓, `npm run build` ✓ (61 precache entries), `next start` sirve SW+manifest ✓, lint sin errores nuevos.
+
+## 📅 Calendario de pagos y gastos pendientes (nov 2026)
+- **Fuente de verdad del vencimiento**: `fechaVencimiento` (YYYY-MM-DD) en cada cuota de `TablaPagos`. Se genera al crear/editar/reenganchar con los días acordados (`DiaPago1`/`DiaPago2`/`FechaPrimerPago` en el body; **no son columnas**, el backend los consume y los quita del insert).
+- Utilidad única duplicada en `prestamosapi/src/utils/fechasPago.ts` y `prestamosapp/lib/fechasPago.ts` (**mantener idénticas**; tests en `__tests__/unit/utils/fechasPago.test.ts`). Radar, detalle, mora, score y pagos la usan; préstamos viejos sin `fechaVencimiento` caen a días por defecto (quincenal 15/30, mensual/semanal = día del inicio) con distancia mínima al primer pago.
+- Cambiar días de un préstamo activo: `PUT /api/prestamos/:id/dias-pago` (solo recalcula cuotas pendientes).
+- Fechas "YYYY-MM-DD" en el front: usar `parseFecha`, nunca `new Date(str)` (UTC → muestra el día anterior en RD).
+- **Egreso con Estado "Pendiente"** (gasto fijo sin pagar) NO resta del balance neto, del disponible para prestar ni del arrastre: helper `sumarRegistrosConsolidacion` en `consolidacioncapital.service.ts`; en el front se muestra en la tarjeta "Gastos fijos por pagar".
+- Varios archivos fuente usan CRLF: los reemplazos por script deben normalizar `\r\n` (o usar la herramienta Edit).

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.verificarMoraPendienteCliente = exports.getMorasPendientesService = exports.getHistorialMoraService = exports.perdonarMoraService = exports.calcularMoraService = void 0;
 const supabaseClient_1 = require("../config/supabaseClient");
 const logger_1 = require("../utils/logger");
+const fechasPago_1 = require("../utils/fechasPago");
 const calcularMoraService = async (idPrestamo, idEmpresa) => {
     const { data: prestamo, error } = await supabaseClient_1.supabase
         .from('Prestamo')
@@ -29,31 +30,11 @@ const calcularMoraService = async (idPrestamo, idEmpresa) => {
         try {
             tabla = JSON.parse(prestamo.TablaPagos);
             const hoy = new Date();
-            tabla.forEach((cuota) => {
+            // Vencimiento de cada cuota según los días de pago acordados (mismo calendario que el frontend)
+            const fechasVencimiento = (0, fechasPago_1.obtenerFechasVencimiento)(prestamo, tabla);
+            tabla.forEach((cuota, idx) => {
                 if (!cuota.pagado && !cuota.moraCalculada) {
-                    let fechaVenc = null;
-                    if (cuota.fechaVencimiento) {
-                        fechaVenc = new Date(cuota.fechaVencimiento);
-                    }
-                    else if (prestamo.FechaInicio && prestamo.ModalidadPago) {
-                        const date = new Date(prestamo.FechaInicio);
-                        date.setUTCHours(12, 0, 0, 0);
-                        const modalidad = prestamo.ModalidadPago.toLowerCase();
-                        const n = Number(cuota.numeroCuota || 1);
-                        if (modalidad === 'diario')
-                            date.setDate(date.getDate() + n);
-                        else if (modalidad === 'semanal')
-                            date.setDate(date.getDate() + (n * 7));
-                        else if (modalidad === 'quincenal')
-                            date.setDate(date.getDate() + (n * 15));
-                        else if (modalidad === 'mensual')
-                            date.setMonth(date.getMonth() + n);
-                        else if (modalidad === 'anual')
-                            date.setFullYear(date.getFullYear() + n);
-                        else
-                            date.setMonth(date.getMonth() + n);
-                        fechaVenc = date;
-                    }
+                    const fechaVenc = fechasVencimiento[idx] ? (0, fechasPago_1.parseFecha)(fechasVencimiento[idx]) : null;
                     if (fechaVenc) {
                         const diffTime = Math.abs(hoy.getTime() - fechaVenc.getTime());
                         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

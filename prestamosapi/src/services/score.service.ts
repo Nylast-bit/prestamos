@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabaseClient";
 import { logger } from "../utils/logger";
+import { obtenerFechasVencimiento, parseFecha } from "../utils/fechasPago";
 
 export const getCategoriaRiesgo = (puntaje: number): string => {
   if (puntaje >= 850) return 'EXCELENTE';
@@ -183,26 +184,11 @@ export const recalcularScoreService = async (idCliente: string, idEmpresa: numbe
           // ignore parsing error
         }
         
-        for (const cuota of tabla) {
+        // Vencimiento de cada cuota según los días de pago acordados (mismo calendario que mora y radar)
+        const fechasVencimiento = obtenerFechasVencimiento(prestamo, tabla);
+        for (const [idx, cuota] of tabla.entries()) {
           if (cuota.pagado && cuota.fechaPago) {
-            let fechaVenc = null;
-            if (cuota.fechaVencimiento) {
-              fechaVenc = new Date(cuota.fechaVencimiento);
-            } else if (prestamo.FechaInicio && prestamo.ModalidadPago) {
-              const date = new Date(prestamo.FechaInicio);
-              date.setUTCHours(12, 0, 0, 0);
-              const modalidad = prestamo.ModalidadPago.toLowerCase();
-              const n = Number(cuota.numeroCuota || 1);
-              
-              if (modalidad === 'diario') date.setDate(date.getDate() + n);
-              else if (modalidad === 'semanal') date.setDate(date.getDate() + (n * 7));
-              else if (modalidad === 'quincenal') date.setDate(date.getDate() + (n * 15));
-              else if (modalidad === 'mensual') date.setMonth(date.getMonth() + n);
-              else if (modalidad === 'anual') date.setFullYear(date.getFullYear() + n);
-              else date.setMonth(date.getMonth() + n);
-              
-              fechaVenc = date;
-            }
+            const fechaVenc = fechasVencimiento[idx] ? parseFecha(fechasVencimiento[idx] as string) : null;
 
             if (fechaVenc) {
               const fechaVencimiento = new Date(fechaVenc);

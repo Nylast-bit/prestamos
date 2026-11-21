@@ -3,32 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { AlertTriangle, MapPin, Phone, Clock } from 'lucide-react'
 
-// Helper para calcular la fecha del próximo pago (Misma lógica que usamos en tu tabla)
-const getProximoPagoDate = (fechaInicioStr: string, modalidad: string, cuotasPagadas: number): Date => {
-  if (!fechaInicioStr) return new Date();
-  const fechaISO = fechaInicioStr.split('T')[0]; 
-  let fechaCalculada = new Date(`${fechaISO}T12:00:00`); 
-  const saltosNecesarios = cuotasPagadas + 1;
-
-  for (let i = 0; i < saltosNecesarios; i++) {
-    if (modalidad.toLowerCase() === 'quincenal') {
-      const year = fechaCalculada.getFullYear();
-      const mes = fechaCalculada.getMonth();
-      const dia = fechaCalculada.getDate();
-      const ultimoDiaDelMes = new Date(year, mes + 1, 0).getDate();
-      if (dia < 15) { fechaCalculada = new Date(year, mes, 15, 12, 0, 0); } 
-      else if (dia >= 15 && dia < ultimoDiaDelMes) { fechaCalculada = new Date(year, mes + 1, 0, 12, 0, 0); } 
-      else { fechaCalculada = new Date(year, mes + 1, 15, 12, 0, 0); }
-    } else if (modalidad.toLowerCase() === 'mensual') {
-      fechaCalculada.setMonth(fechaCalculada.getMonth() + 1);
-    } else if (modalidad.toLowerCase() === 'semanal') {
-      fechaCalculada.setDate(fechaCalculada.getDate() + 7);
-    } else if (modalidad.toLowerCase() === 'diario') {
-      fechaCalculada.setDate(fechaCalculada.getDate() + 1);
-    }
-  }
-  return fechaCalculada;
-}
+import { proximaCuotaPendiente } from "@/lib/fechasPago"
 
 interface DashboardProximosVencerProps {
   prestamos: any[];
@@ -46,18 +21,23 @@ export function DashboardProximosVencer({ prestamos }: DashboardProximosVencerPr
   let listaRadar = prestamos
     .filter(p => p.Estado === "Activo")
     .map(p => {
-      const cuotasPagadas = (p.CantidadCuotas || 0) - (p.CuotasRestantes || 0);
-      const fechaPago = getProximoPagoDate(p.FechaInicio, p.ModalidadPago, cuotasPagadas);
-      
+      // Vencimiento de la primera cuota pendiente según los días de pago acordados (13 y 27, etc.)
+      const proxima = proximaCuotaPendiente(p);
+      if (!proxima) return null;
+      const fechaPago = proxima.fecha;
+
       const diffTime = fechaPago.getTime() - hoy.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+      const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
 
       return {
         ...p,
+        // Monto real de la cuota pendiente (incluye lo arrastrado de pagos incompletos)
+        MontoCuota: proxima.monto ?? p.MontoCuota,
         fechaPagoFormat: fechaPago.toLocaleDateString('es-DO', { day: '2-digit', month: 'short' }),
         diasRestantes: diffDays
       };
-    });
+    })
+    .filter((p): p is any => p !== null);
 
   // 2. Filtrar: Solo los que están entre -7 días y +3 días (para que no salgan cobros semanales tan pronto se pagan)
   listaRadar = listaRadar.filter(p => p.diasRestantes >= -7 && p.diasRestantes <= 3);

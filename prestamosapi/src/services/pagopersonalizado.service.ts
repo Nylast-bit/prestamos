@@ -1,6 +1,7 @@
 import { logger } from '../utils/logger';
 import { supabase } from "../config/supabaseClient";
 import { getAllPagosService } from "./pago.service";
+import { asignarFechasVencimiento, inferirDiasPago } from "../utils/fechasPago";
 
 interface PagoPersonalizadoData {
     idPrestamo: number;
@@ -230,6 +231,15 @@ export const createPagoPersonalizadoService = async (data: PagoPersonalizadoData
                         saldo: 0,
                         pagado: false
                     });
+
+                    // La cuota nueva vence en la siguiente fecha acordada (13 y 27, día del mes, etc.)
+                    if (prestamo.FechaInicio) {
+                        asignarFechasVencimiento(cuotasActualizadas, {
+                            fechaInicio: prestamo.FechaInicio,
+                            modalidad: prestamo.ModalidadPago || 'mensual',
+                            dias: inferirDiasPago(cuotasActualizadas, prestamo.ModalidadPago || 'mensual', prestamo.FechaInicio),
+                        });
+                    }
                 }
             }
             

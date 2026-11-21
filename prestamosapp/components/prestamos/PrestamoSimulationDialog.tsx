@@ -26,7 +26,8 @@ export function PrestamoSimulationDialog({
   resumen, 
   cuotas, 
   isSubmitting,
-  onRecalcularCuota
+  onRecalcularCuota,
+  fechas = [] // fecha de vencimiento de cada cuota (YYYY-MM-DD) según los días de pago
 }: any) {
   const [cuotaInput, setCuotaInput] = useState<string>("")
   const [loadingAjuste, setLoadingAjuste] = useState(false)
@@ -193,17 +194,23 @@ export function PrestamoSimulationDialog({
                     <TableHeader className="sticky top-0 z-20 bg-background shadow-sm ring-1 ring-black/5">
                         <TableRow className="hover:bg-transparent">
                             <TableHead className="w-[60px] text-center font-bold text-foreground">#</TableHead>
+                            {fechas.length > 0 && <TableHead className="font-bold text-foreground">Vence</TableHead>}
                             <TableHead className="text-right font-bold text-foreground">Capital</TableHead>
                             <TableHead className="text-right font-bold text-foreground">Interés</TableHead>
                             <TableHead className="text-right font-bold text-green-700">Cuota</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {cuotas.map((c: any) => (
+                        {cuotas.map((c: any, i: number) => (
                             <TableRow key={c.numeroCuota} className="hover:bg-muted">
                                 <TableCell className="text-center font-medium text-muted-foreground">
                                     {c.numeroCuota}
                                 </TableCell>
+                                {fechas.length > 0 && (
+                                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                                    {fechas[i] ? fechas[i].split('-').reverse().join('/') : '-'}
+                                  </TableCell>
+                                )}
                                 <TableCell className="text-right tabular-nums">
                                     {formatMoney(c.capital)}
                                 </TableCell>

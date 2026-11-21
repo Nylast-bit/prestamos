@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getBalanceDisponibleActivoService = exports.getResumenConsolidacionActivaService = exports.deleteConsolidacionCapitalService = exports.updateConsolidacionCapitalService = exports.getConsolidacionCapitalByIdService = exports.getHistorialAuditoriaService = exports.auditarConsolidacionService = exports.getAllConsolidacionesCapitalService = exports.crearConsolidacionAutomatica = exports.createConsolidacionCapitalService = exports.getConsolidacionActivaId = void 0;
+exports.getBalanceDisponibleActivoService = exports.getResumenConsolidacionActivaService = exports.deleteConsolidacionCapitalService = exports.updateConsolidacionCapitalService = exports.getConsolidacionCapitalByIdService = exports.getHistorialAuditoriaService = exports.auditarConsolidacionService = exports.getAllConsolidacionesCapitalService = exports.crearConsolidacionAutomatica = exports.createConsolidacionCapitalService = exports.getConsolidacionActivaId = exports.sumarRegistrosConsolidacion = exports.esEgresoPendiente = void 0;
 const logger_1 = require("../utils/logger");
 // src/services/consolidacionCapital.service.ts
 const supabaseClient_1 = require("../config/supabaseClient");
@@ -21,6 +21,29 @@ const fechaEstaEnRango = (diaPago, inicio, fin) => {
     }
     return null;
 };
+// Un egreso "Pendiente" es un gasto (fijo o manual) que todavía no se ha pagado:
+// se muestra aparte y NO descuenta el balance neto ni el disponible para prestar.
+const esEgresoPendiente = (registro) => (registro.TipoRegistro || "").toLowerCase().trim() === "egreso" &&
+    (registro.Estado || "").toLowerCase().trim() === "pendiente";
+exports.esEgresoPendiente = esEgresoPendiente;
+// Suma ingresos, egresos efectivos y egresos pendientes de una lista de registros
+const sumarRegistrosConsolidacion = (registros) => {
+    let ingresos = 0;
+    let egresos = 0;
+    let egresosPendientes = 0;
+    for (const r of registros || []) {
+        const tipo = (r.TipoRegistro || "").toLowerCase().trim();
+        const monto = Number(r.Monto || 0);
+        if (tipo === "ingreso")
+            ingresos += monto;
+        else if ((0, exports.esEgresoPendiente)(r))
+            egresosPendientes += monto;
+        else if (tipo === "egreso")
+            egresos += monto;
+    }
+    return { ingresos, egresos, egresosPendientes, balance: ingresos - egresos };
+};
+exports.sumarRegistrosConsolidacion = sumarRegistrosConsolidacion;
 const procesarGastosFijos = async (idConsolidacion, fechaInicioISO, fechaFinISO, idEmpresa) => {
     const inicio = new Date(fechaInicioISO);
     const fin = new Date(fechaFinISO);
@@ -123,19 +146,11 @@ const getConsolidacionActivaId = async (fechaRegistro, idEmpresa) => {
         // Calculamos el saldo final de la consolidación anterior sumando sus registros
         const { data: registrosAnt } = await supabaseClient_1.supabase
             .from("RegistroConsolidacion")
-            .select("Monto, TipoRegistro")
+            .select("Monto, TipoRegistro, Estado")
             .eq("IdConsolidacion", consolidacionAnterior.IdConsolidacion);
+        // Los gastos pendientes de pago no se arrastran como dinero gastado
         if (registrosAnt) {
-            for (const r of registrosAnt) {
-                const tipo = (r.TipoRegistro || "").toLowerCase().trim();
-                const monto = Number(r.Monto || 0);
-                if (tipo === "ingreso") {
-                    balanceAnterior += monto;
-                }
-                else if (tipo === "egreso") {
-                    balanceAnterior -= monto;
-                }
-            }
+            balanceAnterior = (0, exports.sumarRegistrosConsolidacion)(registrosAnt).balance;
         }
         logger_1.logger.info(`💰 Balance anterior calculado de registros: ${balanceAnterior}`);
     }
@@ -498,29 +513,18 @@ const getResumenConsolidacionActivaService = async (idEmpresa) => {
     // 3. Buscamos TODOS los registros atados a este ID (pagos, gastos, arrastre de saldo)
     const { data: registros, error: errorRegistros } = await supabaseClient_1.supabase
         .from("RegistroConsolidacion")
-        .select("Monto, TipoRegistro")
+        .select("Monto, TipoRegistro, Estado")
         .eq("IdConsolidacion", idConsolidacionActiva);
     if (errorRegistros) {
         throw new Error("Error obteniendo los registros de la consolidación");
     }
-    // 4. Sumamos ingresos y egresos
-    let ingresosTotal = 0;
-    let egresosTotal = 0;
-    if (registros) {
-        registros.forEach((reg) => {
-            const tipo = (reg.TipoRegistro || "").toLowerCase().trim();
-            if (tipo === "ingreso") {
-                ingresosTotal += Number(reg.Monto);
-            }
-            else if (tipo === "egreso") {
-                egresosTotal += Number(reg.Monto);
-            }
-        });
-    }
+    // 4. Sumamos ingresos y egresos (los gastos pendientes de pago van aparte)
+    const totales = (0, exports.sumarRegistrosConsolidacion)(registros || []);
     // 5. Devolvemos la data lista para pintar en el Dashboard
     return {
-        ingresosTotal,
-        egresosTotal,
+        ingresosTotal: totales.ingresos,
+        egresosTotal: totales.egresos,
+        gastosPendientesTotal: totales.egresosPendientes,
         FechaInicio: consolidacion.FechaInicio,
         FechaFin: consolidacion.FechaFin,
         IdConsolidacion: idConsolidacionActiva
@@ -532,32 +536,20 @@ const getBalanceDisponibleActivoService = async (idEmpresa, fechaISO) => {
     const idConsolidacionActiva = await (0, exports.getConsolidacionActivaId)(fecha, idEmpresa);
     const { data: registros, error: errReg } = await supabaseClient_1.supabase
         .from("RegistroConsolidacion")
-        .select("Monto, TipoRegistro")
+        .select("Monto, TipoRegistro, Estado")
         .eq("IdConsolidacion", idConsolidacionActiva);
     if (errReg) {
         throw new Error("Error consultando registros de la consolidación activa: " + errReg.message);
     }
-    let ingresos = 0;
-    let egresos = 0;
-    if (registros) {
-        for (const r of registros) {
-            const tipo = (r.TipoRegistro || "").toLowerCase().trim();
-            const monto = Number(r.Monto || 0);
-            if (tipo === "ingreso") {
-                ingresos += monto;
-            }
-            else if (tipo === "egreso") {
-                egresos += monto;
-            }
-        }
-    }
-    const balanceDisponible = ingresos - egresos;
+    // Los gastos fijos pendientes de pago no reducen el dinero disponible para prestar
+    const { ingresos, egresos, egresosPendientes, balance: balanceDisponible } = (0, exports.sumarRegistrosConsolidacion)(registros || []);
     logger_1.logger.info(`💰 Balance Neto Exacto para Consolidación #${idConsolidacionActiva}: Ingresos=${ingresos}, Egresos=${egresos} => Disponible=${balanceDisponible}`);
     return {
         idConsolidacion: idConsolidacionActiva,
         capitalInicial: 0,
         ingresos,
         egresos,
+        egresosPendientes,
         balanceDisponible
     };
 };

@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { RefreshCw, DollarSign, AlertCircle, Calculator, Loader2, ChevronDown, ChevronUp, Table as TableIcon } from "lucide-react"
 import { toast } from "sonner"
 import { fetchWithAuth } from "@/lib/fetchWithAuth"
+import { DiasPagoFields, DiasPagoValor } from "@/components/prestamos/DiasPagoFields"
+import { generarFechasVencimiento, normalizarDiasPago, primeraFechaPago, toISODate, inferirDiasPago } from "@/lib/fechasPago"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
 
@@ -33,6 +35,11 @@ export function ReengancheModal({
   const [cantidadCuotas, setCantidadCuotas] = useState<string>("4")
   const [modalidadPago, setModalidadPago] = useState<string>("mensual")
   const [idPrestatario, setIdPrestatario] = useState<string>("")
+  // Días de pago acordados para el nuevo préstamo (el reenganche empieza hoy)
+  const [diasPago, setDiasPago] = useState<DiasPagoValor>({ dia1: null, dia2: null, primerPago: "" })
+  const hoyISO = toISODate(new Date())
+  const diasNormalizados = normalizarDiasPago(modalidadPago, hoyISO, { dia1: diasPago.dia1, dia2: diasPago.dia2 })
+  const primerPagoSugerido = toISODate(primeraFechaPago(hoyISO, modalidadPago, diasNormalizados))
   const [observaciones, setObservaciones] = useState<string>("")
 
   // Calcular el saldo pendiente a liquidar del préstamo actual (Capital Restante + Interés de período actual)
@@ -72,6 +79,9 @@ export function ReengancheModal({
   const [simulando, setSimulando] = useState(false);
   const [errorSimulacion, setErrorSimulacion] = useState<string | null>(null);
   const [verTabla, setVerTabla] = useState(false);
+  const fechasSimulacion = simulacion?.tablaAmortizacion?.length
+    ? generarFechasVencimiento({ fechaInicio: hoyISO, cantidad: simulacion.tablaAmortizacion.length, modalidad: modalidadPago, dias: diasNormalizados, primerPago: diasPago.primerPago || primerPagoSugerido })
+    : [];
 
   useEffect(() => {
     if (!isOpen || !prestamo) return;
@@ -120,6 +130,11 @@ export function ReengancheModal({
       setInteresPorcentaje((prestamo.InteresPorcentaje || 10).toString());
       setCantidadCuotas((prestamo.CantidadCuotas || 4).toString());
       setModalidadPago((prestamo.ModalidadPago || "mensual").toLowerCase());
+      // Por defecto, los mismos días que el préstamo anterior
+      let tablaAnterior: any[] = [];
+      try { tablaAnterior = JSON.parse(prestamo.TablaPagos || "[]"); } catch (e) { /* sin tabla */ }
+      const diasAnteriores = inferirDiasPago(tablaAnterior, prestamo.ModalidadPago || "mensual", prestamo.FechaInicio || new Date());
+      setDiasPago({ dia1: diasAnteriores.dia1 ?? null, dia2: diasAnteriores.dia2 ?? null, primerPago: "" });
       setIdPrestatario(prestamo.IdPrestatario ? prestamo.IdPrestatario.toString() : "");
       setObservaciones("");
     }
@@ -148,6 +163,9 @@ export function ReengancheModal({
         ModalidadPago: modalidadPago,
         IdPrestatario: parseInt(idPrestatario) || prestamo.IdPrestatario,
         Observaciones: observaciones || undefined,
+        DiaPago1: diasNormalizados.dia1,
+        DiaPago2: diasNormalizados.dia2,
+        FechaPrimerPago: diasPago.primerPago || primerPagoSugerido,
       };
 
       const res = await fetchWithAuth(`${API_BASE_URL}/api/prestamos/${prestamo.IdPrestamo}/reenganchar`, {
@@ -263,7 +281,7 @@ export function ReengancheModal({
 
             <div className="space-y-1">
               <Label className="text-xs font-semibold">Modalidad</Label>
-              <Select value={modalidadPago} onValueChange={setModalidadPago}>
+              <Select value={modalidadPago} onValueChange={(v) => { setModalidadPago(v); setDiasPago({ dia1: null, dia2: null, primerPago: "" }); }}>
                 <SelectTrigger className="text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -276,6 +294,13 @@ export function ReengancheModal({
               </Select>
             </div>
           </div>
+
+          <DiasPagoFields
+            modalidad={modalidadPago}
+            valor={{ dia1: diasPago.dia1 ?? diasNormalizados.dia1 ?? null, dia2: diasPago.dia2 ?? diasNormalizados.dia2 ?? null, primerPago: diasPago.primerPago }}
+            onChange={setDiasPago}
+            fechaSugerida={primerPagoSugerido}
+          />
 
           <div className="space-y-1">
             <Label className="text-xs font-semibold">Prestamista / Responsable</Label>
@@ -356,6 +381,7 @@ export function ReengancheModal({
                       <thead className="sticky top-0 bg-muted text-foreground">
                         <tr>
                           <th className="px-1.5 sm:px-2 py-1.5 text-center font-semibold">#</th>
+                          <th className="px-1.5 sm:px-2 py-1.5 text-left font-semibold">Vence</th>
                           <th className="px-1.5 sm:px-2 py-1.5 text-right font-semibold">Capital</th>
                           <th className="px-1.5 sm:px-2 py-1.5 text-right font-semibold">Interés</th>
                           <th className="px-1.5 sm:px-2 py-1.5 text-right font-semibold text-green-700 dark:text-green-400">Cuota</th>
@@ -363,9 +389,10 @@ export function ReengancheModal({
                         </tr>
                       </thead>
                       <tbody>
-                        {(simulacion.tablaAmortizacion || []).map((c: any) => (
+                        {(simulacion.tablaAmortizacion || []).map((c: any, i: number) => (
                           <tr key={c.numeroCuota} className="border-t border-border">
                             <td className="px-1.5 sm:px-2 py-1.5 text-center text-muted-foreground">{c.numeroCuota}</td>
+                            <td className="px-1.5 sm:px-2 py-1.5 whitespace-nowrap text-muted-foreground">{fechasSimulacion[i] ? fechasSimulacion[i].split("-").reverse().join("/").slice(0, 5) : "-"}</td>
                             <td className="px-1.5 sm:px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{formatMoney(c.capital)}</td>
                             <td className="px-1.5 sm:px-2 py-1.5 text-right tabular-nums whitespace-nowrap text-muted-foreground">{formatMoney(c.interes)}</td>
                             <td className="px-1.5 sm:px-2 py-1.5 text-right tabular-nums whitespace-nowrap font-semibold text-green-700 dark:text-green-400">{formatMoney(c.cuota)}</td>

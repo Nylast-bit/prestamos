@@ -4,6 +4,7 @@ exports.getAllPagosPersonalizadosService = exports.createPagoPersonalizadoServic
 const logger_1 = require("../utils/logger");
 const supabaseClient_1 = require("../config/supabaseClient");
 const pago_service_1 = require("./pago.service");
+const fechasPago_1 = require("../utils/fechasPago");
 const createPagoPersonalizadoService = async (data) => {
     const { idPrestamo, idConsolidacion, montoPagado, fechaPago, concepto, esLiquidacion, esAbonoExtraordinario } = data;
     logger_1.logger.info(`🔥 [PagoPersonalizado] ENTRADA → idPrestamo=${idPrestamo}, monto=${montoPagado}, esAbonoExtraordinario=${esAbonoExtraordinario} (type: ${typeof esAbonoExtraordinario}), esLiquidacion=${esLiquidacion}`);
@@ -207,6 +208,14 @@ const createPagoPersonalizadoService = async (data) => {
                         saldo: 0,
                         pagado: false
                     });
+                    // La cuota nueva vence en la siguiente fecha acordada (13 y 27, día del mes, etc.)
+                    if (prestamo.FechaInicio) {
+                        (0, fechasPago_1.asignarFechasVencimiento)(cuotasActualizadas, {
+                            fechaInicio: prestamo.FechaInicio,
+                            modalidad: prestamo.ModalidadPago || 'mensual',
+                            dias: (0, fechasPago_1.inferirDiasPago)(cuotasActualizadas, prestamo.ModalidadPago || 'mensual', prestamo.FechaInicio),
+                        });
+                    }
                 }
             }
             // Recalcular el saldo en cascada hacia adelante

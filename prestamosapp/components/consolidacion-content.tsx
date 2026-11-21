@@ -143,15 +143,20 @@ export function ConsolidacionContent() {
   };
 
   // --- CÁLCULOS ---
+  // Un egreso "Pendiente" (ej. gasto fijo sin pagar) se muestra aparte y no descuenta el balance neto
+  const esEgresoPendiente = (r: RegistroConsolidacion) => r.TipoRegistro === "Egreso" && r.Estado === "Pendiente"
   const ingresosTotales = registros.filter(r => r.TipoRegistro === "Ingreso").reduce((sum, r) => sum + r.Monto, 0)
-  const gastosTotales = registros.filter(r => r.TipoRegistro === "Egreso").reduce((sum, r) => sum + r.Monto, 0)
+  const gastosTotales = registros.filter(r => r.TipoRegistro === "Egreso" && !esEgresoPendiente(r)).reduce((sum, r) => sum + r.Monto, 0)
+  const gastosPendientes = registros.filter(esEgresoPendiente).reduce((sum, r) => sum + r.Monto, 0)
   const balanceNeto = ingresosTotales - gastosTotales
 
   const totalesPorEstado = {
     Depositado: registros.filter(r => r.Estado === "Depositado").reduce((sum, r) => sum + r.Monto, 0),
-    Pendiente: registros.filter(r => r.Estado === "Pendiente").reduce((sum, r) => sum + r.Monto, 0),
+    // Pendiente por depositar = solo ingresos (los egresos pendientes son gastos por pagar)
+    Pendiente: registros.filter(r => r.Estado === "Pendiente" && r.TipoRegistro === "Ingreso").reduce((sum, r) => sum + r.Monto, 0),
     Prestado: registros.filter(r => r.Estado === "Prestado").reduce((sum, r) => sum + r.Monto, 0),
-    Pagado: registros.filter(r => r.Estado === "Pagado").reduce((sum, r) => sum + r.Monto, 0)
+    Pagado: registros.filter(r => r.Estado === "Pagado").reduce((sum, r) => sum + r.Monto, 0),
+    GastosPendientes: gastosPendientes,
   }
   
   const filteredRegistros = registros.filter(registro => {
@@ -242,6 +247,8 @@ export function ConsolidacionContent() {
         consolidacion={consolidacion}
         allConsolidaciones={allConsolidaciones}
         balanceNeto={balanceNeto}
+        capitalEntrante={ingresosTotales}
+        capitalSaliente={gastosTotales}
         totalRegistros={registros.length}
         totalesPorEstado={totalesPorEstado}
         onConsolidacionChange={handleConsolidacionChange}
@@ -361,9 +368,10 @@ export function ConsolidacionContent() {
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <h4 className="font-medium mb-2">OBSERVACIONES</h4>
             <p className="text-sm text-muted-foreground mb-2">{consolidacion.Observaciones || 'Sin observaciones registradas.'}</p>
-            <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
               <div><span className="font-medium">INGRESOS TOTALES: </span><span className="text-green-600">RD${ingresosTotales.toLocaleString()}</span></div>
               <div><span className="font-medium">GASTOS TOTALES: </span><span className="text-red-600">-RD${gastosTotales.toLocaleString()}</span></div>
+              <div><span className="font-medium">GASTOS POR PAGAR: </span><span className="text-amber-600">RD${gastosPendientes.toLocaleString()}</span> <span className="text-xs text-muted-foreground">(no afecta el balance)</span></div>
               <div><span className="font-medium">BALANCE: </span><span className={`font-bold ${balanceNeto >= 0 ? 'text-green-600' : 'text-red-600'}`}>RD${balanceNeto.toLocaleString()}</span></div>
             </div>
           </div>

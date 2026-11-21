@@ -11,6 +11,8 @@ import { fetchWithAuth } from "@/lib/fetchWithAuth"
 import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { DiasPagoFields } from "@/components/prestamos/DiasPagoFields"
+import { DiasPago, describirDiasPago, generarFechasVencimiento, normalizarDiasPago, primeraFechaPago, toISODate } from "@/lib/fechasPago"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
@@ -98,71 +100,28 @@ export function PrestamoFormDialog({
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
   };
 
-  const obtenerDiaSemanaNombre = (date: Date) => {
-    const dias = ['Domingos', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábados'];
-    return dias[date.getDay()];
-  };
-
-  const calcularPlanPagos = (fechaInicioStr: string, cuotas: number, modalidadStr: string) => {
-    if (!fechaInicioStr || isNaN(cuotas) || cuotas <= 0) {
-      return { primeraCuotaIso: "", primeraCuotaFormatted: "", fechaFinIso: "", fechaFinFormatted: "", helperInfo: "" };
+  // Plan de pagos con los días acordados (misma utilidad que usa el backend para guardar los vencimientos)
+  const calcularPlanPagos = (fechaInicioStr: string, cuotas: number, modalidadStr: string, diaPago1?: any, diaPago2?: any, primerPago?: string) => {
+    if (!fechaInicioStr) {
+      return { primeraCuotaIso: "", primeraCuotaFormatted: "", fechaFinIso: "", fechaFinFormatted: "", helperInfo: "", sugeridaIso: "", dias: { dia1: null, dia2: null } as DiasPago };
     }
-
-    const fechaBase = new Date(fechaInicioStr + "T12:00:00");
+    // Los días y el primer pago no dependen de la cantidad de cuotas
     const modalidad = (modalidadStr || "mensual").toLowerCase();
-
-    let primeraCuota = new Date(fechaBase);
-    let fechaFin = new Date(fechaBase);
-    let helperInfo = "";
-
-    if (modalidad === "diario") {
-      primeraCuota.setDate(primeraCuota.getDate() + 1);
-      fechaFin.setDate(fechaFin.getDate() + cuotas);
-      helperInfo = "Cobro diario (1 día después de inicio)";
-    } else if (modalidad === "semanal") {
-      const diaNombre = obtenerDiaSemanaNombre(fechaBase);
-      primeraCuota.setDate(primeraCuota.getDate() + 7);
-      fechaFin.setDate(fechaFin.getDate() + (cuotas * 7));
-      helperInfo = `Cobros fijos cada ${diaNombre}`;
-    } else if (modalidad === "quincenal") {
-      let tempDate = new Date(fechaBase);
-      for (let k = 0; k < cuotas; k++) {
-        const year = tempDate.getFullYear();
-        const mes = tempDate.getMonth();
-        const dia = tempDate.getDate();
-        const ultimoDiaMes = new Date(year, mes + 1, 0).getDate();
-        const dia30OFinMes = Math.min(30, ultimoDiaMes);
-
-        if (dia < 15) {
-          tempDate = new Date(year, mes, 15, 12, 0, 0);
-        } else if (dia < dia30OFinMes) {
-          tempDate = new Date(year, mes, dia30OFinMes, 12, 0, 0);
-        } else {
-          tempDate = new Date(year, mes + 1, 15, 12, 0, 0);
-        }
-
-        if (k === 0) {
-          primeraCuota = new Date(tempDate);
-        }
-      }
-      fechaFin = tempDate;
-      helperInfo = "Cobros fijados días 15 y 30";
-    } else if (modalidad === "mensual") {
-      const diaDelMes = fechaBase.getDate();
-      primeraCuota.setMonth(primeraCuota.getMonth() + 1);
-      fechaFin.setMonth(fechaFin.getMonth() + cuotas);
-      helperInfo = `Cobros fijados los días ${diaDelMes} de cada mes`;
+    const dias = normalizarDiasPago(modalidad, fechaInicioStr, { dia1: diaPago1, dia2: diaPago2 });
+    const sugeridaIso = toISODate(primeraFechaPago(fechaInicioStr, modalidad, dias));
+    if (isNaN(cuotas) || cuotas <= 0) {
+      return { primeraCuotaIso: "", primeraCuotaFormatted: "", fechaFinIso: "", fechaFinFormatted: "", helperInfo: describirDiasPago(modalidad, dias), sugeridaIso, dias };
     }
-
-    const primeraCuotaIso = primeraCuota.toISOString().split("T")[0];
-    const fechaFinIso = fechaFin.toISOString().split("T")[0];
+    const fechas = generarFechasVencimiento({ fechaInicio: fechaInicioStr, cantidad: cuotas, modalidad, dias, primerPago: primerPago || null });
 
     return {
-      primeraCuotaIso,
-      primeraCuotaFormatted: formatDateDDMMYYYY(primeraCuotaIso),
-      fechaFinIso,
-      fechaFinFormatted: formatDateDDMMYYYY(fechaFinIso),
-      helperInfo
+      primeraCuotaIso: fechas[0],
+      primeraCuotaFormatted: formatDateDDMMYYYY(fechas[0]),
+      fechaFinIso: fechas[fechas.length - 1],
+      fechaFinFormatted: formatDateDDMMYYYY(fechas[fechas.length - 1]),
+      helperInfo: describirDiasPago(modalidad, dias),
+      sugeridaIso,
+      dias,
     };
   };
 
@@ -183,19 +142,22 @@ export function PrestamoFormDialog({
       const cuotas = parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0);
       if (cuotas <= 0) return;
 
-      const plan = calcularPlanPagos(formData.FechaInicio, cuotas, formData.ModalidadPago);
+      const plan = calcularPlanPagos(formData.FechaInicio, cuotas, formData.ModalidadPago, formData.DiaPago1, formData.DiaPago2, formData.FechaPrimerPago);
 
       if (plan.fechaFinIso && formData.FechaFinEstimada !== plan.fechaFinIso) {
         updateField("FechaFinEstimada", plan.fechaFinIso);
       }
     }
-  }, [formData.FechaInicio, formData.CantidadCuotas, formData.ModalidadPago, formData.TipoCalculo, isEditing]);
+  }, [formData.FechaInicio, formData.CantidadCuotas, formData.ModalidadPago, formData.TipoCalculo, formData.DiaPago1, formData.DiaPago2, formData.FechaPrimerPago, isEditing]);
 
   const esSoloInteres = formData.TipoCalculo === "solo_interes";
   const planActual = calcularPlanPagos(
     formData.FechaInicio,
     parseInt(formData.CantidadCuotas) || (esSoloInteres ? 2 : 0),
-    formData.ModalidadPago
+    formData.ModalidadPago,
+    formData.DiaPago1,
+    formData.DiaPago2,
+    formData.FechaPrimerPago
   );
 
 
@@ -346,7 +308,7 @@ export function PrestamoFormDialog({
               <Label className="text-xs font-semibold">Modalidad de Pago</Label>
               <Select
                 value={formData.ModalidadPago}
-                onValueChange={(val) => updateField("ModalidadPago", val)}
+                onValueChange={(val) => setFormData((prev: any) => ({ ...prev, ModalidadPago: val, DiaPago1: null, DiaPago2: null, FechaPrimerPago: "" }))}
                 disabled={tienePagos}
               >
                 <SelectTrigger id="ModalidadPago" className="h-9.5 text-sm bg-muted/50">
@@ -412,7 +374,7 @@ export function PrestamoFormDialog({
                     onSelect={(date) => {
                       if (!tienePagos && date) {
                         const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-                        updateField("FechaInicio", localDate.toISOString().split("T")[0]);
+                        setFormData((prev: any) => ({ ...prev, FechaInicio: localDate.toISOString().split("T")[0], FechaPrimerPago: "" }));
                       }
                     }}
                   />
@@ -476,6 +438,20 @@ export function PrestamoFormDialog({
                 </Popover>
               </div>
             </div>
+
+            {/* DÍAS DE PAGO ACORDADOS CON EL CLIENTE (ej. quincenal 13 y 27) */}
+            {formData.FechaInicio && (
+              <DiasPagoFields
+                modalidad={formData.ModalidadPago}
+                valor={{
+                  dia1: formData.DiaPago1 ?? planActual.dias.dia1 ?? null,
+                  dia2: formData.DiaPago2 ?? planActual.dias.dia2 ?? null,
+                  primerPago: formData.FechaPrimerPago || "",
+                }}
+                onChange={(v) => setFormData((prev: any) => ({ ...prev, DiaPago1: v.dia1, DiaPago2: v.dia2, FechaPrimerPago: v.primerPago }))}
+                fechaSugerida={planActual.sugeridaIso}
+              />
+            )}
 
             {/* INFORMACIÓN DE LA PRIMERA CUOTA Y REGLA DE COBRO */}
             {planActual.primeraCuotaFormatted && (
