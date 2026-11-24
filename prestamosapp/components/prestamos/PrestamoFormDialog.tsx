@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DiasPagoFields } from "@/components/prestamos/DiasPagoFields"
+import { ClienteCombobox } from "@/components/prestamos/ClienteCombobox"
 import { DiasPago, describirDiasPago, generarFechasVencimiento, normalizarDiasPago, primeraFechaPago, toISODate } from "@/lib/fechasPago"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
@@ -212,21 +213,11 @@ export function PrestamoFormDialog({
                   </span>
                 )}
               </div>
-              <Select
+              <ClienteCombobox
+                clientes={clientes}
                 value={formData.IdCliente}
-                onValueChange={(val) => updateField("IdCliente", val)}
-              >
-                <SelectTrigger className="bg-muted/50 h-9.5 text-sm">
-                  <SelectValue placeholder="Seleccionar cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clientes.map((cliente: any) => (
-                    <SelectItem key={cliente.IdCliente} value={cliente.IdCliente.toString()}>
-                      {cliente.Nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(val) => updateField("IdCliente", val)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase text-muted-foreground">Prestatario (Inversionista)</Label>
